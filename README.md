@@ -23,6 +23,19 @@ Compare **autoregressive**, **masked diffusion**, **block diffusion**, and **flo
 
 ---
 
+## Resources
+
+| | |
+|---|---|
+| Paper (arXiv source) | [`paper/main.tex`](paper/main.tex) — build with `make -C paper` |
+| Project page | [basaanithanaveenkumar.github.io/Hale-LLM](https://basaanithanaveenkumar.github.io/Hale-LLM/) ([source](project-page/index.html)) |
+| Documentation | [`docs/`](docs/README.md) — configuration, core, library, usage |
+| Architecture diagrams | [`docs/architecture.md`](docs/architecture.md) (Mermaid) |
+| Blog | [Same model, four ways to write](docs/blog/2026-09-28-four-ways-to-write.md) |
+| Claude Code skills | [`.claude/skills/`](.claude/skills) — `hale-llm-dev`, `hale-llm-train`, `hale-llm-add-paradigm`, `hale-publish` |
+
+---
+
 ## Why this repo
 
 The decoder is a small library: **components** (attention, FFN, layers), **transformer stacks** that run on hidden states `(B, S, D)` for a VLM or world model, and **token backbones** that map ids → logits. Masking, attention, FFN, and `arch` are config switches. Train, sample, eval, and visualize through one CLI. Details: [docs/core.md](docs/core.md).

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HALE-LLM</title>
+<meta name="description" content="A controlled testbed where the language-modelling paradigm is a plugin and backbone, data, metrics and tooling are shared.">
+<meta property="og:title" content="HALE-LLM: Autoregressive, Masked Diffusion, Block Diffusion and Flow Matching on One Backbone">
+<meta property="og:description" content="A controlled testbed where the language-modelling paradigm is a plugin and backbone, data, metrics and tooling are shared.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1f;--muted:#5b5b63;--card:#ffffff;--line:#e4e2dc;--accent:#2f5bd3;--accent-soft:#e8eefc;--code:#f3f2ee;--chip:#efeee9}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111214;--fg:#ececee;--muted:#a0a0aa;--card:#1a1b1f;--line:#2c2d33;--accent:#8aa8ff;--accent-soft:#1e2640;--code:#1f2025;--chip:#24252b}}
+:root[data-theme="dark"]{--bg:#111214;--fg:#ececee;--muted:#a0a0aa;--card:#1a1b1f;--line:#2c2d33;--accent:#8aa8ff;--accent-soft:#1e2640;--code:#1f2025;--chip:#24252b}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.65 "Source Serif 4",Georgia,serif}
+.wrap{max-width:920px;margin:0 auto;padding:0 16px}
+header.hero{padding:64px 0 28px;text-align:center}
+.kicker{font:600 13px/1 Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+h1{font:700 clamp(30px,5.4vw,48px)/1.15 Inter,system-ui,sans-serif;margin:14px 0 10px;letter-spacing:-.02em}
+.subtitle{font-size:clamp(17px,2.4vw,21px);color:var(--muted);max-width:720px;margin:0 auto}
+.authors{margin:20px 0 4px;font:500 16px Inter,system-ui,sans-serif}
+.affil{color:var(--muted);font:14px Inter,system-ui,sans-serif}
+.buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:26px 0 8px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:var(--fg);color:var(--bg);text-decoration:none;font:600 14px Inter,system-ui,sans-serif}
+.btn.alt{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn:hover{opacity:.88}
+section{padding:26px 0;border-top:1px solid var(--line)}
+h2{font:700 24px/1.3 Inter,system-ui,sans-serif;margin:0 0 14px;letter-spacing:-.01em}
+h3{font:650 17px/1.35 Inter,system-ui,sans-serif;margin:0 0 6px}
+p{margin:0 0 12px}
+.tldr{background:var(--accent-soft);border-radius:14px;padding:18px 20px;font-size:18px}
+.tldr b{font-family:Inter,system-ui,sans-serif}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.card p{font-size:15.5px;color:var(--muted);margin:0}
+figure{margin:0 0 18px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;overflow-x:auto}
+figcaption{font:14px/1.5 Inter,system-ui,sans-serif;color:var(--muted);margin-top:10px}
+.mermaid{display:flex;justify-content:center;min-width:0}
+.mermaid svg{max-width:100%;height:auto}
+pre{background:var(--code);border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow-x:auto;font:13.5px/1.55 "JetBrains Mono",ui-monospace,monospace;margin:0 0 12px}
+code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.9em}
+table{width:100%;border-collapse:collapse;font:15px/1.5 Inter,system-ui,sans-serif}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+td code{background:var(--chip);padding:1px 6px;border-radius:6px}
+.tablewrap{overflow-x:auto}
+.note{font:14px/1.55 Inter,system-ui,sans-serif;color:var(--muted)}
+footer{padding:32px 0 48px;color:var(--muted);font:14px Inter,system-ui,sans-serif;text-align:center;border-top:1px solid var(--line)}
+a{color:var(--accent)}
+.theme{position:fixed;top:12px;right:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font:13px Inter,system-ui,sans-serif;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" id="theme" aria-label="Toggle dark mode">Theme</button>
+<div class="wrap">
+<header class="hero">
+  <div class="kicker">Language models · Discrete diffusion</div>
+  <h1>HALE-LLM: Autoregressive, Masked Diffusion, Block Diffusion and Flow Matching on One Backbone</h1>
+  <p class="subtitle">Four ways to generate text (next-token, masked diffusion, block diffusion, discrete flow matching) with the same transformer, GPT-2 tokenizer, WikiText-2 pipeline, metrics and experiment tooling.</p>
+  <div class="authors">B A NaveenKumar</div>
+  <div class="affil">Independent research · 2026</div>
+  <div class="buttons"><a class="btn" href="paper.pdf">Paper (PDF)</a><a class="btn alt" href="https://github.com/basaanithanaveenkumar/Hale-LLM">Code</a><a class="btn alt" href="https://github.com/basaanithanaveenkumar/Hale-LLM/tree/masked_diffusion_llm/docs">Docs</a><a class="btn alt" href="https://github.com/basaanithanaveenkumar/Hale-LLM/blob/masked_diffusion_llm/docs/blog/2026-09-28-four-ways-to-write.md">Blog</a></div>
+</header>
+<section><div class="tldr"><b>TL;DR.</b> Change <code>variant:</code> to switch paradigm. Masks (causal, bidirectional, block-causal), attention (MHA/GQA/MQA), FFN (MLP/GeGLU/MoE) and stack (GPT/LGT/DiT) are config switches. Under a linear masking path, the flow-matching objective equals masked diffusion with time flipped.</div></section>
+<section><h2>Abstract</h2><p>Masked diffusion and related non-autoregressive language models are credible alternatives to next-token prediction, but published comparisons usually change backbone, tokenizer, data and evaluation at the same time as the objective. HALE-LLM is a controlled testbed in which the paradigm is a plugin and everything else is shared.</p><p>It implements autoregressive prediction, absorbing-state masked diffusion with the MDLM ELBO weighting, block diffusion with a block-causal clean/noisy attention mask, and a masking-path discrete flow matching variant, plus a multi-token prediction stub, on a modular decoder library with GPT, Gemma-3-style local–global and DiT stacks. Metrics, per-run experiment folders and unmasking GIFs are shared.</p></section>
+<section><h2>Highlights</h2><div class="grid"><div class="card"><h3>Paradigm = plugin</h3><p>Each of <code>models_autoregressive</code>, <code>_diffusion</code>, <code>_block_diffusion</code>, <code>_flow_matching</code> and <code>_mtp</code> registers a model, collate, loss and sampler. Shared code never imports them.</p></div><div class="card"><h3>Masked diffusion</h3><p>Mask w.p. t ~ U(ε, 1), cross-entropy on masked tokens × 1/t (MDLM ELBO), and reveal sampling with probability (t − s)/t.</p></div><div class="card"><h3>Block diffusion</h3><p>A separate t per 16-token block, [clean ; noisy] input under a block-causal mask, and AR-over-blocks decoding.</p></div><div class="card"><h3>Flow matching</h3><p>Mask w.p. 1 − t with weight 1/(1 − t): identical to masked diffusion under s = 1 − t for this linear path.</p></div><div class="card"><h3>Switchable backbone</h3><p>GPT (47.7M) or LGT with GQA, GeGLU, dual RoPE and time conditioning (63.2M), or DiT with AdaLN-Zero.</p></div><div class="card"><h3>Shared tooling</h3><p>Strict inheritable YAML, timestamped runs with <code>latest</code>, TensorBoard, bits/token, ELBO perplexity, masked accuracy and GIFs.</p></div></div></section>
+<section><h2>Architecture</h2><figure><div class="mermaid">flowchart TB
+  Y[&quot;configs/&amp;lt;variant&amp;gt;/small.yaml&lt;br/&gt;inherits: ../base.yaml&quot;] --&gt; R{&quot;registries&lt;br/&gt;variant · collate · loss · sampler · metric&quot;}
+  R --&gt; AR[&quot;models_autoregressive&quot;]
+  R --&gt; MD[&quot;models_diffusion&quot;]
+  R --&gt; BD[&quot;models_block_diffusion&quot;]
+  R --&gt; FM[&quot;models_flow_matching&quot;]
+  R --&gt; MTP[&quot;models_mtp (stub)&quot;]
+  AR &amp; MD &amp; BD &amp; FM &amp; MTP --&gt; CORE[&quot;shared: core backbones · WikiText-2 + GPT-2 windows · trainer · evaluator · inference · GIF visualiser&quot;]</div><figcaption><b>Figure 1.</b> Paradigms are plugins on shared infrastructure.</figcaption></figure><figure><div class="mermaid">flowchart LR
+  X[&quot;x (128 GPT-2 tokens)&quot;] --&gt; ARc[&quot;AR: causal mask&lt;br/&gt;labels shifted by 1&quot;] --&gt; ARl[&quot;CE(next token)&quot;]
+  X --&gt; MDc[&quot;Masked diffusion: t ~ U(ε,1)&lt;br/&gt;mask each token w.p. t&quot;] --&gt; MDl[&quot;CE on masked × 1/t&quot;]
+  X --&gt; BDc[&quot;Block diffusion: t_k per 16-token block&lt;br/&gt;input = [clean ; noisy], block-causal mask&quot;] --&gt; BDl[&quot;CE on masked noisy × 1/t_k&quot;]
+  X --&gt; FMc[&quot;Flow matching: t ~ U(0,1−ε)&lt;br/&gt;mask w.p. 1−t&quot;] --&gt; FMl[&quot;CE on masked × 1/(1−t)&lt;br/&gt;(= MD with s = 1−t)&quot;]</div><figcaption><b>Figure 2.</b> Training objectives as implemented.</figcaption></figure><figure><div class="mermaid">flowchart LR
+  subgraph Attention[&quot;who attends to whom&quot;]
+    direction TB
+    c[&quot;clean block k&quot;] --&gt;|&quot;blocks ≤ k&quot;| cc[&quot;clean&quot;]
+    n[&quot;noisy block k&quot;] --&gt;|&quot;blocks &amp;lt; k&quot;| cc
+    n --&gt;|&quot;block k only&quot;| nn[&quot;noisy&quot;]
+  end
+  subgraph Decode[&quot;sampling&quot;]
+    direction TB
+    p[&quot;prompt blocks fixed&quot;] --&gt; b1[&quot;block j: all [MASK]&quot;]
+    b1 --&gt; s1[&quot;S steps, t: 1 → 0&lt;br/&gt;reveal w.p. (t − s)/t&quot;]
+    s1 --&gt; f[&quot;freeze block j&quot;] --&gt; b2[&quot;block j + 1&quot;]
+  end</div><figcaption><b>Figure 3.</b> Block diffusion: attention pattern and decoding.</figcaption></figure><figure><div class="mermaid">flowchart TB
+  IDS[&quot;token ids&quot;] --&gt; EMB[&quot;token embedding (tied)&lt;br/&gt;+ learned positions (GPT / DiT)&quot;]
+  T[&quot;diffusion time t&quot;] --&gt; TE[&quot;sinusoidal → MLP → t_emb&quot;]
+  EMB --&gt; ST{&quot;model.arch&quot;}
+  ST --&gt;|transformer| G[&quot;GPTStack: pre-LN, MHA, MLP&quot;]
+  ST --&gt;|lgt| L[&quot;LGTStack: RMSNorm, GQA, 5 local : 1 global,&lt;br/&gt;RoPE θ 10⁴ / 10⁶, GeGLU&quot;]
+  ST --&gt;|dit| D[&quot;DiTStack: AdaLN-Zero&quot;]
+  TE -. &quot;scale/shift norms&quot; .-&gt; L
+  TE -. &quot;AdaLN&quot; .-&gt; D
+  G &amp; L &amp; D --&gt; H[&quot;LM head → logits (B, S, 50,258)&quot;]</div><figcaption><b>Figure 4.</b> Shared backbone with switchable stacks and time conditioning.</figcaption></figure></section>
+<section><h2>Shipped configurations (d = 384, 16 layers, 8 heads, 128 tokens; measured)</h2><div class="tablewrap"><table><thead><tr><th>Paradigm</th><th>Stack</th><th>Mask</th><th>Params</th></tr></thead><tbody><tr><td>Autoregressive</td><td>GPT, MLP, MHA</td><td>causal</td><td>47.7M</td></tr><tr><td>Masked diffusion</td><td>LGT, GeGLU, GQA, time-cond.</td><td>bidirectional</td><td>63.2M</td></tr><tr><td>Block diffusion (B = 16)</td><td>LGT, GeGLU, GQA, time-cond.</td><td>block-causal</td><td>63.2M</td></tr><tr><td>Flow matching</td><td>LGT, GeGLU, GQA, time-cond.</td><td>bidirectional</td><td>63.2M</td></tr></tbody></table></div></section>
+<section><h2>Qualitative</h2>
+<figure><img src="static/block_diffusion_step4900.gif" alt="Block diffusion decoding: tokens unmask block by block" style="width:100%;height:auto;border-radius:8px">
+<figcaption>Block diffusion decoding at training step 4,900: prompt in blue, committed blocks in orange, active block highlighted. The vocabulary looks like WikiText but the text is not yet coherent at this early checkpoint.</figcaption></figure>
+<p class="note">No quantitative comparison yet. The protocol (equal size, steps and data; bits per token; quality against sampling steps; block size) is described in the paper.</p></section>
+<section><h2>Quick start</h2><pre><code>git clone https://github.com/basaanithanaveenkumar/Hale-LLM &amp;&amp; cd Hale-LLM
+uv sync --extra dev
+uv run ha-llm-train --config configs/block_diffusion/small.yaml --no-resume --viz
+uv run ha-llm-sample --config configs/block_diffusion/small.yaml
+uv run ha-llm-eval   --config configs/block_diffusion/small.yaml</code></pre><pre><code># configs/diffusion/small.yaml
+inherits: ../base.yaml
+variant: diffusion
+model:
+  arch: lgt
+  attn_type: bidirectional
+  attn_impl: gqa
+  n_kv_heads: 2
+  ffn_type: geglu
+  use_time_cond: true</code></pre></section>
+<section><h2>Citation</h2><pre><code>@misc{naveenkumar2026halellm,
+  title  = {HALE-LLM: Autoregressive, Masked Diffusion, Block Diffusion and
+            Discrete Flow Matching on One Transformer Backbone},
+  author = {NaveenKumar, B A},
+  year   = {2026},
+  url    = {https://github.com/basaanithanaveenkumar/Hale-LLM}
+}</code></pre></section>
+</div>
+<footer>HALE-LLM · <a href="https://github.com/basaanithanaveenkumar/Hale-LLM">Source on GitHub</a> · MIT License</footer>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+const root = document.documentElement;
+const saved = (() => { try { return localStorage.getItem('theme'); } catch (e) { return null; } })();
+if (saved) root.dataset.theme = saved;
+const isDark = () => root.dataset.theme ? root.dataset.theme === 'dark'
+  : matchMedia('(prefers-color-scheme: dark)').matches;
+const sources = [...document.querySelectorAll('.mermaid')].map(el => el.textContent);
+async function render() {
+  mermaid.initialize({ startOnLoad: false, theme: isDark() ? 'dark' : 'neutral', securityLevel: 'strict',
+    flowchart: { curve: 'basis', htmlLabels: true } });
+  const els = document.querySelectorAll('.mermaid');
+  els.forEach((el, i) => { el.removeAttribute('data-processed'); el.textContent = sources[i]; });
+  await mermaid.run({ nodes: els });
+}
+document.getElementById('theme').addEventListener('click', () => {
+  root.dataset.theme = isDark() ? 'light' : 'dark';
+  try { localStorage.setItem('theme', root.dataset.theme); } catch (e) {}
+  render();
+});
+render();
+</script>
+</body>
+</html>
