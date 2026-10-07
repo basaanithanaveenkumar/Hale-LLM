@@ -12,6 +12,26 @@ Compare **autoregressive**, **masked diffusion**, **block diffusion**, and **flo
 
 </div>
 
+## How it works
+
+All four paradigms use the **same** transformer backbone, the same data (WikiText-2), and the same evaluation — only the *generation strategy* differs. This lets you measure each strategy fairly on equal footing.
+
+```mermaid
+flowchart TB
+  BACK["Shared backbone\n(LGT transformer — 384-d, 16 layers)\nSame weights · same data · same eval"]
+
+  subgraph PARA["Four generation strategies — swap with one YAML key"]
+    AR["📖 Autoregressive\nPredict one token at a time\nfrom left to right"]
+    MD["🌫️ Masked diffusion\nStart with all blanks,\nunmask everything at once"]
+    BD["📦 Block diffusion\nAR across chunks;\ndiffusion inside each chunk"]
+    FM["🌊 Flow matching\nShift token probabilities\nfrom uniform → real text"]
+  end
+
+  AR & MD & BD & FM --> BACK
+```
+
+> **The point:** by keeping everything else identical, any difference in quality comes only from the generation paradigm — not model size or data.
+
 <p align="center">
   <img src="assets/block_diffusion_step4900.gif" alt="Block diffusion decoding on WikiText — tokens unmask block by block" width="100%">
 </p>
