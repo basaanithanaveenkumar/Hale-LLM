@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HaloDiffusionLLM</title>
+<meta name="description" content="Compare autoregressive, masked diffusion, block diffusion, and flow matching on one transformer backbone — swap paradigm with one YAML key.">
+<meta property="og:title" content="HaloDiffusionLLM: Generative Paradigm Comparison on a Shared Transformer Backbone">
+<meta property="og:description" content="Autoregressive, masked diffusion, block diffusion, and discrete flow matching on one backbone — one YAML key swaps the paradigm.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1f;--muted:#5b5b63;--card:#ffffff;--line:#e4e2dc;--accent:#2f5bd3;--accent-soft:#e8eefc;--code:#f3f2ee;--chip:#efeee9}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111214;--fg:#ececee;--muted:#a0a0aa;--card:#1a1b1f;--line:#2c2d33;--accent:#8aa8ff;--accent-soft:#1e2640;--code:#1f2025;--chip:#24252b}}
+:root[data-theme="dark"]{--bg:#111214;--fg:#ececee;--muted:#a0a0aa;--card:#1a1b1f;--line:#2c2d33;--accent:#8aa8ff;--accent-soft:#1e2640;--code:#1f2025;--chip:#24252b}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.65 "Source Serif 4",Georgia,serif}
+.wrap{max-width:920px;margin:0 auto;padding:0 16px}
+header.hero{padding:64px 0 28px;text-align:center}
+.kicker{font:600 13px/1 Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+h1{font:700 clamp(30px,5.4vw,48px)/1.15 Inter,system-ui,sans-serif;margin:14px 0 10px;letter-spacing:-.02em}
+.subtitle{font-size:clamp(17px,2.4vw,21px);color:var(--muted);max-width:720px;margin:0 auto}
+.authors{margin:20px 0 4px;font:500 16px Inter,system-ui,sans-serif}
+.affil{color:var(--muted);font:14px Inter,system-ui,sans-serif}
+.buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:26px 0 8px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:var(--fg);color:var(--bg);text-decoration:none;font:600 14px Inter,system-ui,sans-serif}
+.btn.alt{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn:hover{opacity:.88}
+section{padding:26px 0;border-top:1px solid var(--line)}
+h2{font:700 24px/1.3 Inter,system-ui,sans-serif;margin:0 0 14px;letter-spacing:-.01em}
+h3{font:650 17px/1.35 Inter,system-ui,sans-serif;margin:0 0 6px}
+p{margin:0 0 12px}
+.tldr{background:var(--accent-soft);border-radius:14px;padding:18px 20px;font-size:18px}
+.tldr b{font-family:Inter,system-ui,sans-serif}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.card p{font-size:15.5px;color:var(--muted);margin:0}
+figure{margin:0 0 18px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;overflow-x:auto}
+figcaption{font:14px/1.5 Inter,system-ui,sans-serif;color:var(--muted);margin-top:10px}
+.mermaid{display:flex;justify-content:center;min-width:0}
+.mermaid svg{max-width:100%;height:auto}
+pre{background:var(--code);border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow-x:auto;font:13.5px/1.55 "JetBrains Mono",ui-monospace,monospace;margin:0 0 12px}
+code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.9em}
+table{width:100%;border-collapse:collapse;font:15px/1.5 Inter,system-ui,sans-serif}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+td code{background:var(--chip);padding:1px 6px;border-radius:6px}
+.tablewrap{overflow-x:auto}
+.note{font:14px/1.55 Inter,system-ui,sans-serif;color:var(--muted)}
+footer{padding:32px 0 48px;color:var(--muted);font:14px Inter,system-ui,sans-serif;text-align:center;border-top:1px solid var(--line)}
+a{color:var(--accent)}
+.theme{position:fixed;top:12px;right:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font:13px Inter,system-ui,sans-serif;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" id="theme" aria-label="Toggle dark mode">Theme</button>
+<div class="wrap">
+<header class="hero">
+  <div class="kicker">Autoregressive · Masked diffusion · Block diffusion · Flow matching</div>
+  <h1>HaloDiffusionLLM: Generative Paradigm Comparison on a Shared Transformer Backbone</h1>
+  <p class="subtitle">One small transformer backbone, four generation paradigms. Swap between autoregressive, masked diffusion, block diffusion, and discrete flow matching with a single YAML key.</p>
+  <div class="authors">B A NaveenKumar</div>
+  <div class="affil">Independent research · 2026</div>
+  <div class="buttons">
+    <a class="btn" href="https://github.com/basaanithanaveenkumar/HaloDiffusionLLM">Code</a>
+    <a class="btn alt" href="https://github.com/basaanithanaveenkumar/HaloDiffusionLLM/tree/main/docs">Docs</a>
+  </div>
+</header>
+
+<section>
+<div class="tldr"><b>TL;DR.</b> <code>uv run hale-llm-train --config configs/block_diffusion/small.yaml</code> — a 384-d, 16-layer LGT backbone trains in any of four paradigms. <code>hale-llm-viz</code> writes a GIF showing block diffusion unmasking tokens block by block in real time.</div>
+</section>
+
+<section>
+<h2>Abstract</h2>
+<p>The field of discrete generative models is split between several competing paradigms — autoregressive token prediction, absorbing-state masked diffusion, block diffusion (AR across blocks, diffusion inside each block), and discrete flow matching — whose training and inference dynamics differ substantially. Comparing them fairly requires holding the architecture, backbone, data, tokenizer, and evaluation code constant.</p>
+<p>HaloDiffusionLLM provides exactly this: a single small transformer backbone (LGT or GPT-style, 384-d, 16 layers, 8 heads) trained on WikiText-2 in each of the four paradigms via a one-line YAML switch. A shared CLI (<code>hale-llm-train</code>, <code>hale-llm-sample</code>, <code>hale-llm-eval</code>, <code>hale-llm-viz</code>) drives all paradigms identically. The repository is built on HaleBlocks and registers each paradigm as a plugin.</p>
+</section>
+
+<section>
+<h2>Highlights</h2>
+<div class="grid">
+  <div class="card"><h3>One YAML key, four paradigms</h3><p><code>variant: autoregressive | diffusion | block_diffusion | flow_matching</code> — everything else stays the same. No code changes needed to switch.</p></div>
+  <div class="card"><h3>LGT backbone</h3><p>Local-global transformer with dual RoPE: short-range local attention heads + long-range global attention heads. Better suited to bidirectional diffusion than standard GPT.</p></div>
+  <div class="card"><h3>Block diffusion</h3><p>AR across blocks, diffusion inside each block. Tokens unmask in the active block while committed tokens stay fixed — animated in real time by <code>hale-llm-viz</code>.</p></div>
+  <div class="card"><h3>Discrete flow matching</h3><p>Straight-line interpolation in the token probability simplex, analogous to continuous flow matching, but operating over the discrete token distribution.</p></div>
+  <div class="card"><h3>Live visualisation</h3><p><code>hale-llm-viz</code> writes a GIF: prompt in steelblue, committed tokens in orange, the active block in black on a light overlay — decoding made visible.</p></div>
+  <div class="card"><h3>Plugin architecture</h3><p>Each paradigm registers with <code>@register_model</code>, <code>@register_loss</code>, <code>@register_sampler</code>. Adding a new paradigm requires no edits to the shared core.</p></div>
+</div>
+</section>
+
+<section>
+<h2>Architecture</h2>
+<figure><div class="mermaid">flowchart TB
+  YAML["YAML\nvariant: block_diffusion\narch: lgt\nattention: block_causal"] --> BOOT["register_model_plugins()"]
+  BOOT --> REG{"HaleBlocks Registry"}
+  REG --> M["HaleDiffusionModel\n(LGTStack: local + global attn)"]
+  REG --> LS["BlockDiffusionLoss\n(CE on masked tokens in active block)"]
+  REG --> SA["BlockDiffusionSampler\n(AR over blocks, denoise inside block)"]
+  REG --> DS["WikiText-2 DataModule\n(10-word sliding stride)"]
+  M & LS & SA & DS --> TR["Trainer.fit()"]</div>
+<figcaption><b>Figure 1.</b> Plugin wiring for block diffusion. Swap <code>variant:</code> to change paradigm — core is shared.</figcaption>
+</figure>
+
+<figure><div class="mermaid">flowchart LR
+  subgraph Autoregressive
+    AR_I["x₁ x₂ … xₙ₋₁"] -->|"causal mask"| AR_P["p(xₙ | x₁…xₙ₋₁)"]
+    AR_P --> AR_S["sample xₙ, shift right"]
+  end
+  subgraph "Masked Diffusion"
+    MD_I["x₀ (all masked)"] -->|"noise step t"| MD_T["x_t (partially masked)"]
+    MD_T -->|"bidirectional attn"| MD_P["p(x_i | x_t, t) for all masked"]
+    MD_P --> MD_S["unmask tokens (MDLM)"]
+  end
+  subgraph "Block Diffusion"
+    BD_I["committed block k-1"] -->|"block-causal mask"| BD_B["active block k\n(all masked)"]
+    BD_B -->|"diffusion steps T"| BD_U["unmasked block k"]
+    BD_U --> BD_I
+  end
+  subgraph "Flow Matching"
+    FM_I["uniform p₀"] -->|"straight-line ODE"| FM_T["p_t at time t"]
+    FM_T -->|"velocity v_θ"| FM_P["p₁ ≈ data distribution"]
+  end</div>
+<figcaption><b>Figure 2.</b> Four generation paradigms on the same backbone. Autoregressive: causal left-to-right. Masked diffusion: bidirectional, denoise all positions at once. Block diffusion: AR across blocks, diffusion inside each block. Flow matching: straight-line interpolation in token-probability space.</figcaption>
+</figure>
+
+<figure><div class="mermaid">flowchart LR
+  subgraph LGT["LGTStack (Local-Global Transformer)"]
+    INP["hidden states (B, S, D)"]
+    INP --> LOC["Local attention heads\nwindow w (e.g. 32)\nlocal RoPE"]
+    INP --> GLO["Global attention heads\nfull sequence\nglobal RoPE"]
+    LOC & GLO --> ADD["add + LayerNorm"]
+    ADD --> FFN["GeGLU FFN"]
+    FFN --> OUT["(B, S, D)"]
+  end</div>
+<figcaption><b>Figure 3.</b> LGT block: local attention heads capture short-range context, global heads capture long-range structure. Dual RoPE applies different frequencies to each.</figcaption>
+</figure>
+</section>
+
+<section>
+<h2>Config variants</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Config</th><th>Variant</th><th>Backbone</th><th>Attention mask</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>configs/autoregressive/small.yaml</code></td><td><code>autoregressive</code></td><td>GPT-style</td><td>causal</td><td>Reference baseline</td></tr>
+<tr><td><code>configs/diffusion/small.yaml</code></td><td><code>diffusion</code></td><td>LGT</td><td>bidirectional</td><td>Absorbing-state masked diffusion</td></tr>
+<tr><td><code>configs/block_diffusion/small.yaml</code></td><td><code>block_diffusion</code></td><td>LGT</td><td>block-causal</td><td>AR across blocks; default for viz</td></tr>
+<tr><td><code>configs/flow_matching/small.yaml</code></td><td><code>flow_matching</code></td><td>LGT</td><td>bidirectional</td><td>Discrete straight-line flow</td></tr>
+<tr><td><code>configs/mtp/small.yaml</code></td><td><code>mtp</code></td><td>GPT-style</td><td>causal</td><td>Multi-token prediction (stub)</td></tr>
+</tbody>
+</table></div>
+<p class="note">Default small model: <code>d_model=384</code>, 16 layers, 8 heads, <code>d_ff=1536</code>, <code>max_length=128</code>, GPT-2 tokenizer, WikiText-2 with a 10-word sliding stride.</p>
+</section>
+
+<section>
+<h2>Quick start</h2>
+<pre><code>git clone https://github.com/basaanithanaveenkumar/HaloDiffusionLLM && cd HaloDiffusionLLM
+uv sync && uv sync --extra dev
+uv run pytest tests/unit -q</code></pre>
+<pre><code># Train block diffusion (MPS / CUDA / CPU via device: in YAML)
+uv run hale-llm-train --config configs/block_diffusion/small.yaml --no-resume --viz
+
+# Sample, eval and write visualisation GIF from latest checkpoint
+uv run hale-llm-sample --config configs/block_diffusion/small.yaml
+uv run hale-llm-eval   --config configs/block_diffusion/small.yaml
+uv run hale-llm-viz    --config configs/block_diffusion/small.yaml
+
+# Monitor training
+tensorboard --logdir data/experiments</code></pre>
+<pre><code># Switch to masked diffusion — nothing else changes
+uv run hale-llm-train --config configs/diffusion/small.yaml --no-resume</code></pre>
+</section>
+
+<section>
+<h2>Citation</h2>
+<pre><code>@misc{naveenkumar2026halodiffusionllm,
+  title  = {HaloDiffusionLLM: Comparing Autoregressive, Masked Diffusion,
+            Block Diffusion, and Flow Matching on a Shared Transformer Backbone},
+  author = {NaveenKumar, B A},
+  year   = {2026},
+  url    = {https://github.com/basaanithanaveenkumar/HaloDiffusionLLM}
+}</code></pre>
+</section>
+</div>
+<footer>HaloDiffusionLLM · <a href="https://github.com/basaanithanaveenkumar/HaloDiffusionLLM">Source on GitHub</a> · MIT License</footer>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+const root = document.documentElement;
+const saved = (() => { try { return localStorage.getItem('theme'); } catch (e) { return null; } })();
+if (saved) root.dataset.theme = saved;
+const isDark = () => root.dataset.theme ? root.dataset.theme === 'dark'
+  : matchMedia('(prefers-color-scheme: dark)').matches;
+const sources = [...document.querySelectorAll('.mermaid')].map(el => el.textContent);
+async function render() {
+  mermaid.initialize({ startOnLoad: false, theme: isDark() ? 'dark' : 'neutral', securityLevel: 'strict',
+    flowchart: { curve: 'basis', htmlLabels: true } });
+  const els = document.querySelectorAll('.mermaid');
+  els.forEach((el, i) => { el.removeAttribute('data-processed'); el.textContent = sources[i]; });
+  await mermaid.run({ nodes: els });
+}
+document.getElementById('theme').addEventListener('click', () => {
+  root.dataset.theme = isDark() ? 'light' : 'dark';
+  try { localStorage.setItem('theme', root.dataset.theme); } catch (e) {}
+  render();
+});
+render();
+</script>
+</body>
+</html>

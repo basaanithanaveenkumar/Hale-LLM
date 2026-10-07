@@ -1,0 +1,53 @@
+name: Project page
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "project-page/**"
+      - "assets/**"
+      - "README.md"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble site
+        run: |
+          if [ -d project-page ]; then
+            cp -r project-page/. _site/
+          else
+            mkdir -p _site
+          fi
+          if [ ! -f _site/index.html ]; then
+            sudo apt-get install -y pandoc
+            pandoc README.md -s --metadata title="HaloDiffusionLLM" \
+              --css https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.0/github-markdown.min.css \
+              -o _site/index.html
+          fi
+          [ -d assets ] && cp -r assets _site/assets || true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
