@@ -800,11 +800,24 @@ wheels = [
 ]
 
 [[package]]
+name = "hale-blocks"
+version = "0.1.0"
+source = { git = "https://github.com/basaanithanaveenkumar/HaleBlocks.git#dd14acb73e777f36f2da7ad8f5a7a740adc9e3d5" }
+dependencies = [
+    { name = "loguru" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "torch" },
+    { name = "tqdm" },
+]
+
+[[package]]
 name = "hale-llm"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "datasets" },
+    { name = "hale-blocks" },
     { name = "huggingface-hub" },
     { name = "loguru" },
     { name = "matplotlib" },
@@ -832,6 +845,7 @@ flash = [
 requires-dist = [
     { name = "datasets", specifier = ">=5.0.0" },
     { name = "flash-attn", marker = "sys_platform == 'linux' and extra == 'flash'", specifier = ">=2.0" },
+    { name = "hale-blocks", git = "https://github.com/basaanithanaveenkumar/HaleBlocks.git" },
     { name = "huggingface-hub", specifier = ">=1.23.0" },
     { name = "loguru", specifier = ">=0.7" },
     { name = "matplotlib", specifier = ">=3.11.1" },
