@@ -3,12 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ha-llm"
+name = "hale-llm"
 version = "0.1.0"
 description = "Research codebase for comparing language-model paradigms on a shared transformer foundation"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "hale-blocks",
     "datasets>=5.0.0",
     "huggingface-hub>=1.23.0",
     "matplotlib>=3.11.1",
@@ -20,6 +21,7 @@ dependencies = [
     "torch>=2.13.0",
     "tqdm>=4.68.4",
     "transformers>=5.13.1",
+    "trackio>=0.37.0",
 ]
 
 [project.optional-dependencies]
@@ -31,15 +33,22 @@ dev = [
 flash = [
     "flash-attn>=2.0; sys_platform == 'linux'",
 ]
+# Ray Train launcher (train.ray.enabled: true) and WebDataset shards (data.webdataset.enabled: true).
+ray = ["hale-blocks[ray]"]
+webdataset = ["hale-blocks[webdataset]"]
+distributed = ["hale-blocks[ray,webdataset]"]
 
 [project.scripts]
-ha-llm-train = "ha_llm.cli.train:main"
-ha-llm-sample = "ha_llm.cli.sample:main"
-ha-llm-eval = "ha_llm.cli.eval:main"
-ha-llm-viz = "ha_llm.cli.visualize:main"
+hale-llm-train = "hale_llm.cli.train:main"
+hale-llm-sample = "hale_llm.cli.sample:main"
+hale-llm-eval = "hale_llm.cli.eval:main"
+hale-llm-viz = "hale_llm.cli.visualize:main"
+
+[tool.uv.sources]
+hale-blocks = { git = "https://github.com/basaanithanaveenkumar/HaleBlocks.git" }
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ha_llm"]
+packages = ["src/hale_llm"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

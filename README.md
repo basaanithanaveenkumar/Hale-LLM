@@ -4,7 +4,33 @@
 
 Compare **autoregressive**, **masked diffusion**, **block diffusion**, and **flow matching** on one transformer backbone.
 
+[![GitHub](https://img.shields.io/badge/GitHub-HaloDiffusionLLM-181717?logo=github&logoColor=white)](https://github.com/basaanithanaveenkumar/HaloDiffusionLLM)
+[![Project Page](https://img.shields.io/badge/🌐_Project-Page-4A90D9)](https://basaanithanaveenkumar.github.io/HaloDiffusionLLM/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+
 </div>
+
+## How it works
+
+All four paradigms use the **same** transformer backbone, the same data (WikiText-2), and the same evaluation — only the *generation strategy* differs. This lets you measure each strategy fairly on equal footing.
+
+```mermaid
+flowchart TB
+  BACK["Shared backbone\n(LGT transformer — 384-d, 16 layers)\nSame weights · same data · same eval"]
+
+  subgraph PARA["Four generation strategies — swap with one YAML key"]
+    AR["📖 Autoregressive\nPredict one token at a time\nfrom left to right"]
+    MD["🌫️ Masked diffusion\nStart with all blanks,\nunmask everything at once"]
+    BD["📦 Block diffusion\nAR across chunks;\ndiffusion inside each chunk"]
+    FM["🌊 Flow matching\nShift token probabilities\nfrom uniform → real text"]
+  end
+
+  AR & MD & BD & FM --> BACK
+```
+
+> **The point:** by keeping everything else identical, any difference in quality comes only from the generation paradigm — not model size or data.
 
 <p align="center">
   <img src="assets/block_diffusion_step4900.gif" alt="Block diffusion decoding on WikiText — tokens unmask block by block" width="100%">
@@ -18,7 +44,7 @@ Compare **autoregressive**, **masked diffusion**, **block diffusion**, and **flo
   <img src="https://img.shields.io/badge/python-3.12+-3776AB?logo=python&logoColor=white" alt="Python 3.12+">
   <img src="https://img.shields.io/badge/pytorch-2.13+-EE4C2C?logo=pytorch&logoColor=white" alt="PyTorch">
   <img src="https://img.shields.io/badge/tokenizer-GPT--2-yellow" alt="GPT-2 tokenizer">
-  <img src="https://img.shields.io/badge/package-ha__llm-0A7A3E" alt="ha_llm">
+  <img src="https://img.shields.io/badge/package-hale__llm-0A7A3E" alt="hale_llm">
 </p>
 
 ---
@@ -49,7 +75,7 @@ The decoder is a small library: **components** (attention, FFN, layers), **trans
 | FFN | `mlp` · `geglu` · DeepSeek-style `moe` |
 | Token loss | `ce` · `focal` |
 
-Shared core (`core/`, `dataloader/`, `training/`, `inference/`, `metrics/`) never imports a `models_*` package by name. Each paradigm lives in `src/ha_llm/models/models_<name>/` and registers with `@register_model` / `@register_loss` / `@register_sampler` / `@register_metric`.
+Shared core (`core/`, `dataloader/`, `training/`, `inference/`, `metrics/`) never imports a `models_*` package by name. Each paradigm lives in `src/hale_llm/models/models_<name>/` and registers with `@register_model` / `@register_loss` / `@register_sampler` / `@register_metric`.
 
 ---
 
@@ -64,15 +90,15 @@ uv run pytest tests/unit -q
 Train block diffusion on full WikiText-2 (MPS / CUDA via `device` in YAML):
 
 ```bash
-uv run ha-llm-train --config configs/block_diffusion/small.yaml --no-resume --viz
+uv run hale-llm-train --config configs/block_diffusion/small.yaml --no-resume --viz
 ```
 
 Sample, eval, and write a GIF from `latest` or a named run:
 
 ```bash
-uv run ha-llm-sample --config configs/block_diffusion/small.yaml
-uv run ha-llm-eval --config configs/block_diffusion/small.yaml
-uv run ha-llm-viz --config configs/block_diffusion/small.yaml
+uv run hale-llm-sample --config configs/block_diffusion/small.yaml
+uv run hale-llm-eval --config configs/block_diffusion/small.yaml
+uv run hale-llm-viz --config configs/block_diffusion/small.yaml
 tensorboard --logdir data/experiments
 ```
 
@@ -150,14 +176,26 @@ data:
   train_size: 512
 ```
 
+**Scaling out: Ray Train + WebDataset** (both off by default, `uv sync --extra distributed`)
+
+```yaml
+train:
+  ray: {enabled: true, num_workers: 4, use_gpu: true}   # run on Ray workers with DDP, fault tolerant
+data:
+  webdataset: {enabled: true, root: data/webdataset}    # tokenise once -> tar shards -> stream
+```
+
+Full example: [`configs/examples/ray_webdataset.yaml`](configs/examples/ray_webdataset.yaml) ·
+details: [docs/distributed.md](docs/distributed.md).
+
 Every key, type, default, and recipe: **[docs/config.md](docs/config.md)**.
 
 ---
 
 ## Adding a paradigm
 
-1. New folder `src/ha_llm/models/models_<name>/` with model, loss, sampler (and optional metric).
-2. One import in `src/ha_llm/models/__init__.py`.
+1. New folder `src/hale_llm/models/models_<name>/` with model, loss, sampler (and optional metric).
+2. One import in `src/hale_llm/models/__init__.py`.
 3. One YAML under `configs/<name>/`.
 
 Public facades stay the same: `train()`, `evaluate()`, `load_session()`.

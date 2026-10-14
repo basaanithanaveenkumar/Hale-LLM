@@ -65,9 +65,16 @@ viz:
   output_dir: data/viz
 logging:
   level: INFO
-  log_file: data/logs/ha_llm.log
+  log_file: data/logs/hale_llm.log
   tensorboard: true
   tensorboard_dir: data/tb
+  wandb: false
+  wandb_project: null
+  wandb_entity: null
+  wandb_run_name: null
+  wandb_tags: null
+  wandb_watch_model: false
+  wandb_log_freq: 100
 experiment:
   enabled: true
   root: data/experiments
