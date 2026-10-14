@@ -1,5 +1,8 @@
 from typing import Literal
 
+from hale_core.config.sections.webdataset import WebDatasetConfig
+from pydantic import Field
+
 from hale_llm.config.sections.common import StrictModel
 
 
@@ -18,3 +21,7 @@ class DataConfig(StrictModel):
     n_overfit_copies: int = 64
     add_special_tokens: bool = False
     stride_words: int = 10
+
+    # Convert the tokenised windows to WebDataset tar shards once and stream them afterwards
+    # (enabled: true); off by default.
+    webdataset: WebDatasetConfig = Field(default_factory=WebDatasetConfig)

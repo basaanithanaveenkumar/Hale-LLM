@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import torch
+from hale_core.distributed import RayReporter, RayRunResult, WorkerContext
+from hale_core.training.ray_entry import launch_on_ray
 from loguru import logger
 from tqdm import tqdm
 
@@ -48,6 +52,11 @@ class Trainer:
             strategy=cfg.train.parallel_strategy,
             backend=cfg.train.distributed_backend,
         )
+        # DDP options from the config (setup_distributed only knows strategy/backend); without
+        # this, train.find_unused_parameters & co. were silently ignored.
+        self.dist_config.find_unused_parameters = cfg.train.find_unused_parameters
+        self.dist_config.gradient_as_bucket_view = cfg.train.gradient_as_bucket_view
+        self.dist_config.static_graph = cfg.train.static_graph
 
         # Set device (may be overridden by distributed setup)
         self.device = self._get_device(cfg.device)
@@ -62,6 +71,7 @@ class Trainer:
         self.global_step = 0
         self.start_epoch = 0
         self.schedule: TrainSchedule | None = None
+        self._reporter = RayReporter()  # no-op unless running inside a Ray Train worker
     
     def _get_device(self, device_str: str | None) -> torch.device:
         """Get device, accounting for distributed training."""
@@ -278,6 +288,10 @@ class Trainer:
         total_steps = self.schedule.total_steps
         for epoch in range(self.start_epoch, n_epochs):
             self.model.train()
+            # DistributedSampler (DDP / Ray) reshuffles only when told the epoch.
+            sampler = getattr(loader, "sampler", None)
+            if hasattr(sampler, "set_epoch"):
+                sampler.set_epoch(epoch)
             epoch_losses: list[float] = []
             pbar = tqdm(loader, desc=f"epoch {epoch + 1}/{n_epochs}", leave=True)
             for batch in pbar:
@@ -340,6 +354,7 @@ class Trainer:
                     len(epoch_losses),
                 )
             
+            eval_metrics: dict[str, float] = {}
             if cfg.eval.every_n_epochs and (epoch + 1) % cfg.eval.every_n_epochs == 0:
                 eval_loader = self.data.val_loader(loader)
                 eval_metrics = self.evaluator.run(self.model, eval_loader)
@@ -357,8 +372,21 @@ class Trainer:
                 self._maybe_visualize(tag=f"epoch{epoch + 1}", by_epoch=True)
             
             # Only main process saves checkpoints
-            if cfg.train.checkpoint_every_epoch and is_main_process(self.dist_config):
+            saved = cfg.train.checkpoint_every_epoch and is_main_process(self.dist_config)
+            if saved:
                 self._save(epoch=epoch, vocab_size=vocab_size)
+
+            # Ray Train: every rank reports; rank 0 attaches the checkpoint directory so Ray can
+            # persist it and restart from it after a failure. No-op outside Ray.
+            self._reporter.report(
+                {
+                    "epoch": float(epoch),
+                    "global_step": float(self.global_step),
+                    "train/epoch_loss": epoch_mean,
+                    **{f"eval/{k}": v for k, v in eval_metrics.items()},
+                },
+                checkpoint_dir=Path(cfg.train.checkpoint_path).parent if saved else None,
+            )
 
     def _maybe_visualize(self, *, tag: str, by_epoch: bool = False) -> None:
         cfg = self.cfg
@@ -396,5 +424,15 @@ class Trainer:
             logger.exception("visualization failed at {}; training continues", tag)
 
 
-def train(cfg: RunConfig, tokenizer=None) -> tuple:
+def train(cfg: RunConfig, tokenizer=None) -> tuple | RayRunResult:
+    """Train ``cfg`` locally, or on Ray Train when ``cfg.train.ray.enabled``.
+
+    On Ray every worker runs this same function with ``parallel_strategy=ddp`` and the driver
+    returns a :class:`RayRunResult` (metrics + checkpoint path) instead of
+    ``(model, tokenizer, losses)``, because the model lives in the workers.
+    """
+    import hale_llm.models  # noqa: F401  - registers the variants (also inside Ray workers)
+
+    if cfg.train.ray.enabled and not WorkerContext.current().in_ray:
+        return launch_on_ray(cfg, train, tokenizer)
     return Trainer(cfg, tokenizer).fit()

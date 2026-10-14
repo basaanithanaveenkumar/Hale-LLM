@@ -163,6 +163,18 @@ data:
   train_size: 512
 ```
 
+**Scaling out: Ray Train + WebDataset** (both off by default, `uv sync --extra distributed`)
+
+```yaml
+train:
+  ray: {enabled: true, num_workers: 4, use_gpu: true}   # run on Ray workers with DDP, fault tolerant
+data:
+  webdataset: {enabled: true, root: data/webdataset}    # tokenise once -> tar shards -> stream
+```
+
+Full example: [`configs/examples/ray_webdataset.yaml`](configs/examples/ray_webdataset.yaml) ·
+details: [docs/distributed.md](docs/distributed.md).
+
 Every key, type, default, and recipe: **[docs/config.md](docs/config.md)**.
 
 ---

@@ -1,5 +1,8 @@
 from typing import Literal
 
+from hale_core.config.sections.ray import RayConfig
+from pydantic import Field
+
 from hale_llm.config.sections.common import StrictModel
 
 
@@ -19,10 +22,14 @@ class TrainConfig(StrictModel):
     focal_gamma: float = 2.0
     focal_alpha: float = 1.0
     optimizer_type: str = "adamw"
-    
+
     # Distributed training / data parallelism
     parallel_strategy: Literal["none", "dp", "ddp", "fsdp"] = "none"
     distributed_backend: str | None = None  # 'nccl', 'gloo', 'mpi' (auto-detected if None)
     find_unused_parameters: bool = False  # DDP: find unused parameters
     gradient_as_bucket_view: bool = True  # DDP: memory optimization
     static_graph: bool = False  # DDP: static graph optimization
+
+    # Ray Train launcher (multi-GPU / multi-node, fault tolerant); off by default.
+    # With enabled: true, `hale-llm-train` runs this config on Ray workers with DDP.
+    ray: RayConfig = Field(default_factory=RayConfig)

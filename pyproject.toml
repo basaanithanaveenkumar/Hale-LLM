@@ -33,6 +33,10 @@ dev = [
 flash = [
     "flash-attn>=2.0; sys_platform == 'linux'",
 ]
+# Ray Train launcher (train.ray.enabled: true) and WebDataset shards (data.webdataset.enabled: true).
+ray = ["hale-blocks[ray]"]
+webdataset = ["hale-blocks[webdataset]"]
+distributed = ["hale-blocks[ray,webdataset]"]
 
 [project.scripts]
 hale-llm-train = "hale_llm.cli.train:main"

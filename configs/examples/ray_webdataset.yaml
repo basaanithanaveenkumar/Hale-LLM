@@ -1,0 +1,24 @@
+# Diffusion LM on a Ray cluster, streaming WikiText windows from WebDataset shards.
+#
+#   uv sync --extra distributed          # ray[train] + webdataset (through hale-blocks)
+#   hale-llm-train --config configs/examples/ray_webdataset.yaml
+#
+# The first run tokenises the dataset once and writes tar shards under data/webdataset/;
+# later runs (and every Ray worker) stream the shards instead of re-downloading/tokenising.
+inherits: ../diffusion/small.yaml
+device: cuda
+train:
+  parallel_strategy: ddp            # used inside every Ray worker
+  ray:
+    enabled: true
+    address: null                   # null = local Ray instance; "auto" = join a running cluster
+    num_workers: 4                  # one worker per GPU
+    use_gpu: true
+    storage_path: data/ray_results  # reported checkpoints (local, NFS or s3://)
+    max_failures: 2                 # restart the worker group from the last checkpoint
+data:
+  webdataset:
+    enabled: true
+    root: data/webdataset
+    samples_per_shard: 2000
+    shuffle_buffer: 5000
