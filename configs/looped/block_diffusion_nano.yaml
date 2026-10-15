@@ -1,0 +1,8 @@
+# Block diffusion on a looped backbone (block-causal attention over the clean / noised streams).
+inherits: ../block_diffusion/nano.yaml
+model:
+  arch: looped
+  n_layers: 2
+  attn_impl: mha
+  loop:
+    n_loops: 4

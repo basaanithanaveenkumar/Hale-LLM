@@ -72,6 +72,7 @@ Shared width/depth for every variant. `arch` chooses the **block stack**; `attn_
 | `transformer` or `default` | GPT-style pre-norm + LayerNorm + learned positions | Autoregressive, MTP |
 | `lgt` | Local-global transformer: RMSNorm sandwich, GQA, dual RoPE, 5:1 sliding-window / global, GeGLU | Diffusion, block diffusion, flow matching |
 | `dit` | AdaLN-Zero DiT blocks (scale, shift, residual gates) | Same denoisers, alternative to LGT |
+| `looped` | One weight-tied block (`n_layers` layers) applied `loop.n_loops` times: depth embedding, input injection, optional ACT halting / prelude / coda / scratch tokens ([looped.md](looped.md)) | Any variant |
 
 ```yaml
 model:
@@ -126,6 +127,25 @@ VRAM: MoE multiplies FFN parameters. Prefer `geglu` on a laptop; use `moe` when 
 | `qk_norm` | bool | `false` | RMSNorm on Q and K. LGT always applies QK-Norm. |
 
 ---
+
+### Looped (`model.loop`, only with `arch: looped`)
+
+`n_layers` is the shared core block; compute depth = `prelude_layers + n_loops * n_layers + coda_layers`. Full guide: [looped.md](looped.md).
+
+| Key | Type | Default | How to use |
+|---|---|---|---|
+| `n_loops` | int | `4` | Passes through the shared block (training maximum, inference default). |
+| `prelude_layers`, `coda_layers` | int | `0`, `0` | Distinct layers before / after the loop. |
+| `depth_embedding` | `sinusoidal` \| `learned` \| `none` | `sinusoidal` | Loop-step coordinate added to each pass. Only `sinusoidal` can run more loops than `n_loops`. |
+| `input_injection` | `add` \| `concat` \| `none` | `add` | Re-feed the loop input every pass (`h₀ = 0`); `none` starts from `h₀ = e`. |
+| `sandwich_norm` | bool | `false` | Post-norms in the core layers; bounded state for long loops. |
+| `halting` | `none` \| `act` | `none` | `act` = Adaptive Computation Time per token. |
+| `act_threshold`, `act_init_bias` | float | `0.99`, `1.0` | ACT `1 - eps`; initial halting logit (negative = ponder longer at init). |
+| `ponder_weight` | float | `0.01` | `τ`: ponder loss `τ · mean(N + R)` added by the trainer. |
+| `min_loops` | int \| `null` | `null` | Training: sample `T ~ U{min_loops..n_loops}` each step. |
+| `bptt_loops` | int \| `null` | `null` | Training: backprop through the last `k` passes only. |
+| `exit_tolerance` | float \| `null` | `null` | Inference: stop when the per-token relative change falls below it. |
+| `scratch_tokens` | int | `0` | Learned memory slots carried across loops (causal masks: slots read only each other). |
 
 ## `train`
 
@@ -300,6 +320,7 @@ latest -> <that folder>
 | `configs/block_diffusion/small.yaml` | `block_diffusion` | `lgt` | `block_causal` | `block_size: 16`, `use_time_cond: true` |
 | `configs/flow_matching/small.yaml` | `flow_matching` | `lgt` | `bidirectional` | `use_time_cond: true` |
 | `configs/mtp/small.yaml` | `mtp` | `transformer` | `causal` | `n_mtp_heads: 5` (stub) |
+| `configs/looped/*.yaml` | `autoregressive`, `diffusion`, `block_diffusion` | `looped` | per paradigm | `model.loop` ([looped.md](looped.md)) |
 
 To try DiT on block diffusion, only change:
 
@@ -316,8 +337,8 @@ model:
 | Command | Required | Useful flags |
 |---|---|---|
 | `hale-llm-train` | `--config` | `--no-resume` new run; `--resume` / `--experiment NAME`; `--epochs` / `--steps`; `--viz` |
-| `hale-llm-sample` | `--config` | `--experiment`, `--prompt`, `--checkpoint` |
-| `hale-llm-eval` | `--config` | `--experiment`, `--metrics a,b` |
+| `hale-llm-sample` | `--config` | `--experiment`, `--prompt`, `--checkpoint`, `--num-loops` (looped) |
+| `hale-llm-eval` | `--config` | `--experiment`, `--metrics a,b`, `--num-loops` (looped) |
 | `hale-llm-viz` | `--config` | `--experiment`, `--prompt`, `--output` |
 
 Sample / eval / viz attach to `latest` unless `--experiment` is set. They do not create a new run folder.

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import torch
+from hale_core.nn.stacks import loop_budget
 from loguru import logger
 from torch import nn
 
@@ -41,24 +42,32 @@ class InferenceSession:
         max_new_tokens: int | None = None,
         temperature: float | None = None,
         sampling_steps: int | None = None,
+        num_loops: int | None = None,
     ) -> GenerationResult:
+        """Sample a completion of ``prompt`` with the variant's registered sampler.
+
+        ``num_loops`` (default ``sample.num_loops``) sets how many passes a looped backbone runs;
+        it is ignored by other architectures.
+        """
         prompt = prompt if prompt is not None else self.cfg.sample.prompt
         max_new_tokens = max_new_tokens if max_new_tokens is not None else self.cfg.sample.max_new_tokens
         temperature = temperature if temperature is not None else self.cfg.sample.temperature
         sampling_steps = sampling_steps if sampling_steps is not None else self.cfg.sample.sampling_steps
+        num_loops = num_loops if num_loops is not None else self.cfg.sample.num_loops
         sampler = get_sampler(self.cfg.variant)
         self.model.eval()
         ids = encode_prompt(self.tokenizer, prompt, self.model, self.device)
         logger.info("inference variant={} prompt={!r} return_history={}", self.cfg.variant, prompt, return_history)
-        out = sampler(
-            self.model,
-            self.tokenizer,
-            ids,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            sampling_steps=sampling_steps,
-            return_history=return_history,
-        )
+        with loop_budget(self.model, num_loops):
+            out = sampler(
+                self.model,
+                self.tokenizer,
+                ids,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                sampling_steps=sampling_steps,
+                return_history=return_history,
+            )
         history = None
         if return_history:
             token_ids, history = out

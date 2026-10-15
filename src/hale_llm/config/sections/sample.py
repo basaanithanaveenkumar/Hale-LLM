@@ -7,3 +7,6 @@ class SampleConfig(StrictModel):
     sampling_steps: int = 32
     eps: float = 1e-3
     prompt: str = "hello"
+    # arch: looped - passes through the shared block at inference (null = model.loop.n_loops).
+    # More loops than training is test-time compute scaling.
+    num_loops: int | None = None

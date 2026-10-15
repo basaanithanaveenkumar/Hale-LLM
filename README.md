@@ -71,7 +71,7 @@ The decoder is a small library: **components** (attention, FFN, layers), **trans
 | Variant | `autoregressive` · `diffusion` · `block_diffusion` · `flow_matching` · `mtp` (stub) |
 | Attention mask | `causal` · `bidirectional` · `block_causal` |
 | Attention impl | `mha` · `gqa` · `mqa` |
-| Backbone | `transformer` (GPT-style) · `lgt` (local/global + dual RoPE) · `dit` (AdaLN-Zero) |
+| Backbone | `transformer` (GPT-style) · `lgt` (local/global + dual RoPE) · `dit` (AdaLN-Zero) · `looped` (weight-tied recurrent depth + ACT, [docs/looped.md](docs/looped.md)) |
 | FFN | `mlp` · `geglu` · DeepSeek-style `moe` |
 | Token loss | `ce` · `focal` |
 
@@ -149,7 +149,7 @@ Unknown keys are rejected. After a run, the merged file is saved as `data/experi
 | Section | Role |
 |---|---|
 | `variant` | Which model/loss/sampler (`autoregressive`, `diffusion`, `block_diffusion`, `flow_matching`, `mtp`) |
-| `model` | Width/depth, `arch` (`transformer` \| `lgt` \| `dit`), mask (`causal` \| `bidirectional` \| `block_causal`), FFN, time cond |
+| `model` | Width/depth, `arch` (`transformer` \| `lgt` \| `dit` \| `looped`, with `model.loop`), mask (`causal` \| `bidirectional` \| `block_causal`), FFN, time cond |
 | `train` | `epochs` or `steps`, `batch_size`, `lr`, `loss_type`, resume |
 | `data` | Hugging Face dataset (`Salesforce/wikitext` + `subset`) or `overfit_text`; `train_size: null` means the **full** split |
 | `sample` / `eval` / `viz` | Generation length, metrics, GIF cadence |

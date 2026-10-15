@@ -1,5 +1,8 @@
 from typing import Literal
 
+from hale_core.config.sections.loop import LoopConfig
+from pydantic import Field
+
 from hale_llm.config.sections.common import StrictModel
 
 
@@ -20,10 +23,12 @@ class ModelConfig(StrictModel):
     use_time_cond: bool = False
     block_size: int | None = None
     n_mtp_heads: int = 2
-    arch: Literal["default", "transformer", "lgt", "dit"] = "default"
+    arch: Literal["default", "transformer", "lgt", "dit", "looped"] = "default"
     sliding_window: int = 512
     local_global_ratio: int = 5
     rope_theta_local: float = 10_000.0
     rope_theta_global: float = 1_000_000.0
     p_rope: float = 0.25
     qk_norm: bool = False
+    # arch: looped - n_layers is the shared block, iterated loop.n_loops times (docs/looped.md).
+    loop: LoopConfig = Field(default_factory=LoopConfig)

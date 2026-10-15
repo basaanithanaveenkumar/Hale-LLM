@@ -1,0 +1,13 @@
+# Masked diffusion LM on a looped backbone with scratchpad tokens: 4 learned memory slots carried
+# across loops (bidirectional attention: they read and are read by the whole sequence).
+inherits: ../diffusion/nano.yaml
+model:
+  arch: looped
+  n_layers: 2
+  attn_impl: mha
+  ffn_type: geglu
+  loop:
+    n_loops: 4
+    scratch_tokens: 4
+eval:
+  metrics: [loss, perplexity, bits_per_token, token_accuracy, masked_accuracy, loop_depth]

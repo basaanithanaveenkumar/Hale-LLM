@@ -64,3 +64,34 @@ def test_mtp_stub_runs_a_few_steps(variant, tiny_tokenizer, tmp_path):
     cfg.experiment.enabled = False
     _, _, losses = train(cfg, tokenizer=tiny_tokenizer)
     assert losses[-1] > 0
+
+
+@pytest.mark.parametrize("name", ["autoregressive_nano", "autoregressive_act", "recurrent_depth", "diffusion_nano"])
+def test_looped_backbones_overfit(name, tiny_tokenizer, tmp_path):
+    """A 1-layer shared block, looped, memorises the overfit text through the regular trainer."""
+    cfg = load_config(REPO / "configs" / "looped" / f"{name}.yaml")
+    cfg.train.steps = 200
+    cfg.train.epochs = None
+    cfg.train.batch_size = 8
+    cfg.train.log_every = 50
+    cfg.train.checkpoint_path = str(tmp_path / "ckpt.pt")
+    cfg.train.lr = 3e-3
+    cfg.model.d_model = 64
+    cfg.model.n_heads = 4
+    cfg.model.n_layers = 1
+    cfg.model.d_ff = 128
+    cfg.model.max_length = 32
+    cfg.data.overfit_text = "hello world hello world"
+    cfg.data.n_overfit_copies = 32
+    cfg.device = "cpu"
+    cfg.logging.tensorboard = False
+    cfg.logging.log_file = None
+    cfg.logging.level = "WARNING"
+    cfg.train.resume = False
+    cfg.eval.every_n_epochs = None
+    cfg.viz.enabled = False
+    cfg.experiment.enabled = False
+
+    model, _, losses = train(cfg, tokenizer=tiny_tokenizer)
+    assert losses[-1] < losses[0] * 0.5, (losses[0], losses[-1])
+    assert sum(p.numel() for p in model.backbone.stack.core.parameters()) > 0

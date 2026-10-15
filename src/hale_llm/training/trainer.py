@@ -18,6 +18,7 @@ from hale_llm.core.registry import get_loss, get_variant
 from hale_llm.core.tensors import count_parameters, log_model_summary, move_batch_to_device
 from hale_llm.dataloader.data_module import DataModule
 from hale_llm.evaluation.evaluator import Evaluator
+from hale_llm.losses.auxiliary import with_auxiliary_losses
 from hale_llm.training.distributed import (
     DistributedConfig,
     cleanup_distributed,
@@ -305,7 +306,8 @@ class Trainer:
                         {k: tuple(v.shape) for k, v in batch.items() if torch.is_tensor(v)},
                     )
 
-                loss = self.loss_fn(self.model, batch)
+                # + architecture regularisers (looped ACT ponder cost); extras = their scalars
+                loss, extras = with_auxiliary_losses(self.model, self.loss_fn(self.model, batch))
                 if not torch.isfinite(loss):
                     logger.error("non-finite loss at step {}: {}", self.global_step, loss.item())
                     raise FloatingPointError(f"non-finite loss at step {self.global_step}")
@@ -325,6 +327,7 @@ class Trainer:
                         "train/lr": lr,
                         "train/grad_norm": float(grad_norm),
                         "train/epoch": float(epoch),
+                        **{f"train/{k}": v for k, v in extras.items()},
                     },
                 )
                 pbar.set_postfix(loss=f"{loss.item():.4f}")

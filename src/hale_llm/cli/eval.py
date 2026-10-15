@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import argparse
 
-import hale_llm.models  # noqa: F401
+from hale_core.nn.stacks import set_loop_budget
 from loguru import logger
 
+import hale_llm.models  # noqa: F401
 from hale_llm.config.experiment import apply_experiment_layout
 from hale_llm.config.schema import load_config
 from hale_llm.dataloader import make_dataloader
@@ -25,6 +26,8 @@ def main() -> None:
         default=None,
         help="Comma-separated metric names (overrides eval.metrics)",
     )
+    p.add_argument("--num-loops", type=int, default=None,
+                   help="Looped backbones: passes per forward (default model.loop.n_loops)")
     args = p.parse_args()
     try:
         cfg = load_config(args.config)
@@ -35,6 +38,7 @@ def main() -> None:
         apply_experiment_layout(cfg, create=False, name=args.experiment)
         setup_logging(level=cfg.logging.level, log_file=cfg.logging.log_file, force=True)
         session = load_session(cfg, args.checkpoint, require_checkpoint=True)
+        set_loop_budget(session.model, args.num_loops)
         loader = make_dataloader(cfg, split="validation")
         metrics = evaluate(session.model, cfg, loader)
         writer = make_writer(

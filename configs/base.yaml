@@ -11,6 +11,21 @@ model:
   moe_num_experts: 4
   moe_top_k: 2
   moe_num_shared: 1
+  loop:                    # arch: looped only (docs/looped.md)
+    n_loops: 4
+    prelude_layers: 0
+    coda_layers: 0
+    depth_embedding: sinusoidal
+    input_injection: add
+    sandwich_norm: false
+    halting: none
+    act_threshold: 0.99
+    act_init_bias: 1.0
+    ponder_weight: 0.01
+    min_loops: null
+    bptt_loops: null
+    exit_tolerance: null
+    scratch_tokens: 0
 train:
   epochs: 2000
   steps: null
@@ -46,6 +61,7 @@ sample:
   sampling_steps: 32
   eps: 0.001
   prompt: "The meaning of life is"
+  num_loops: null          # arch: looped - inference passes (null = model.loop.n_loops)
 eval:
   metrics:
     - loss

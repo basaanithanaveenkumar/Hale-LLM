@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import argparse
 
-import hale_llm.models  # noqa: F401
 from loguru import logger
 
+import hale_llm.models  # noqa: F401
 from hale_llm.config.experiment import apply_experiment_layout
 from hale_llm.config.schema import load_config
 from hale_llm.inference import load_session
@@ -17,6 +17,8 @@ def main() -> None:
     p.add_argument("--checkpoint", default=None)
     p.add_argument("--experiment", default=None, help="Run folder under data/experiments/<variant>/")
     p.add_argument("--prompt", default=None)
+    p.add_argument("--num-loops", type=int, default=None,
+                   help="Looped backbones: passes per forward (overrides sample.num_loops)")
     p.add_argument("--log-level", default=None, choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     args = p.parse_args()
     try:
@@ -26,7 +28,7 @@ def main() -> None:
         apply_experiment_layout(cfg, create=False, name=args.experiment)
         setup_logging(level=cfg.logging.level, log_file=cfg.logging.log_file, force=True)
         session = load_session(cfg, args.checkpoint)
-        result = session.generate(args.prompt)
+        result = session.generate(args.prompt, num_loops=args.num_loops)
         print(result.text)
     except Exception:
         logger.exception("hale-llm-sample failed")
