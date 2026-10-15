@@ -66,7 +66,7 @@ def test_mtp_stub_runs_a_few_steps(variant, tiny_tokenizer, tmp_path):
     assert losses[-1] > 0
 
 
-@pytest.mark.parametrize("name", ["autoregressive_nano", "autoregressive_act", "recurrent_depth", "diffusion_nano"])
+@pytest.mark.parametrize("name", ["nano", "act", "recurrent_depth", "diffusion_nano"])
 def test_looped_backbones_overfit(name, tiny_tokenizer, tmp_path):
     """A 1-layer shared block, looped, memorises the overfit text through the regular trainer."""
     cfg = load_config(REPO / "configs" / "looped" / f"{name}.yaml")

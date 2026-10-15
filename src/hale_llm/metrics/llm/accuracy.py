@@ -28,7 +28,7 @@ def _pred_and_labels(ctx: MetricContext):
     return pred, labels, valid
 
 
-@register_metric("token_accuracy", variants=("autoregressive", "mtp"))
+@register_metric("token_accuracy", variants=("autoregressive", "mtp", "looped"))
 class TokenAccuracyMetric(Metric):
     """Greedy next-token accuracy on `labels`, ignoring -100 and pad."""
 

@@ -1,7 +1,7 @@
 # Recurrent-depth LM (prelude -> T x shared block -> coda, Geiping et al. 2025): trained with a
 # random loop count and truncated backprop, so the loop count becomes a test-time compute knob.
 #   hale-llm-sample --config configs/looped/recurrent_depth.yaml --num-loops 32
-inherits: ./autoregressive_nano.yaml
+inherits: ./nano.yaml
 model:
   n_layers: 2
   loop:

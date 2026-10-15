@@ -23,6 +23,7 @@ STEP_COLOR = "#9AA3A7"
 HIGHLIGHT_MODE = {
     "autoregressive": "new_tokens",
     "mtp": "new_tokens",
+    "looped": "new_tokens",
     "diffusion": "new_tokens",
     "flow_matching": "new_tokens",
     "block_diffusion": "new_tokens",

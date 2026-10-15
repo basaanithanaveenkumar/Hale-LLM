@@ -15,7 +15,7 @@ from loguru import logger
 from matplotlib.patches import Rectangle
 
 CURRENT_COLOR = "black"
-HIGHLIGHT_VARIANTS = {"autoregressive", "mtp", "block_diffusion"}
+HIGHLIGHT_VARIANTS = {"autoregressive", "mtp", "looped", "block_diffusion"}
 OVERLAY_VARIANTS = {"block_diffusion"}
 OVERLAY_FACE = "#FFF3C4"
 OVERLAY_ALPHA = 0.55

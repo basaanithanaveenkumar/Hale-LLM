@@ -4,11 +4,25 @@ A looped transformer reuses **one block of weights** for many passes. Depth beco
 count: `h_t = f_W(h_{t-1})`. Parameters scale with the block; compute scales with the number of
 loops, which can change between training and inference.
 
-`arch: looped` is a backbone, not a paradigm. It works with every `variant` that predicts tokens:
-`autoregressive`, `mtp`, `diffusion`, `block_diffusion` and `flow_matching`, with any `attn_type`
-and with diffusion time conditioning. The implementation lives in HaleBlocks
-(`hale_core.nn.stacks.looped`, `hale_core.nn.layers.loop`). Every looped module is shared by all
-the Hale repos.
+Looped transformers come in two forms:
+
+- **`variant: looped`** is a model package,
+  [`src/hale_llm/models/models_looped/`](../src/hale_llm/models/models_looped/). It is a causal
+  next-token LM on the looped backbone, laid out like every other paradigm:
+
+  | File | Registers | What it holds |
+  |---|---|---|
+  | `model.py` | `LoopedLM` (`@register_variant("looped")`) and its collate | `forward_with_loops(batch, n)` and `last_loop_stats` |
+  | `loss.py` | `@register_loss("looped")` | next-token NLL; the trainer adds the ACT ponder cost |
+  | `sample.py` | `@register_sampler("looped")` | left-to-right decoding under a loop budget; `model.loops_per_token` records the passes per token |
+  | `metrics.py` | `loop_scaling`, `ponder_histogram` | loss at `T ∈ {1, T/2, T, 2T}`; the ACT passes-per-token distribution |
+
+- **`arch: looped`** is a backbone. You can put it under any other `variant`, including masked
+  diffusion, block diffusion, flow matching and MTP, with any `attn_type` and with diffusion time
+  conditioning. Examples: `configs/looped/diffusion_nano.yaml` and `block_diffusion_nano.yaml`.
+
+The building blocks live in HaleBlocks (`hale_core.nn.stacks.looped`, `hale_core.nn.layers.loop`),
+so every Hale repo shares them.
 
 ```mermaid
 flowchart LR
@@ -44,7 +58,7 @@ model: {arch: looped, n_layers: 2, loop: {n_loops: 4}}
 ```
 
 The simplest form: the same block runs `T` times, with depth embeddings. See
-[`configs/looped/autoregressive_nano.yaml`](../configs/looped/autoregressive_nano.yaml). It has
+[`configs/looped/nano.yaml`](../configs/looped/nano.yaml). It has
 the compute depth of `autoregressive/nano.yaml` with ¼ of its transformer parameters.
 
 ### Adaptive Computation Time
@@ -76,7 +90,7 @@ variant's own loss function is unchanged.
 
 **Initial bias.** `act_init_bias` is the initial halting logit. A negative value makes tokens
 start by pondering longer. See
-[`configs/looped/autoregressive_act.yaml`](../configs/looped/autoregressive_act.yaml).
+[`configs/looped/act.yaml`](../configs/looped/act.yaml).
 
 ### Recurrent depth and test-time compute
 
@@ -132,24 +146,25 @@ See [`configs/looped/diffusion_nano.yaml`](../configs/looped/diffusion_nano.yaml
 | Where | What |
 |---|---|
 | Trainer | `loss = task_loss + Σ auxiliary` (`hale_llm.losses.with_auxiliary_losses`); loop statistics are logged under `train/loop/*`. Gradient clipping (`train.grad_clip`) matters more than usual: backprop runs through `T` tied passes. |
-| Eval metric | `loop_depth` reports the mean `loops`, `mean_updates` and `ponder_cost` over the eval batches. |
+| Eval metrics | `loop_depth` (any looped backbone) reports the mean `loops`, `mean_updates` and `ponder_cost`. With `variant: looped`, `loop_scaling` adds `loss@T1`, `loss@T{T/2}`, `loss@T{T}` and `loss@T{2T}`, the test-time scaling curve, and `ponder_histogram` adds the ACT `ponder_frac@k`, `ponder_mean`, `ponder_min` and `ponder_max`. |
 | Sampling | Every registered sampler runs under the loop budget. |
-| Checkpoints | The `model.loop` section is saved with the run config, so `hale-autoregressive` / `hale-mtp` in HaleBlocks' LLM registry rebuild a looped checkpoint as a Hale-VLM / Hale-VLA language backbone. |
+| Checkpoints | The `model.loop` section is saved with the run config. `hale-looped` in HaleBlocks' LLM registry rebuilds a `variant: looped` checkpoint as a Hale-VLM / Hale-VLA language backbone. |
 
 ## Configs
 
 | File | Paradigm | Loop |
 |---|---|---|
-| `configs/looped/autoregressive_nano.yaml` | autoregressive | 2 layers × 4 loops, add injection, sinusoidal depth |
-| `configs/looped/autoregressive_act.yaml` | autoregressive | ACT, up to 8 loops, `τ = 0.01` |
-| `configs/looped/recurrent_depth.yaml` | autoregressive | prelude 1 + 2 × U{2..8} + coda 1, BPTT through 4, 16 loops at inference, fixed-point exit |
+| `configs/looped/nano.yaml` | looped | 2 layers × 4 loops, add injection, sinusoidal depth |
+| `configs/looped/small.yaml` | looped | 4 layers × 4 loops (`d_model` 384): the compute depth of `autoregressive/small.yaml` |
+| `configs/looped/act.yaml` | looped | ACT, up to 8 loops, `τ = 0.01` |
+| `configs/looped/recurrent_depth.yaml` | looped | prelude 1 + 2 × U{2..8} + coda 1, BPTT through 4, 16 loops at inference, fixed-point exit |
 | `configs/looped/diffusion_nano.yaml` | masked diffusion | 2 × 4 loops + 4 scratch tokens |
 | `configs/looped/block_diffusion_nano.yaml` | block diffusion | 2 × 4 loops, block-causal |
 
 ```bash
-hale-llm-train --config configs/looped/autoregressive_act.yaml
+hale-llm-train --config configs/looped/act.yaml
 hale-llm-sample --config configs/looped/recurrent_depth.yaml --num-loops 32
-hale-llm-eval --config configs/looped/autoregressive_act.yaml --metrics loss,perplexity,loop_depth
+hale-llm-eval --config configs/looped/act.yaml --metrics loss,perplexity,loop_scaling,ponder_histogram
 ```
 
 ## Python

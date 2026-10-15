@@ -1,8 +1,8 @@
-# Looped autoregressive LM - fixed-T Universal-Transformer style (docs/looped.md).
+# Looped LM (variant: looped) - fixed-T Universal-Transformer style (docs/looped.md).
 # 2 shared layers x 4 loops = the compute depth of autoregressive/nano.yaml (8 layers) with 1/4 of
 # its transformer parameters.
 inherits: ../base.yaml
-variant: autoregressive
+variant: looped
 device: mps
 model:
   arch: looped
@@ -25,6 +25,6 @@ train:
   grad_clip: 1.0       # backprop through 4 tied passes: keep clipping on
 eval:
   every_n_epochs: 10
-  metrics: [loss, perplexity, bits_per_token, token_accuracy, loop_depth]
+  metrics: [loss, perplexity, bits_per_token, token_accuracy, loop_depth, loop_scaling]
 viz:
   every_n_steps: 500

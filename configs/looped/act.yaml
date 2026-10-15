@@ -1,6 +1,6 @@
-# Looped autoregressive LM with Adaptive Computation Time: every token halts on its own after
+# Looped LM with Adaptive Computation Time: every token halts on its own after
 # 1..n_loops passes; the ponder cost tau * mean(N + R) is added to the loss (train/ponder_loss).
-inherits: ./autoregressive_nano.yaml
+inherits: ./nano.yaml
 model:
   loop:
     n_loops: 8
@@ -8,3 +8,5 @@ model:
     act_threshold: 0.99
     act_init_bias: -1.0   # p ~ 0.27 per pass at init: tokens start by pondering ~4 passes
     ponder_weight: 0.01   # tau - the compute budget; larger = fewer passes
+eval:
+  metrics: [loss, perplexity, token_accuracy, loop_depth, loop_scaling, ponder_histogram]

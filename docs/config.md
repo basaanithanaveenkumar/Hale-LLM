@@ -37,7 +37,7 @@ Put shared size, data, and logging in `base.yaml`. Put paradigm-specific `varian
 
 | Key | Type | Default | What it does |
 |---|---|---|---|
-| `variant` | string, **required** | — | Which registered model/loss/sampler to use: `autoregressive`, `diffusion`, `block_diffusion`, `flow_matching`, `mtp`. Must match a `@register_variant` name. |
+| `variant` | string, **required** | — | Which registered model/loss/sampler to use: `autoregressive`, `diffusion`, `block_diffusion`, `flow_matching`, `looped`, `mtp`. Must match a `@register_variant` name. |
 | `device` | `mps` \| `cuda` \| `cpu` \| `null` | `null` (auto) | Training device. `null` lets the runtime pick. Example: `device: mps` on Apple Silicon. |
 | `model` | object | see below | Architecture. |
 | `train` | object | see below | Optimizer loop. |
@@ -85,7 +85,7 @@ Swap without changing variant code: all models call `build_backbone(...)`.
 
 | Value | Meaning | Variant |
 |---|---|---|
-| `causal` | Token *i* attends to *≤ i* | `autoregressive`, `mtp` |
+| `causal` | Token *i* attends to *≤ i* | `autoregressive`, `mtp`, `looped` |
 | `bidirectional` | Full self-attention | `diffusion`, `flow_matching` |
 | `block_causal` | AR across blocks, bidirectional inside the current block (clean + noised streams) | `block_diffusion` |
 
@@ -320,7 +320,8 @@ latest -> <that folder>
 | `configs/block_diffusion/small.yaml` | `block_diffusion` | `lgt` | `block_causal` | `block_size: 16`, `use_time_cond: true` |
 | `configs/flow_matching/small.yaml` | `flow_matching` | `lgt` | `bidirectional` | `use_time_cond: true` |
 | `configs/mtp/small.yaml` | `mtp` | `transformer` | `causal` | `n_mtp_heads: 5` (stub) |
-| `configs/looped/*.yaml` | `autoregressive`, `diffusion`, `block_diffusion` | `looped` | per paradigm | `model.loop` ([looped.md](looped.md)) |
+| `configs/looped/{nano,small,act,recurrent_depth}.yaml` | `looped` | `looped` | `causal` | `model.loop` ([looped.md](looped.md)) |
+| `configs/looped/{diffusion,block_diffusion}_nano.yaml` | `diffusion`, `block_diffusion` | `looped` | per paradigm | looped backbone under a denoiser |
 
 To try DiT on block diffusion, only change:
 

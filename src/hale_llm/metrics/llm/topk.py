@@ -6,7 +6,7 @@ from hale_llm.core.registry import register_metric
 from hale_llm.metrics.base import Metric, MetricContext
 
 
-@register_metric("topk_accuracy", variants=("autoregressive", "mtp"))
+@register_metric("topk_accuracy", variants=("autoregressive", "mtp", "looped"))
 class TopKAccuracyMetric(Metric):
     """Fraction of non-ignored labels whose true id is in the top-k logits."""
 

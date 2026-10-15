@@ -68,7 +68,7 @@ The decoder is a small library: **components** (attention, FFN, layers), **trans
 
 | Switch | Options |
 |---|---|
-| Variant | `autoregressive` · `diffusion` · `block_diffusion` · `flow_matching` · `mtp` (stub) |
+| Variant | `autoregressive` · `diffusion` · `block_diffusion` · `flow_matching` · `looped` ([docs/looped.md](docs/looped.md)) · `mtp` (stub) |
 | Attention mask | `causal` · `bidirectional` · `block_causal` |
 | Attention impl | `mha` · `gqa` · `mqa` |
 | Backbone | `transformer` (GPT-style) · `lgt` (local/global + dual RoPE) · `dit` (AdaLN-Zero) · `looped` (weight-tied recurrent depth + ACT, [docs/looped.md](docs/looped.md)) |
@@ -112,6 +112,7 @@ tensorboard --logdir data/experiments
 | [`configs/diffusion/small.yaml`](configs/diffusion/small.yaml) | Absorbing-state masked diffusion |
 | [`configs/block_diffusion/small.yaml`](configs/block_diffusion/small.yaml) | AR across blocks, diffusion inside the block |
 | [`configs/flow_matching/small.yaml`](configs/flow_matching/small.yaml) | Discrete flow matching |
+| [`configs/looped/small.yaml`](configs/looped/small.yaml) | Looped transformer: one weight-tied block iterated T times (ACT, recurrent depth, test-time loops) |
 | [`configs/mtp/small.yaml`](configs/mtp/small.yaml) | Multi-token heads (stub) |
 
 Default small model: `d_model=384`, 16 layers, 8 heads, `d_ff=1536`, `max_length=128`, GPT-2 tokenizer, WikiText-2 with a **10-word sliding stride**. Diffusion, block diffusion, and flow matching use **LGT** (`arch: lgt`, local-global transformer). Autoregressive stays on `transformer`.
@@ -148,7 +149,7 @@ Unknown keys are rejected. After a run, the merged file is saved as `data/experi
 
 | Section | Role |
 |---|---|
-| `variant` | Which model/loss/sampler (`autoregressive`, `diffusion`, `block_diffusion`, `flow_matching`, `mtp`) |
+| `variant` | Which model/loss/sampler (`autoregressive`, `diffusion`, `block_diffusion`, `flow_matching`, `looped`, `mtp`) |
 | `model` | Width/depth, `arch` (`transformer` \| `lgt` \| `dit` \| `looped`, with `model.loop`), mask (`causal` \| `bidirectional` \| `block_causal`), FFN, time cond |
 | `train` | `epochs` or `steps`, `batch_size`, `lr`, `loss_type`, resume |
 | `data` | Hugging Face dataset (`Salesforce/wikitext` + `subset`) or `overfit_text`; `train_size: null` means the **full** split |

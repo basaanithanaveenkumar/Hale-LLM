@@ -1,0 +1,30 @@
+# Looped LM (variant: looped), small - fixed-T Universal-Transformer style (docs/looped.md).
+# 4 shared layers x 4 loops = the compute depth of autoregressive/small.yaml (16 layers) with
+# 1/4 of its transformer parameters.
+inherits: ../base.yaml
+variant: looped
+device: mps
+model:
+  arch: looped
+  d_model: 384
+  n_heads: 8
+  n_layers: 4          # the shared core block
+  d_ff: 1536
+  attn_type: causal
+  use_time_cond: false
+  max_length: 128
+  loop:
+    n_loops: 4
+    depth_embedding: sinusoidal
+    input_injection: add
+train:
+  epochs: 2000
+  steps: null
+  batch_size: 32
+  lr: 0.0003
+  grad_clip: 1.0       # backprop through 4 tied passes: keep clipping on
+eval:
+  every_n_epochs: 10
+  metrics: [loss, perplexity, bits_per_token, token_accuracy, loop_depth, loop_scaling]
+viz:
+  every_n_steps: 500
