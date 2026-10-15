@@ -27,6 +27,7 @@ HIGHLIGHT_MODE = {
     "diffusion": "new_tokens",
     "flow_matching": "new_tokens",
     "block_diffusion": "new_tokens",
+    "block_flow_matching": "new_tokens",
 }
 
 MASK_GLYPH = "·"

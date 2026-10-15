@@ -15,8 +15,10 @@ from loguru import logger
 from matplotlib.patches import Rectangle
 
 CURRENT_COLOR = "black"
-HIGHLIGHT_VARIANTS = {"autoregressive", "mtp", "looped", "block_diffusion"}
-OVERLAY_VARIANTS = {"block_diffusion"}
+#: Variants whose sampler fills one block at a time (history meta carries "block").
+BLOCK_VARIANTS = {"block_diffusion", "block_flow_matching"}
+HIGHLIGHT_VARIANTS = {"autoregressive", "mtp", "looped", *BLOCK_VARIANTS}
+OVERLAY_VARIANTS = BLOCK_VARIANTS
 OVERLAY_FACE = "#FFF3C4"
 OVERLAY_ALPHA = 0.55
 OVERLAY_HEIGHT = 0.58
@@ -56,7 +58,7 @@ def _current_indices(variant, ids, prev_ids, prompt_len, meta, mask_id):
     if variant not in HIGHLIGHT_VARIANTS:
         return set()
     n = len(ids)
-    if variant == "block_diffusion":
+    if variant in BLOCK_VARIANTS:
         bs = int(meta.get("block_size") or 0)
         b_idx = int(meta.get("block", -1))
         if bs <= 0 or b_idx < 0:

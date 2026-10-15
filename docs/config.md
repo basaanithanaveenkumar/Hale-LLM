@@ -37,7 +37,7 @@ Put shared size, data, and logging in `base.yaml`. Put paradigm-specific `varian
 
 | Key | Type | Default | What it does |
 |---|---|---|---|
-| `variant` | string, **required** | — | Which registered model/loss/sampler to use: `autoregressive`, `diffusion`, `block_diffusion`, `flow_matching`, `looped`, `mtp`. Must match a `@register_variant` name. |
+| `variant` | string, **required** | — | Which registered model/loss/sampler to use: `autoregressive`, `diffusion`, `block_diffusion`, `flow_matching`, `block_flow_matching`, `looped`, `mtp`. Must match a `@register_variant` name. |
 | `device` | `mps` \| `cuda` \| `cpu` \| `null` | `null` (auto) | Training device. `null` lets the runtime pick. Example: `device: mps` on Apple Silicon. |
 | `model` | object | see below | Architecture. |
 | `train` | object | see below | Optimizer loop. |
@@ -87,7 +87,7 @@ Swap without changing variant code: all models call `build_backbone(...)`.
 |---|---|---|
 | `causal` | Token *i* attends to *≤ i* | `autoregressive`, `mtp`, `looped` |
 | `bidirectional` | Full self-attention | `diffusion`, `flow_matching` |
-| `block_causal` | AR across blocks, bidirectional inside the current block (clean + noised streams) | `block_diffusion` |
+| `block_causal` | AR across blocks, bidirectional inside the current block (clean + noised streams) | `block_diffusion`, `block_flow_matching` |
 
 ### Attention implementation
 
@@ -112,8 +112,9 @@ VRAM: MoE multiplies FFN parameters. Prefer `geglu` on a laptop; use `moe` when 
 | Key | Type | Default | How to use |
 |---|---|---|---|
 | `use_time_cond` | bool | `false` | AdaLN (transformer/LGT) or DiT timestep embedding. Set `true` for diffusion / block diffusion / flow matching. Leave `false` for AR. |
-| `block_size` | int \| `null` | `null` | Tokens per block for `attn_type: block_causal`. Required for block diffusion. `max_length` must be a multiple (e.g. `128` and `16`). |
+| `block_size` | int \| `null` | `null` | Tokens per block for `attn_type: block_causal`. Required for block diffusion / block flow matching. `max_length` must be a multiple (e.g. `128` and `16`). |
 | `n_mtp_heads` | int | `2` | Extra next-token heads for the MTP stub. Unused by other variants. |
+| `fm_schedule` | `linear` \| `cosine` | `linear` | `block_flow_matching` masking path `κ(t)`: `t` or `1 − cos(πt/2)` ([guide](block_flow_matching.md)). |
 
 ### LGT-only (ignored by `transformer` / `dit`)
 
@@ -319,6 +320,7 @@ latest -> <that folder>
 | `configs/diffusion/small.yaml` | `diffusion` | `lgt` | `bidirectional` | `use_time_cond: true` |
 | `configs/block_diffusion/small.yaml` | `block_diffusion` | `lgt` | `block_causal` | `block_size: 16`, `use_time_cond: true` |
 | `configs/flow_matching/small.yaml` | `flow_matching` | `lgt` | `bidirectional` | `use_time_cond: true` |
+| `configs/block_flow_matching/small.yaml` | `block_flow_matching` | `lgt` | `block_causal` | `block_size: 16`, `fm_schedule: linear`, `use_time_cond: true` ([guide](block_flow_matching.md)) |
 | `configs/mtp/small.yaml` | `mtp` | `transformer` | `causal` | `n_mtp_heads: 5` (stub) |
 | `configs/looped/{nano,small,act,recurrent_depth}.yaml` | `looped` | `looped` | `causal` | `model.loop` ([looped.md](looped.md)) |
 | `configs/looped/{diffusion,block_diffusion}_nano.yaml` | `diffusion`, `block_diffusion` | `looped` | per paradigm | looped backbone under a denoiser |

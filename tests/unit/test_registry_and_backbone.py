@@ -12,6 +12,7 @@ def test_registry_has_all_models():
         "autoregressive",
         "diffusion",
         "block_diffusion",
+        "block_flow_matching",
         "flow_matching",
         "mtp",
     }

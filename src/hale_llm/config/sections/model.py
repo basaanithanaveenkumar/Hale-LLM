@@ -23,6 +23,8 @@ class ModelConfig(StrictModel):
     use_time_cond: bool = False
     block_size: int | None = None
     n_mtp_heads: int = 2
+    # block_flow_matching: kappa schedule of the masking path (linear: kappa = t).
+    fm_schedule: Literal["linear", "cosine"] = "linear"
     arch: Literal["default", "transformer", "lgt", "dit", "looped"] = "default"
     sliding_window: int = 512
     local_global_ratio: int = 5

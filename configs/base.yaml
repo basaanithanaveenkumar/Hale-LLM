@@ -11,6 +11,7 @@ model:
   moe_num_experts: 4
   moe_top_k: 2
   moe_num_shared: 1
+  fm_schedule: linear      # block_flow_matching: linear | cosine masking path
   loop:                    # arch: looped only (docs/looped.md)
     n_loops: 4
     prelude_layers: 0

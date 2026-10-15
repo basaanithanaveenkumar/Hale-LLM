@@ -1,0 +1,27 @@
+# Block flow matching: autoregressive across 16-token blocks, discrete flow matching inside each
+# block (masking path, Euler integration t: 0 -> 1). Same two-stream block-causal layout as
+# block_diffusion/small.yaml; docs/block_flow_matching.md.
+inherits: ../base.yaml
+variant: block_flow_matching
+device: mps
+model:
+  arch: lgt            # lgt | dit | transformer | looped
+  attn_type: block_causal
+  attn_impl: gqa
+  n_kv_heads: 2
+  ffn_type: geglu
+  use_time_cond: true
+  block_size: 16
+  max_length: 128
+  fm_schedule: linear  # linear | cosine
+train:
+  epochs: 2000
+  steps: null
+  batch_size: 28
+  lr: 0.0003
+sample:
+  sampling_steps: 16   # Euler steps per block
+eval:
+  every_n_epochs: 1
+viz:
+  every_n_steps: 50

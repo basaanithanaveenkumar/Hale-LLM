@@ -8,7 +8,7 @@ from hale_llm.training.trainer import train
 
 REPO = Path(__file__).resolve().parents[2]
 
-READY = ["autoregressive", "diffusion", "flow_matching", "block_diffusion"]
+READY = ["autoregressive", "diffusion", "flow_matching", "block_diffusion", "block_flow_matching"]
 STUB = ["mtp"]
 
 
@@ -25,8 +25,8 @@ def test_overfit_loss_collapses(variant, tiny_tokenizer, tmp_path):
     cfg.model.n_heads = 4
     cfg.model.n_layers = 2
     cfg.model.d_ff = 128
-    cfg.model.max_length = 32 if variant != "block_diffusion" else 32
-    if variant == "block_diffusion":
+    cfg.model.max_length = 32
+    if variant in ("block_diffusion", "block_flow_matching"):
         cfg.model.block_size = 8
     cfg.data.overfit_text = "hello world hello world"
     cfg.data.n_overfit_copies = 32
