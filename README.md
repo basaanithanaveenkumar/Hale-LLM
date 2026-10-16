@@ -57,6 +57,7 @@ flowchart TB
 | Project page | [basaanithanaveenkumar.github.io/Hale-LLM](https://basaanithanaveenkumar.github.io/Hale-LLM/) ([source](project-page/index.html)) |
 | Documentation | [`docs/`](docs/README.md) — configuration, core, library, usage |
 | Architecture diagrams | [`docs/architecture.md`](docs/architecture.md) (Mermaid) |
+| Online RL notebook | [`notebooks/rl/01_online_rl.ipynb`](notebooks/rl/01_online_rl.ipynb): online / self-reward RL (GRPO, TTRL, d1) step by step, with animations ([overview](docs/online_rl.md)) |
 | Blog | [Same model, four ways to write](docs/blog/2026-09-28-four-ways-to-write.md) |
 | Claude Code skills | [`.claude/skills/`](.claude/skills) — `hale-llm-dev`, `hale-llm-train`, `hale-llm-add-paradigm`, `hale-publish` |
 

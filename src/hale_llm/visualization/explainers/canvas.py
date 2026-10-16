@@ -20,13 +20,17 @@ from __future__ import annotations
 
 import io
 import math
+import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib
 
-matplotlib.use("Agg")
+# Headless rendering for the CLI and scripts. Inside Jupyter keep the notebook's backend, otherwise
+# importing the explainers would silently stop every inline plot from being shown.
+if "ipykernel" not in sys.modules:
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib import patheffects  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402

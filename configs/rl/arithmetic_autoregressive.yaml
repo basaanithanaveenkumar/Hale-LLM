@@ -1,0 +1,3 @@
+# GRPO with a verifiable reward on the autoregressive (next-token) model.
+inherits: base.yaml
+variant: autoregressive

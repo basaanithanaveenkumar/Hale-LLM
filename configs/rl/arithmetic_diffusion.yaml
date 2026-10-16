@@ -1,0 +1,7 @@
+# diffu-GRPO (d1) on the masked-diffusion model: one-step mean-field log-probs + prompt masking.
+inherits: base.yaml
+variant: diffusion
+sft:
+  steps: 400            # masked-diffusion LMs need a longer warm start than AR on this task
+train:
+  steps: 1500

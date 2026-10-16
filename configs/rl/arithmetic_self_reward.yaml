@@ -1,0 +1,6 @@
+# Label-free self-reward (TTRL-style majority vote): no answers are read during RL.
+inherits: arithmetic_autoregressive.yaml
+reward:
+  type: majority_vote
+train:
+  steps: 600

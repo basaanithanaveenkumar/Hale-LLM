@@ -1,0 +1,31 @@
+# Online RL (GRPO) on the toy arithmetic task. Every other file here `inherits:` this one and
+# overrides only what differs. Loaded by hale_llm.rl.OnlineRLConfig.from_yaml.
+variant: autoregressive
+seed: 0
+model: {d_model: 96, n_heads: 4, n_layers: 3, d_ff: 256}
+task:
+  name: arithmetic
+  max_operand: 9        # a, b in 0..9 -> 100 facts
+  sft_fraction: 0.4     # 40 facts in the supervised warm start; 60 must be found by RL
+sft:
+  steps: 60             # short on purpose: a confident SFT model stops exploring
+  lr: 3.0e-3
+rollout:
+  group_size: 8         # G samples per prompt (the GRPO baseline is their mean reward)
+  prompts_per_step: 16
+  temperature: 1.5      # exploration; at 1.0 most groups have zero reward variance
+  sampling_steps: 2     # diffusion only: denoising steps for a 2-token answer
+grpo:
+  lr: 5.0e-4
+  inner_epochs: 2       # gradient steps per rollout batch (PPO-style reuse, clipped)
+  clip_eps: 0.2
+  kl_coef: 0.02         # beta: KL(pi || pi_ref) to the warm-started policy
+  max_grad_norm: 1.0
+  normalize_std: true   # false = Dr. GRPO
+  prompt_mask_prob: 0.15  # diffusion only: d1 random prompt masking
+reward:
+  type: exact_match     # verifiable reward
+train:
+  steps: 1000
+  eval_every: 50
+  track_prompts: 3
