@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import torch
 
+from hale_llm.exceptions import DataPipelineError
+
 
 def encode_words(tokenizer, words: list[str]) -> tuple[list[int], list[int]]:
     ids: list[int] = []
@@ -26,7 +28,7 @@ def sliding_windows(
     stride_words: int = 10,
 ) -> torch.Tensor:
     if stride_words < 1:
-        raise ValueError(f"stride_words must be >= 1, got {stride_words}")
+        raise DataPipelineError(f"stride_words must be >= 1, got {stride_words}")
     words = text.split()
     if not words:
         return torch.zeros(0, max_length, dtype=torch.long)

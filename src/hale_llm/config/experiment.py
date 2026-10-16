@@ -9,6 +9,7 @@ import yaml
 from loguru import logger
 
 from hale_llm.config.run import RunConfig
+from hale_llm.exceptions import ExperimentNotFoundError
 
 
 def variant_root(cfg: RunConfig) -> Path:
@@ -28,19 +29,29 @@ def latest_run_dir(cfg: RunConfig) -> Path | None:
 
 
 def _copy_source_yamls(source: Path, dest_dir: Path) -> None:
+    """Copy ``source`` and every file it inherits from (``inherits`` / ``_base_``) into ``dest_dir``.
+
+    The run folder then holds the exact YAML files that produced it, next to the resolved
+    ``config.yaml``. Inheritance is a DAG, so the walk is breadth-first with a ``seen`` set: each
+    ancestor is copied once and cycles terminate. ``pkg://`` bases are resolved like the loader does.
+    """
+    from hale_core.config.config_loader import ConfigLoader
+
+    loader = ConfigLoader()
     dest_dir.mkdir(parents=True, exist_ok=True)
     seen: set[Path] = set()
-    path = source.resolve()
-    while path not in seen:
+    queue = [source.resolve()]
+    while queue:
+        path = queue.pop(0)
+        if path in seen or not path.exists():
+            continue
         seen.add(path)
-        if not path.exists():
-            break
         (dest_dir / path.name).write_text(path.read_text())
         raw = yaml.safe_load(path.read_text()) or {}
-        inherits = raw.get("inherits")
-        if not inherits:
-            break
-        path = (path.parent / inherits).resolve()
+        for key in ("inherits", "_base_"):
+            refs = raw.get(key) or []
+            for ref in [refs] if isinstance(refs, str) else refs:
+                queue.append(loader.locate(ref, path.parent))
 
 
 def _dump_resolved_config(cfg: RunConfig, run_dir: Path) -> None:
@@ -94,7 +105,7 @@ def apply_experiment_layout(cfg: RunConfig, *, create: bool = True, name: str | 
     if cfg.experiment.name:
         run_dir = root / cfg.experiment.name
         if not create and not run_dir.exists():
-            raise FileNotFoundError(f"experiment folder not found: {run_dir}")
+            raise ExperimentNotFoundError(f"experiment folder not found: {run_dir}")
         _bind_paths(cfg, run_dir, dump_config=create)
         if create:
             _point_latest(cfg, run_dir)

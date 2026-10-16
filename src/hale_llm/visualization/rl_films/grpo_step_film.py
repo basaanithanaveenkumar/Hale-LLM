@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 
+from hale_llm.exceptions import VisualizationError
 from hale_llm.visualization.explainers.canvas import (
     CYAN,
     FAINT,
@@ -50,7 +51,7 @@ class GRPOStepFilm(RLFilm):
         pseudo_label: str | None = None,
     ) -> None:
         if not (len(completions) == len(rewards) == len(advantages)):
-            raise ValueError("completions, rewards and advantages must have the same length")
+            raise VisualizationError("completions, rewards and advantages must have the same length")
         self.prompt = prompt
         self.completions = list(completions)
         self.rewards = [float(r) for r in rewards]

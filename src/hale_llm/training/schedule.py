@@ -5,9 +5,11 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from hale_core.exceptions import ConfigError
 from loguru import logger
 
 from hale_llm.config.schema import RunConfig
+from hale_llm.exceptions import TrainingError
 
 
 @dataclass(frozen=True)
@@ -18,7 +20,7 @@ class TrainSchedule:
     @classmethod
     def from_config(cls, cfg: RunConfig, n_batches: int) -> TrainSchedule:
         if n_batches < 1:
-            raise RuntimeError("empty dataloader")
+            raise TrainingError("empty dataloader")
         if cfg.train.epochs is not None:
             if cfg.train.steps is not None:
                 logger.warning(
@@ -30,7 +32,7 @@ class TrainSchedule:
             return cls(n_epochs=cfg.train.epochs, total_steps=cfg.train.epochs * n_batches)
         if cfg.train.steps is None:
             logger.error("set train.epochs or train.steps")
-            raise ValueError("set train.epochs or train.steps")
+            raise ConfigError("set train.epochs or train.steps")
         return cls(n_epochs=math.ceil(cfg.train.steps / n_batches), total_steps=cfg.train.steps)
 
 

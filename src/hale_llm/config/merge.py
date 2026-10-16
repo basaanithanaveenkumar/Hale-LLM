@@ -1,15 +1,9 @@
-"""Nested dict merge for YAML inheritance. Strips the `inherits` key."""
+"""Nested dict merge for YAML inheritance (re-export of HaleBlocks' implementation).
 
-from typing import Any
+:func:`deep_merge` drops the inheritance keys (``inherits``, ``_base_``) of the override and honours
+``_delete_: true`` (replace instead of merge); see :class:`hale_core.config.dict_merger.DictMerger`.
+"""
 
+from hale_core.config.merge import deep_merge
 
-def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    out = dict(base)
-    for key, value in override.items():
-        if key == "inherits":
-            continue
-        if isinstance(value, dict) and isinstance(out.get(key), dict):
-            out[key] = deep_merge(out[key], value)
-        else:
-            out[key] = value
-    return out
+__all__ = ["deep_merge"]

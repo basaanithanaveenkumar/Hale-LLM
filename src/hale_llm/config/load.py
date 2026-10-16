@@ -1,34 +1,49 @@
-"""Load and inherit YAML into a validated RunConfig."""
+"""Load a YAML run config (with its inheritance chain) into a validated :class:`RunConfig`."""
+
+from __future__ import annotations
 
 from pathlib import Path
 
-import yaml
+from hale_core.config.config_loader import ConfigLoader
 from loguru import logger
+from pydantic import ValidationError
 
-from hale_llm.config.merge import deep_merge
 from hale_llm.config.run import RunConfig
 
 
 def load_config(path: str | Path) -> RunConfig:
+    """Read ``path``, merge its ``inherits:`` / ``_base_`` ancestors and validate the result.
+
+    Inheritance is resolved by HaleBlocks' :class:`~hale_core.config.config_loader.ConfigLoader`,
+    so chains may be any depth, a file may list several bases (later ones win), ``_delete_: true``
+    replaces a mapping instead of merging into it, and cycles raise a clear error.
+
+    Args:
+        path: the run config, e.g. ``configs/diffusion/small.yaml``.
+
+    Returns:
+        The validated config, with ``experiment.source_yaml`` set to the resolved path.
+
+    Raises:
+        FileNotFoundError: if ``path`` does not exist.
+        hale_core.exceptions.ConfigError: if a base file is missing, unreadable or cyclic.
+        pydantic.ValidationError: if the merged YAML does not match :class:`RunConfig`.
+
+    Example:
+        >>> cfg = load_config("configs/diffusion/small.yaml")  # doctest: +SKIP
+        >>> cfg.variant
+        'diffusion'
+    """
     path = Path(path).resolve()
     logger.debug("loading config from {}", path)
     if not path.exists():
         logger.error("config file not found: {}", path)
         raise FileNotFoundError(path)
-    raw = yaml.safe_load(path.read_text()) or {}
-    if "inherits" in raw:
-        parent = (path.parent / raw["inherits"]).resolve()
-        logger.debug("inheriting from {}", parent)
-        parent_raw = yaml.safe_load(parent.read_text()) or {}
-        if "inherits" in parent_raw:
-            grand = (parent.parent / parent_raw["inherits"]).resolve()
-            grand_raw = yaml.safe_load(grand.read_text()) or {}
-            parent_raw = deep_merge(grand_raw, parent_raw)
-        raw = deep_merge(parent_raw, raw)
+    raw = ConfigLoader().load(path)
     try:
         cfg = RunConfig.model_validate(raw)
-    except Exception:
-        logger.exception("invalid config {}", path)
+    except ValidationError:
+        logger.error("invalid config {}", path)
         raise
     cfg.experiment.source_yaml = str(path)
     logger.info("loaded config variant={} from {}", cfg.variant, path)

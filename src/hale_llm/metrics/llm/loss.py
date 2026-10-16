@@ -1,6 +1,6 @@
 from hale_llm.core.registry import register_metric
-from hale_llm.metrics.llm.common import MeanLossMixin
 from hale_llm.metrics.base import Metric
+from hale_llm.metrics.llm.common import MeanLossMixin
 
 
 @register_metric("loss")

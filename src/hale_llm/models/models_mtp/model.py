@@ -17,6 +17,7 @@ import torch.nn as nn
 from hale_llm.core.backbones import build_backbone
 from hale_llm.core.registry import register_variant
 from hale_llm.dataloader.collate import register_collate
+from hale_llm.exceptions import ModelConfigurationError
 
 
 @register_collate("mtp")
@@ -63,9 +64,9 @@ class MultiTokenPredictionLM(nn.Module):
     def __init__(self, vocab_size: int, cfg) -> None:
         super().__init__()
         if cfg.model.n_mtp_heads < 1:
-            raise ValueError(f"n_mtp_heads must be >= 1, got {cfg.model.n_mtp_heads}")
+            raise ModelConfigurationError(f"n_mtp_heads must be >= 1, got {cfg.model.n_mtp_heads}")
         if cfg.model.attn_type != "causal":
-            raise ValueError(f"mtp is a causal LM; got attn_type={cfg.model.attn_type!r}")
+            raise ModelConfigurationError(f"mtp is a causal LM; got attn_type={cfg.model.attn_type!r}")
         self.n_heads = cfg.model.n_mtp_heads
         # Untied: the shared unembedding serves K heads (hale-mtp loads it with the same flag).
         self.backbone = build_backbone(vocab_size, cfg.model, tie_embeddings=False)

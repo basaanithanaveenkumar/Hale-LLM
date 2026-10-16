@@ -11,6 +11,8 @@ import string
 
 import torch
 
+from hale_llm.exceptions import VisualizationError
+
 PAD, MASK, EOS = "<pad>", "<mask>", "<eos>"
 
 
@@ -35,7 +37,7 @@ class CharTokenizer:
     def encode(self, text: str) -> list[int]:
         unknown = sorted({c for c in text if c not in self.stoi})
         if unknown:
-            raise ValueError(f"characters outside the vocabulary: {unknown}")
+            raise VisualizationError(f"characters outside the vocabulary: {unknown}")
         return [self.stoi[c] for c in text]
 
     def __call__(

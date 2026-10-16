@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from loguru import logger
 from torch.utils.data import DataLoader
 
 from hale_llm.config.schema import RunConfig
@@ -9,7 +10,7 @@ from hale_llm.dataloader.loaders import make_dataloader
 from hale_llm.dataloader.prompts import collect_dataset_passages, dataset_prompt
 from hale_llm.dataloader.sources.overfit import make_overfit_loader, uses_overfit
 from hale_llm.dataloader.tokenizer import setup_tokenizer
-from loguru import logger
+from hale_llm.exceptions import DataPipelineError
 
 
 class DataModule:
@@ -29,7 +30,7 @@ class DataModule:
         cfg = self.cfg
         if uses_overfit(cfg):
             if not cfg.data.overfit_text:
-                raise ValueError("data.source=overfit requires data.overfit_text")
+                raise DataPipelineError("data.source=overfit requires data.overfit_text")
             logger.warning("overfit mode enabled; HuggingFace loader is bypassed")
             logger.debug("overfit_text={!r} copies={}", cfg.data.overfit_text, cfg.data.n_overfit_copies)
             return make_overfit_loader(

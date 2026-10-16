@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 
+from hale_llm.exceptions import VisualizationError
 from hale_llm.visualization.explainers.canvas import (
     CYAN,
     FAINT,
@@ -54,7 +55,7 @@ class PolicyEvolutionFilm(RLFilm):
         tweens: int = 3,
     ) -> None:
         if len(steps) != len(distributions) or not steps:
-            raise ValueError("need one distribution per recorded step")
+            raise VisualizationError("need one distribution per recorded step")
         self.steps = list(steps)
         index = {c: i for i, c in enumerate(candidates)}
         self.bars = []

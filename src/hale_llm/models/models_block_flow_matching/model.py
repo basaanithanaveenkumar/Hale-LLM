@@ -15,6 +15,7 @@ import torch.nn as nn
 from hale_llm.core.backbones import build_backbone
 from hale_llm.core.registry import register_variant
 from hale_llm.dataloader.collate import register_collate
+from hale_llm.exceptions import ModelConfigurationError
 from hale_llm.models.models_block_flow_matching.path import MaskingPath
 
 
@@ -43,14 +44,14 @@ class BlockFlowMatchingLM(nn.Module):
     def __init__(self, vocab_size: int, cfg) -> None:
         super().__init__()
         if cfg.model.attn_type != "block_causal":
-            raise ValueError(
+            raise ModelConfigurationError(
                 f"block_flow_matching needs attn_type: block_causal, got {cfg.model.attn_type!r}"
             )
         if not cfg.model.use_time_cond:
-            raise ValueError("block_flow_matching conditions on the flow time: set use_time_cond")
+            raise ModelConfigurationError("block_flow_matching conditions on the flow time: set use_time_cond")
         block_size = cfg.model.block_size or 16
         if cfg.model.max_length % block_size != 0:
-            raise ValueError(
+            raise ModelConfigurationError(
                 f"max_length {cfg.model.max_length} must be divisible by block_size {block_size}"
             )
         self.backbone = build_backbone(vocab_size, cfg.model, block_size=block_size)

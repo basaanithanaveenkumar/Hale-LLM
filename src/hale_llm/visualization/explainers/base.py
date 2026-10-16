@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import torch
+from hale_core.registry import NamedRegistry
 
 from hale_llm.visualization.explainers.canvas import (
     BLUE,
@@ -47,7 +48,8 @@ CORPUS = (
 )
 SENTENCE = CORPUS[0]
 
-EXPLAINERS: dict[str, type[Explainer]] = {}
+#: variant name -> :class:`Explainer` subclass (one per paradigm in :mod:`hale_llm.models`).
+EXPLAINERS = NamedRegistry("explainer", scope="hale_llm")
 
 
 class Explainer(ABC):
@@ -169,11 +171,28 @@ class Explainer(ABC):
 
 
 def register_explainer(cls: type[Explainer]) -> type[Explainer]:
-    EXPLAINERS[cls.variant] = cls
-    return cls
+    """Register ``cls`` under its :attr:`Explainer.variant` (called at the bottom of each module).
+
+    Args:
+        cls: the explainer class.
+
+    Returns:
+        ``cls`` unchanged.
+
+    Raises:
+        hale_core.exceptions.RegistryError: if the variant already has an explainer.
+    """
+    return EXPLAINERS.add(cls.variant, cls)
 
 
 def get_explainer(variant: str) -> Explainer:
-    if variant not in EXPLAINERS:
-        raise KeyError(f"no explainer for {variant!r}; have {sorted(EXPLAINERS)}")
-    return EXPLAINERS[variant]()
+    """A new explainer instance for ``variant``.
+
+    Args:
+        variant: registered variant name (``"diffusion"``, ``"looped"`` …).
+
+    Raises:
+        hale_core.exceptions.RegistryError: for a variant without an explainer (also a
+            ``KeyError``), listing the registered ones.
+    """
+    return EXPLAINERS.get(variant)()

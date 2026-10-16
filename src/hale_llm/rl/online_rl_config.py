@@ -97,30 +97,25 @@ class OnlineRLConfig(_Section):
     # ------------------------------------------------------------------ loading
     @classmethod
     def from_yaml(cls, path: str | Path) -> OnlineRLConfig:
-        """Load ``path``, resolving ``inherits:`` chains of any depth (child keys win).
+        """Load ``path``, resolving ``inherits:`` / ``_base_`` chains of any depth (child keys win).
+
+        Inheritance is resolved by HaleBlocks' :class:`~hale_core.config.config_loader.ConfigLoader`.
 
         Raises:
-            OnlineRLError: on a missing file or an inheritance cycle.
+            OnlineRLError: on a missing file or an inheritance cycle (the loader's
+                :class:`~hale_core.exceptions.ConfigError` is chained as the cause).
         """
-        return cls.model_validate(cls._resolve(Path(path).resolve(), ()))
+        from hale_core.config.config_loader import ConfigLoader
+        from hale_core.exceptions import ConfigError
 
-    @classmethod
-    def _resolve(cls, path: Path, seen: tuple[Path, ...]) -> dict[str, Any]:
-        import yaml
-
-        from hale_llm.config.merge import deep_merge
-
-        if path in seen:
-            chain = " -> ".join(p.name for p in (*seen, path))
-            raise OnlineRLError(f"config inheritance cycle: {chain}")
-        if not path.exists():
-            raise OnlineRLError(f"config not found: {path}")
-        raw = yaml.safe_load(path.read_text()) or {}
+        try:
+            raw = ConfigLoader().load(Path(path).resolve())
+        except ConfigError as err:
+            raise OnlineRLError(
+                f"cannot load RL config {path} (missing file or inheritance cycle): {err}"
+            ) from err
         logger.debug("rl config {}", path)
-        parent = raw.get("inherits")
-        if parent is None:
-            return raw
-        return deep_merge(cls._resolve((path.parent / parent).resolve(), (*seen, path)), raw)
+        return cls.model_validate(raw)
 
     def with_overrides(self, overrides: dict[str, Any]) -> OnlineRLConfig:
         """A copy with nested ``overrides`` deep-merged in and re-validated."""

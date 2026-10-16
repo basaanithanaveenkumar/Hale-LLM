@@ -8,9 +8,8 @@ from typing import Literal
 import torch
 import torch.distributed as dist
 from loguru import logger
-from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.nn.parallel import DataParallel as DP
-
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 ParallelStrategy = Literal["none", "dp", "ddp", "fsdp"]
 

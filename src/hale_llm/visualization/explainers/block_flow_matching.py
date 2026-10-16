@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import math
+
 import torch
 import torch.nn.functional as F
 
 from hale_llm.visualization.explainers.base import Explainer, register_explainer
 from hale_llm.visualization.explainers.blocks import two_stream_scene
 from hale_llm.visualization.explainers.canvas import MUTED, TEAL, GifWriter, Layout, ease
-from hale_llm.visualization.explainers.masked import Clock, MaskedStep, MaskedTrace, render_masked_generation
+from hale_llm.visualization.explainers.masked import (
+    Clock,
+    MaskedStep,
+    MaskedTrace,
+    render_masked_generation,
+)
 from hale_llm.visualization.explainers.toy import ToyRun
 
 BLOCK = 8

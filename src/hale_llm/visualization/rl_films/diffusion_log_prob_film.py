@@ -6,6 +6,7 @@ from collections.abc import Iterator, Sequence
 
 import torch
 
+from hale_llm.exceptions import VisualizationError
 from hale_llm.visualization.explainers.canvas import CYAN, GOLD, MUTED, ORANGE, PURPLE, Stage
 from hale_llm.visualization.rl_films.masked_view import MaskedView
 from hale_llm.visualization.rl_films.rl_film import RLFilm
@@ -26,7 +27,7 @@ class DiffusionLogProbFilm(RLFilm):
 
     def __init__(self, prompt: str, completion: str, views: Sequence[MaskedView]) -> None:
         if not views:
-            raise ValueError("need at least one masked view")
+            raise VisualizationError("need at least one masked view")
         self.prompt = prompt
         self.completion = completion
         self.views = list(views)

@@ -8,8 +8,8 @@ from loguru import logger
 from hale_llm.config.schema import RunConfig
 from hale_llm.core.registry import get_loss, instantiate_metrics
 from hale_llm.core.tensors import move_batch_to_device
-from hale_llm.metrics.base import MetricContext
 from hale_llm.metrics import llm as _llm_metrics  # noqa: F401
+from hale_llm.metrics.base import MetricContext
 from hale_llm.utils.device import get_device
 
 

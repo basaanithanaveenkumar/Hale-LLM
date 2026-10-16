@@ -18,6 +18,8 @@ from typing import Literal
 
 import torch
 
+from hale_llm.exceptions import ModelConfigurationError
+
 Schedule = Literal["linear", "cosine"]
 
 
@@ -36,7 +38,7 @@ class MaskingPath:
 
     def __post_init__(self) -> None:
         if self.schedule not in ("linear", "cosine"):
-            raise ValueError(f"unknown masking schedule {self.schedule!r}")
+            raise ModelConfigurationError(f"unknown masking schedule {self.schedule!r}")
 
     def kappa(self, t: torch.Tensor | float) -> torch.Tensor | float:
         """Probability that a token is already data at time ``t``."""
@@ -77,7 +79,7 @@ def corrupt_blocks(
     """
     b, n = x1.shape
     if n % block_size != 0:
-        raise ValueError(f"seq_len {n} must be divisible by block_size {block_size}")
+        raise ModelConfigurationError(f"seq_len {n} must be divisible by block_size {block_size}")
     t = path.sample_times(b, n // block_size, x1.device).repeat_interleave(block_size, dim=1)
     is_masked = torch.rand(b, n, device=x1.device) >= path.kappa(t)
     x_t = torch.where(is_masked, torch.full_like(x1, mask_token_id), x1)

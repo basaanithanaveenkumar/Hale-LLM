@@ -5,12 +5,12 @@ Does not import models_block_diffusion — uses the registered sampler + history
 
 from __future__ import annotations
 
-import numpy as np
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+import numpy as np
 import torch
 from loguru import logger
+from matplotlib.patches import Rectangle
 
 from hale_llm.visualization.unmasking import _token_strings
 

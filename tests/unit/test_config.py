@@ -63,3 +63,13 @@ def test_yaml_inherit():
     assert cfg.viz.every_n_epochs is None
     assert cfg.experiment.enabled is True
     assert cfg.experiment.source_yaml.endswith("configs/autoregressive/small.yaml")
+
+
+def test_diffusion_family_yamls_use_the_lgt_backbone():
+    # Repo-specific: the LGT backbone itself is tested in HaleBlocks (tests/unit/test_lgt.py).
+    repo = Path(__file__).resolve().parents[2]
+    for name in ("diffusion", "block_diffusion", "flow_matching"):
+        cfg = load_config(repo / f"configs/{name}/small.yaml")
+        assert cfg.model.arch == "lgt"
+        assert cfg.model.attn_impl == "gqa"
+        assert cfg.model.ffn_type == "geglu"

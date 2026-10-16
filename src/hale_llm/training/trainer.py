@@ -18,6 +18,7 @@ from hale_llm.core.registry import get_loss, get_variant
 from hale_llm.core.tensors import count_parameters, log_model_summary, move_batch_to_device
 from hale_llm.dataloader.data_module import DataModule
 from hale_llm.evaluation.evaluator import Evaluator
+from hale_llm.exceptions import NonFiniteLossError, TrainingError
 from hale_llm.losses.auxiliary import with_auxiliary_losses
 from hale_llm.training.distributed import (
     DistributedConfig,
@@ -118,7 +119,7 @@ class Trainer:
         loader = self.data.train_loader()
         if len(loader) == 0:
             logger.error("empty dataloader; check batch_size / drop_last / dataset size")
-            raise RuntimeError("empty dataloader")
+            raise TrainingError("empty dataloader")
 
         self.schedule = TrainSchedule.from_config(cfg, len(loader))
         n_epochs, total_steps = self.schedule.n_epochs, self.schedule.total_steps
@@ -310,7 +311,7 @@ class Trainer:
                 loss, extras = with_auxiliary_losses(self.model, self.loss_fn(self.model, batch))
                 if not torch.isfinite(loss):
                     logger.error("non-finite loss at step {}: {}", self.global_step, loss.item())
-                    raise FloatingPointError(f"non-finite loss at step {self.global_step}")
+                    raise NonFiniteLossError(self.global_step)
 
                 self.opt.zero_grad(set_to_none=True)
                 loss.backward()

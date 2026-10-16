@@ -18,6 +18,7 @@ import torch
 import torch.nn.functional as F
 
 from hale_llm.core.registry import register_sampler
+from hale_llm.exceptions import GenerationError
 
 
 @dataclass
@@ -53,7 +54,7 @@ def sample_mtp(
     ``model.tokens_per_forward`` the mean tokens emitted per forward.
     """
     if prompt_ids.size(0) != 1:
-        raise ValueError("speculative MTP decoding runs one sequence at a time")
+        raise GenerationError("speculative MTP decoding runs one sequence at a time")
     model.eval()
     pad_id = tokenizer.pad_token_id
     max_len = model.backbone.max_length

@@ -16,6 +16,7 @@ import torch
 from hale_llm.config.run import RunConfig
 from hale_llm.core.registry import get_loss, get_variant
 from hale_llm.dataloader.collate import get_collate
+from hale_llm.exceptions import VisualizationError
 from hale_llm.losses import with_auxiliary_losses
 from hale_llm.visualization.explainers.tokenizer import CharTokenizer
 
@@ -74,7 +75,7 @@ def train_toy(
 
     texts = [texts] if isinstance(texts, str) else list(texts)
     if len({len(t) for t in texts}) != 1:
-        raise ValueError("toy sentences must have equal length (one fixed canvas)")
+        raise VisualizationError("toy sentences must have equal length (one fixed canvas)")
     torch.manual_seed(seed)
     tokenizer = CharTokenizer()
     cfg = toy_config(variant, texts[0], model, sample)

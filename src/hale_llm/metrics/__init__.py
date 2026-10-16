@@ -10,13 +10,11 @@ diffusion   — Diffusion process metrics: NFE, VLB, acceptance rate
 
 from hale_llm.metrics.base import Metric, MetricContext
 
-# LLM metrics
-from hale_llm.metrics.llm import (
-    BitsPerTokenMetric,
-    LossMetric,
-    PerplexityMetric,
-    TokenAccuracyMetric,
-    TopKAccuracyMetric,
+# Diffusion process metrics
+from hale_llm.metrics.diffusion import (
+    AcceptanceRateMetric,
+    NFEMetric,
+    VLBMetric,
 )
 
 # Generation quality metrics
@@ -28,11 +26,13 @@ from hale_llm.metrics.generation import (
     SelfBLEUMetric,
 )
 
-# Diffusion process metrics
-from hale_llm.metrics.diffusion import (
-    AcceptanceRateMetric,
-    NFEMetric,
-    VLBMetric,
+# LLM metrics
+from hale_llm.metrics.llm import (
+    BitsPerTokenMetric,
+    LossMetric,
+    PerplexityMetric,
+    TokenAccuracyMetric,
+    TopKAccuracyMetric,
 )
 
 __all__ = [

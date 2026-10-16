@@ -7,9 +7,9 @@ Block diffusion also draws a light overlay box (no border) on the active block.
 
 from __future__ import annotations
 
-import numpy as np
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 from loguru import logger
 from matplotlib.patches import Rectangle

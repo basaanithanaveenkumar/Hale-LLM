@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from hale_llm.core.backbones import build_backbone
 from hale_llm.core.registry import register_loss, register_sampler, register_variant
 from hale_llm.dataloader.collate import register_collate
+from hale_llm.exceptions import ModelConfigurationError
 from hale_llm.losses import model_token_nll
 
 
@@ -55,7 +56,7 @@ def block_diffusion_loss(model, batch: dict) -> torch.Tensor:
     b, n = x.shape
     bs = model.block_size
     if n % bs != 0:
-        raise ValueError(f"seq_len {n} must be divisible by block_size {bs}")
+        raise ModelConfigurationError(f"seq_len {n} must be divisible by block_size {bs}")
     num_blocks = n // bs
     t_block = torch.rand(b, num_blocks, device=x.device) * (1.0 - model.eps) + model.eps
     t_noised = t_block.repeat_interleave(bs, dim=1)
@@ -88,7 +89,7 @@ def sample_block_diffusion(
     n = model.backbone.max_length
     block_size = model.block_size
     if n % block_size != 0:
-        raise ValueError(f"max_length {n} must be divisible by block_size {block_size}")
+        raise ModelConfigurationError(f"max_length {n} must be divisible by block_size {block_size}")
     num_blocks = n // block_size
     steps = sampling_steps or model.steps_per_block
     bsz = prompt_ids.size(0)

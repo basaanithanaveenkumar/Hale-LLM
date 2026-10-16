@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 
-import hale_llm.models  # noqa: F401  — triggers registry
 from loguru import logger
 
+import hale_llm.models  # noqa: F401  — triggers registry
 from hale_llm.config.experiment import apply_experiment_layout
 from hale_llm.config.schema import load_config
 from hale_llm.training.trainer import train

@@ -37,6 +37,8 @@ from matplotlib.figure import Figure  # noqa: E402
 from matplotlib.patches import Circle, FancyArrowPatch, FancyBboxPatch, Wedge  # noqa: E402
 from PIL import Image  # noqa: E402
 
+from hale_llm.exceptions import VisualizationError
+
 # ---------------------------------------------------------------------------- palette (dark)
 BG = "#0B1220"
 PANEL = "#121B2F"
@@ -403,7 +405,7 @@ class GifWriter:
 
     def save(self, path: str | Path) -> Path:
         if not self.frames:
-            raise ValueError("no frames to save")
+            raise VisualizationError("no frames to save")
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         frames = self._quantized()

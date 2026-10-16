@@ -6,9 +6,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from loguru import logger
-
 from hale_core.deploy.exceptions import ConfigError
+from loguru import logger
 
 #: Repository root when installed in editable / source mode (``src/hale_llm/deploy/adapters``).
 REPO_ROOT = Path(__file__).resolve().parents[4]

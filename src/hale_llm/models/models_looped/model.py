@@ -17,6 +17,7 @@ from hale_core.nn.stacks import LoopSpec, LoopStats, loop_budget
 from hale_llm.core.backbones import build_backbone
 from hale_llm.core.registry import register_variant
 from hale_llm.dataloader.collate import register_collate
+from hale_llm.exceptions import ModelConfigurationError
 
 
 @register_collate("looped")
@@ -50,7 +51,7 @@ class LoopedLM(nn.Module):
     def __init__(self, vocab_size: int, cfg) -> None:
         super().__init__()
         if cfg.model.attn_type != "causal":
-            raise ValueError(
+            raise ModelConfigurationError(
                 f"variant 'looped' is a causal LM; got attn_type={cfg.model.attn_type!r} "
                 "(use arch: looped under a diffusion variant for bidirectional loops)"
             )
