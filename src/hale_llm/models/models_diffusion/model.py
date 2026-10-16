@@ -87,6 +87,8 @@ def sample_diffusion(
         logits[..., mask_id] = -float("inf")
         pred = torch.multinomial(F.softmax(logits, dim=-1).reshape(-1, model.vocab_size), 1).reshape(b, seq)
         p_reveal = ((t_cur - t_next) / t_cur.clamp(min=1e-8)).clamp(0, 1)
+        if i == sampling_steps - 1:
+            p_reveal = torch.ones_like(p_reveal)  # t_next = eps ~ 0: nothing stays masked
         can = x.eq(mask_id)
         can[:, :lp] = False
         do = can & (torch.rand(b, seq, device=device) < p_reveal)

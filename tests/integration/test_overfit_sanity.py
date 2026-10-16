@@ -8,8 +8,14 @@ from hale_llm.training.trainer import train
 
 REPO = Path(__file__).resolve().parents[2]
 
-READY = ["autoregressive", "diffusion", "flow_matching", "block_diffusion", "block_flow_matching"]
-STUB = ["mtp"]
+READY = [
+    "autoregressive",
+    "diffusion",
+    "flow_matching",
+    "block_diffusion",
+    "block_flow_matching",
+    "mtp",
+]
 
 
 @pytest.mark.parametrize("variant", READY)
@@ -41,29 +47,6 @@ def test_overfit_loss_collapses(variant, tiny_tokenizer, tmp_path):
 
     _, _, losses = train(cfg, tokenizer=tiny_tokenizer)
     assert losses[-1] < losses[0] * 0.5, (losses[0], losses[-1])
-
-
-@pytest.mark.parametrize("variant", STUB)
-def test_mtp_stub_runs_a_few_steps(variant, tiny_tokenizer, tmp_path):
-    cfg = load_config(REPO / "configs" / variant / "small.yaml")
-    cfg.train.steps = 5
-    cfg.train.epochs = None
-    cfg.train.checkpoint_path = str(tmp_path / "ckpt.pt")
-    cfg.model.d_model = 64
-    cfg.model.n_heads = 4
-    cfg.model.n_layers = 2
-    cfg.model.d_ff = 128
-    cfg.model.max_length = 32
-    cfg.device = "cpu"
-    cfg.logging.tensorboard = False
-    cfg.logging.log_file = None
-    cfg.logging.level = "WARNING"
-    cfg.train.resume = False
-    cfg.eval.every_n_epochs = None
-    cfg.viz.enabled = False
-    cfg.experiment.enabled = False
-    _, _, losses = train(cfg, tokenizer=tiny_tokenizer)
-    assert losses[-1] > 0
 
 
 @pytest.mark.parametrize("name", ["nano", "act", "recurrent_depth", "diffusion_nano"])
