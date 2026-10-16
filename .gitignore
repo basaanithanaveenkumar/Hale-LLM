@@ -6,6 +6,8 @@ best_checkpoints/
 *.gif
 !assets/
 !assets/*.gif
+!assets/explainers/
+!assets/explainers/*.gif
 .DS_Store
 *.egg-info/
 dist/
