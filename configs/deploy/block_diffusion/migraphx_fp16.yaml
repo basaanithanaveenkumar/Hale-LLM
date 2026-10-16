@@ -1,0 +1,4 @@
+# block_diffusion -> amd/migraphx_fp16 (inherits the packaged HaleBlocks target).
+_base_:
+- pkg://hale_core.deploy/configs/amd/migraphx_fp16.yaml
+- ../_shared/block_diffusion_adapter.yaml

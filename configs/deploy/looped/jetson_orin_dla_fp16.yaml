@@ -1,0 +1,4 @@
+# looped -> nvidia/jetson_orin_dla_fp16 (inherits the packaged HaleBlocks target).
+_base_:
+- pkg://hale_core.deploy/configs/nvidia/jetson_orin_dla_fp16.yaml
+- ../_shared/looped_adapter.yaml

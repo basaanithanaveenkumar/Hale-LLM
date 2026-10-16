@@ -1,0 +1,4 @@
+# diffusion -> nvidia/tensorrt_int8_modelopt (inherits the packaged HaleBlocks target).
+_base_:
+- pkg://hale_core.deploy/configs/nvidia/tensorrt_int8_modelopt.yaml
+- ../_shared/diffusion_adapter.yaml

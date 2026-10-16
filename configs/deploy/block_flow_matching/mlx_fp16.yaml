@@ -1,0 +1,19 @@
+# block_flow_matching -> apple/mlx_fp16 (inherits the packaged HaleBlocks target).
+_base_:
+- pkg://hale_core.deploy/configs/apple/mlx_fp16.yaml
+- ../_shared/block_flow_matching_adapter.yaml
+pipeline:
+- type: MLXConvertStage
+  dtype: float16
+  export_corners:
+  - opt
+  - max
+- type: RuntimeParityStage
+  artifact_kind: mlx_function
+  runtime:
+    type: MLXFunctionSession
+  corners:
+  - opt
+  - max
+  atol: 0.05
+  min_cosine: 0.999

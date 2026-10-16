@@ -1,0 +1,4 @@
+# flow_matching -> nvidia/tensorrt_fp16 (inherits the packaged HaleBlocks target).
+_base_:
+- pkg://hale_core.deploy/configs/nvidia/tensorrt_fp16.yaml
+- ../_shared/flow_matching_adapter.yaml

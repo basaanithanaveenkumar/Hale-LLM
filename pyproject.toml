@@ -37,12 +37,28 @@ flash = [
 ray = ["hale-blocks[ray]"]
 webdataset = ["hale-blocks[webdataset]"]
 distributed = ["hale-blocks[ray,webdataset]"]
+# Deployment (hale-llm-deploy, docs/deploy.md). `deploy` is the portable core (ONNX + ORT);
+# vendor extras add the SDKs that pip can install on their platform. TensorRT engines must be
+# built on the target GPU; MIGraphX ships with ROCm (not pip); the QNN SDK / ExecuTorch QNN
+# backend come from Qualcomm's QAIRT installer.
+deploy = ["onnx>=1.17", "onnxruntime>=1.20", "onnxscript>=0.2", "safetensors>=0.4"]
+deploy-nvidia = [
+    "hale-llm[deploy]",
+    "tensorrt>=10.0; sys_platform == 'linux'",
+    "nvidia-modelopt[onnx,torch]>=0.40; sys_platform == 'linux'",
+    "tensorrt-llm>=1.2; sys_platform == 'linux'",
+]
+deploy-apple = ["hale-llm[deploy]", "mlx>=0.29; sys_platform == 'darwin'", "mlx-lm>=0.28; sys_platform == 'darwin'"]
+deploy-amd = ["hale-llm[deploy]", "amd-quark>=0.10"]
+deploy-qualcomm = ["hale-llm[deploy]", "qai-hub>=0.30"]
 
 [project.scripts]
 hale-llm-train = "hale_llm.cli.train:main"
 hale-llm-sample = "hale_llm.cli.sample:main"
 hale-llm-eval = "hale_llm.cli.eval:main"
 hale-llm-viz = "hale_llm.cli.visualize:main"
+hale-llm-explain = "hale_llm.cli.explain:main"
+hale-llm-deploy = "hale_llm.deploy.deploy_cli:main"
 
 [tool.uv.sources]
 hale-blocks = { git = "https://github.com/basaanithanaveenkumar/HaleBlocks.git" }

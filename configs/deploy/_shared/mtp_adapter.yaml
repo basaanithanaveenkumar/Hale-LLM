@@ -1,0 +1,13 @@
+# mtp: production adapter (small model). Set `checkpoint` to the trainer's last.pt;
+# vocab_size 50258 = GPT-2 + the [MASK] token added by setup_tokenizer (read from the
+# checkpoint when one is given).
+name: mtp_small
+custom_imports:
+- hale_llm.deploy
+adapter:
+  type: hale_llm.MultiTokenPredictionLMAdapter
+  config: configs/mtp/small.yaml
+  checkpoint: null
+  vocab_size: 50258
+  max_batch: 8
+  opt_seq: 64

@@ -1,0 +1,17 @@
+# CI (Apple Silicon): tiny looped -> MLX fp32 -> parity.
+_base_:
+- pkg://hale_core.deploy/configs/apple/mlx_fp32.yaml
+- ../_shared/tiny/looped_adapter.yaml
+pipeline:
+- type: MLXConvertStage
+  dtype: float32
+  export_corners: &id001
+  - min
+  - opt
+  - max
+- type: RuntimeParityStage
+  artifact_kind: mlx_function
+  runtime:
+    type: MLXFunctionSession
+  corners: *id001
+  atol: 0.0001

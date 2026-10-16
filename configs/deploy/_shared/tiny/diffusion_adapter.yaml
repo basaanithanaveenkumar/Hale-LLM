@@ -1,0 +1,21 @@
+# diffusion: CI-sized model (1 layer, d_model 32, vocab 128).
+name: diffusion_tiny
+custom_imports:
+- hale_llm.deploy
+calibration:
+  type: RandomCalibrationSource
+  num_batches: 2
+adapter:
+  type: hale_llm.MaskedDiffusionLMAdapter
+  config: configs/diffusion/nano.yaml
+  vocab_size: 128
+  max_batch: 2
+  opt_seq: 8
+  overrides:
+    model:
+      d_model: 32
+      n_heads: 2
+      n_layers: 1
+      d_ff: 64
+      max_length: 32
+      dropout: 0.0

@@ -1,0 +1,16 @@
+# CI (Apple Silicon): tiny block_flow_matching -> MLX fp32 -> parity.
+_base_:
+- pkg://hale_core.deploy/configs/apple/mlx_fp32.yaml
+- ../_shared/tiny/block_flow_matching_adapter.yaml
+pipeline:
+- type: MLXConvertStage
+  dtype: float32
+  export_corners: &id001
+  - opt
+  - max
+- type: RuntimeParityStage
+  artifact_kind: mlx_function
+  runtime:
+    type: MLXFunctionSession
+  corners: *id001
+  atol: 0.0001

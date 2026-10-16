@@ -1,0 +1,4 @@
+# mtp -> qualcomm/executorch_qnn_16a8w (inherits the packaged HaleBlocks target).
+_base_:
+- pkg://hale_core.deploy/configs/qualcomm/executorch_qnn_16a8w.yaml
+- ../_shared/mtp_adapter.yaml

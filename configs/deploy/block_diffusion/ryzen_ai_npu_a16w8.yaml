@@ -1,0 +1,4 @@
+# block_diffusion -> amd/ryzen_ai_npu_a16w8 (inherits the packaged HaleBlocks target).
+_base_:
+- pkg://hale_core.deploy/configs/amd/ryzen_ai_npu_a16w8.yaml
+- ../_shared/block_diffusion_adapter.yaml

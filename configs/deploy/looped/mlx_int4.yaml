@@ -1,0 +1,4 @@
+# looped -> apple/mlx_int4 (inherits the packaged HaleBlocks target).
+_base_:
+- pkg://hale_core.deploy/configs/apple/mlx_int4.yaml
+- ../_shared/looped_adapter.yaml

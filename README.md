@@ -204,6 +204,12 @@ Public facades stay the same: `train()`, `evaluate()`, `load_session()`.
 
 ---
 
+## Deployment
+
+Export any variant to TensorRT (data center, RTX, Jetson), MLX (Mac), AMD (MIGraphX, Ryzen AI
+NPU) and Qualcomm (AI Hub, ExecuTorch QNN) with `hale-llm-deploy run configs/deploy/<variant>/<target>.yaml`.
+Adapters, per-variant contracts, supported targets and research notes: [docs/deploy.md](docs/deploy.md).
+
 ## Tests
 
 ```bash

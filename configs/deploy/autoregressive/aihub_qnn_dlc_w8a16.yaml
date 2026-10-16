@@ -1,0 +1,4 @@
+# autoregressive -> qualcomm/aihub_qnn_dlc_w8a16 (inherits the packaged HaleBlocks target).
+_base_:
+- pkg://hale_core.deploy/configs/qualcomm/aihub_qnn_dlc_w8a16.yaml
+- ../_shared/autoregressive_adapter.yaml

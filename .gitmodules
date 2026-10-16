@@ -48,3 +48,4 @@
 [submodule "ext_pkgs/executorch"]
 	path = ext_pkgs/executorch
 	url = https://github.com/pytorch/executorch.git
+	shallow = true

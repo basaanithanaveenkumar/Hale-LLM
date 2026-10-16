@@ -1,0 +1,4 @@
+# CI: tiny block_flow_matching -> ONNX -> ONNX Runtime parity at min/opt/max.
+_base_:
+- pkg://hale_core.deploy/configs/_base_/onnx_reference.yaml
+- ../_shared/tiny/block_flow_matching_adapter.yaml
