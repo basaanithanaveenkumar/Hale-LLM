@@ -4,7 +4,7 @@ import torch
 
 from hale_llm.core.registry import register_metric
 from hale_llm.metrics.base import Metric, MetricContext
-from hale_llm.models.models_diffusion.model import _corrupt
+from hale_llm.models.models_diffusion.loss import _corrupt
 
 
 @register_metric("masked_accuracy", variants=("diffusion",))

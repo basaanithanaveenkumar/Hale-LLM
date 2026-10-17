@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import torch
+
 from hale_llm.core.registry import register_loss
 from hale_llm.losses import model_token_nll
 
