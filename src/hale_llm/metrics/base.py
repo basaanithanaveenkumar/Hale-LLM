@@ -1,35 +1,10 @@
-"""ABC for metrics. Implementations live in hale_llm.metrics.general and models_*/metrics.py."""
+"""Backward-compatible home of the metric base types.
 
-from __future__ import annotations
+:class:`Metric` lives in :mod:`hale_llm.metrics.metric` and :class:`MetricContext` in
+:mod:`hale_llm.metrics.metric_context`; both are re-exported here for existing imports.
+"""
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any
+from hale_llm.metrics.metric import Metric
+from hale_llm.metrics.metric_context import MetricContext
 
-import torch
-from torch import nn
-
-
-@dataclass
-class MetricContext:
-    model: nn.Module
-    batch: dict[str, Any]
-    loss: torch.Tensor
-    variant: str
-
-
-class Metric(ABC):
-    """Accumulate over an eval loader, then `compute()` a dict of scalar names."""
-
-    metric_name: str = ""
-
-    def reset(self) -> None:
-        return
-
-    @abstractmethod
-    def update(self, ctx: MetricContext) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
-    def compute(self) -> dict[str, float]:
-        raise NotImplementedError
+__all__ = ["Metric", "MetricContext"]

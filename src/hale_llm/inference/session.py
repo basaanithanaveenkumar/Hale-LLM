@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-import torch
 from hale_core.nn.stacks import loop_budget
 from loguru import logger
 from torch import nn
@@ -16,15 +15,8 @@ from hale_llm.core.registry import get_sampler, get_variant
 from hale_llm.core.tensors import log_model_summary
 from hale_llm.dataloader.tokenizer import setup_tokenizer
 from hale_llm.inference.encode import encode_prompt
+from hale_llm.inference.generation_result import GenerationResult  # noqa: F401 - re-export
 from hale_llm.utils.device import get_device
-
-
-@dataclass
-class GenerationResult:
-    token_ids: torch.Tensor
-    text: str
-    prompt: str
-    history: list | None = None
 
 
 @dataclass

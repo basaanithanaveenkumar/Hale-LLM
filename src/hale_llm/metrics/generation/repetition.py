@@ -25,8 +25,6 @@ total bigrams = 8, unique = 6  →  rep_2 = 1 - 6/8 = 0.25
 
 from __future__ import annotations
 
-from collections import Counter
-
 from hale_llm.core.registry import register_metric
 from hale_llm.metrics.base import Metric, MetricContext
 

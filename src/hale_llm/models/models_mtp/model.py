@@ -18,6 +18,7 @@ from hale_llm.core.backbones import build_backbone
 from hale_llm.core.registry import register_variant
 from hale_llm.dataloader.collate import register_collate
 from hale_llm.exceptions import ModelConfigurationError
+from hale_llm.models.models_mtp.mtp_head import MTPHead
 
 
 @register_collate("mtp")
@@ -30,27 +31,6 @@ def collate_mtp(input_ids: torch.Tensor, tokenizer, **_) -> dict:
         "pad_token_id": pad_id,
         "labels": input_ids,
     }
-
-
-class MTPHead(nn.Module):
-    """Extra prediction head: pre-norm residual MLP on the trunk state, then a LayerNorm.
-
-    The output goes through the backbone's (shared) LM head, so a head adds ``O(d * d_ff)``
-    parameters instead of a vocabulary-sized matrix.
-    """
-
-    def __init__(self, d_model: int, d_ff: int, dropout: float = 0.0) -> None:
-        super().__init__()
-        self.norm_in = nn.LayerNorm(d_model)
-        self.mlp = nn.Sequential(
-            nn.Linear(d_model, d_ff), nn.GELU(), nn.Dropout(dropout), nn.Linear(d_ff, d_model)
-        )
-        self.norm_out = nn.LayerNorm(d_model)
-        nn.init.zeros_(self.mlp[-1].weight)  # start as the identity: every head = next-token head
-        nn.init.zeros_(self.mlp[-1].bias)
-
-    def forward(self, hidden: torch.Tensor) -> torch.Tensor:
-        return self.norm_out(hidden + self.mlp(self.norm_in(hidden)))
 
 
 @register_variant("mtp")

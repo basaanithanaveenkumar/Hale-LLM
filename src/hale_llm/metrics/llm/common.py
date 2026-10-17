@@ -1,4 +1,4 @@
-from hale_llm.metrics.base import Metric, MetricContext
+from hale_llm.metrics.base import MetricContext
 
 
 class MeanLossMixin:
