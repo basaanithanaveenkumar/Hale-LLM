@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import torch
 
 from hale_llm.models.models_mtp.loss import head_losses
-from hale_llm.models.models_mtp.sample import SpeculativeStep, sample_mtp
+from hale_llm.models.models_mtp.sample import sample_mtp
 from hale_llm.visualization.explainers.base import Explainer, register_explainer
 from hale_llm.visualization.explainers.canvas import (
     CYAN,
@@ -27,17 +25,11 @@ from hale_llm.visualization.explainers.canvas import (
     pop,
 )
 from hale_llm.visualization.explainers.toy import ToyRun
+from hale_llm.visualization.explainers.traces.mtp_trace import MTPTrace  # noqa: F401 - re-export
 
 HEADS = 4
 #: Head rows of the training scene (y of each head's target row).
 HEAD_ROWS = (27.5, 22.5, 17.5, 12.5)
-
-
-@dataclass
-class MTPTrace:
-    ids: torch.Tensor
-    steps: list[SpeculativeStep]
-    tokens_per_forward: float
 
 
 class MTPExplainer(Explainer):

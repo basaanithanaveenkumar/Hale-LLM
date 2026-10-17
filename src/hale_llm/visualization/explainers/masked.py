@@ -11,7 +11,6 @@ structure. :func:`corruption_scene` animates the training corruption and the den
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
 
 import torch
 
@@ -31,60 +30,17 @@ from hale_llm.visualization.explainers.canvas import (
     lerp,
     pop,
 )
+from hale_llm.visualization.explainers.clock import Clock  # noqa: F401 - re-export
 from hale_llm.visualization.explainers.toy import ToyRun
+from hale_llm.visualization.explainers.traces.masked_step import (
+    MaskedStep,  # noqa: F401 - re-export
+)
+from hale_llm.visualization.explainers.traces.masked_trace import (
+    MaskedTrace,  # noqa: F401 - re-export
+)
 
 #: Mini-plot of the schedule, between the model box and the counter.
 SCHEDULE_BOX = (27.0, 5.5, 60.0, 22.5)
-
-
-@dataclass
-class MaskedStep:
-    """One denoising / integration step.
-
-    Attributes:
-        t_from / t_to: time before and after the step.
-        p_reveal: probability that a masked position is revealed in this step.
-        pred: the sampled prediction at every position.
-        conf: the model's probability of that prediction at every position.
-        revealed: positions revealed in this step.
-        x: the canvas after the step.
-        block: active block (block variants) or ``None``.
-        final_fill: the step is the greedy clean-up pass at the end of a block.
-    """
-
-    t_from: float
-    t_to: float
-    p_reveal: float
-    pred: list[int]
-    conf: list[float]
-    revealed: set[int]
-    x: list[int]
-    block: int | None = None
-    final_fill: bool = False
-
-
-@dataclass
-class MaskedTrace:
-    ids: torch.Tensor
-    steps: list[MaskedStep] = field(default_factory=list)
-
-
-@dataclass(frozen=True)
-class Clock:
-    """How a paradigm's time is drawn in the schedule mini-plot.
-
-    Attributes:
-        fn: plotted curve over ``t ∈ [0, 1]``.
-        title: what the curve is.
-        reverse: time runs 1 → 0 (diffusion) - the axis is drawn right to left so progress
-            always moves left to right.
-        extra: optional dashed comparison curve and its label.
-    """
-
-    fn: Callable[[float], float]
-    title: str
-    reverse: bool = False
-    extra: tuple[Callable[[float], float], str] | None = None
 
 
 # ---------------------------------------------------------------------------- training scene

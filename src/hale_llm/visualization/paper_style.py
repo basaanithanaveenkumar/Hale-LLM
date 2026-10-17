@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
 
 import matplotlib.animation as animation
@@ -11,6 +10,9 @@ import numpy as np
 import torch
 from loguru import logger
 from matplotlib.patches import FancyBboxPatch
+
+from hale_llm.visualization.step_row import StepRow  # noqa: F401 - re-export
+from hale_llm.visualization.token_span import TokenSpan  # noqa: F401 - re-export
 
 BG = "#F7F6F2"
 TEXT_COLOR = "#2C3338"
@@ -35,22 +37,6 @@ CHAR_W = 0.0076
 FONTSIZE = 10
 MAX_X = 0.98
 ROW_WRAP_DY = 0.11
-
-
-@dataclass
-class TokenSpan:
-    text: str
-    highlight: bool = False
-    muted: bool = False
-    prompt: bool = False
-
-
-@dataclass
-class StepRow:
-    tokens: list[TokenSpan] = field(default_factory=list)
-    # kept so older tests that pass text= still construct
-    text: str = ""
-    spans: list[tuple[int, int]] = field(default_factory=list)
 
 
 def _highlight_mode(variant: str) -> str:

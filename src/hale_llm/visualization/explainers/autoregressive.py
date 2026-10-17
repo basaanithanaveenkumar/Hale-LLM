@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
 import torch
 import torch.nn.functional as F
 
@@ -20,23 +18,8 @@ from hale_llm.visualization.explainers.canvas import (
 )
 from hale_llm.visualization.explainers.sequential import render_next_token
 from hale_llm.visualization.explainers.toy import ToyRun
-
-
-@dataclass
-class ARStep:
-    """One decoding step: the top-k next-token distribution, the sampled token, attention."""
-
-    top_ids: list[int]
-    top_probs: list[float]
-    chosen: int
-    chosen_prob: float
-    attention: list[float] | None = None  # last layer, head-averaged, query = last position
-
-
-@dataclass
-class ARTrace:
-    ids: torch.Tensor
-    steps: list[ARStep] = field(default_factory=list)
+from hale_llm.visualization.explainers.traces.ar_step import ARStep  # noqa: F401 - re-export
+from hale_llm.visualization.explainers.traces.ar_trace import ARTrace  # noqa: F401 - re-export
 
 
 def last_layer_attention(model, x: torch.Tensor) -> list[float] | None:

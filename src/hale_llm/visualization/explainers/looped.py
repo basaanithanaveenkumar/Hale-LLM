@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
 import torch
 import torch.nn.functional as F
 
@@ -24,35 +22,15 @@ from hale_llm.visualization.explainers.canvas import (
 )
 from hale_llm.visualization.explainers.sequential import render_next_token
 from hale_llm.visualization.explainers.toy import ToyRun
+from hale_llm.visualization.explainers.traces.loop_gen_step import (
+    LoopGenStep,  # noqa: F401 - re-export
+)
+from hale_llm.visualization.explainers.traces.loop_pass import LoopPass  # noqa: F401 - re-export
+from hale_llm.visualization.explainers.traces.looped_trace import (
+    LoopedTrace,  # noqa: F401 - re-export
+)
 
 N_LOOPS = 6
-
-
-@dataclass
-class LoopPass:
-    """State of the slow-motion forward after one pass of the shared block."""
-
-    lens_ids: list[int]  # logit lens top-5 for the next token
-    lens_probs: list[float]
-    halting: list[float]  # cumulative ACT halting mass per token
-    running: list[bool]
-    change: list[float]  # |h_t - h_{t-1}| / |h_{t-1}| per token
-
-
-@dataclass
-class LoopGenStep:
-    top_ids: list[int]
-    top_probs: list[float]
-    chosen: int
-    loops: int  # passes the forward ran
-    updates: float  # N(i) of the newest position
-
-
-@dataclass
-class LoopedTrace:
-    ids: torch.Tensor
-    passes: list[LoopPass] = field(default_factory=list)
-    steps: list[LoopGenStep] = field(default_factory=list)
 
 
 class LoopedExplainer(Explainer):
