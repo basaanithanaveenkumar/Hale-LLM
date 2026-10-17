@@ -54,6 +54,11 @@ class HaleLLMAdapter(ModelAdapter):
     # ------------------------------------------------------------------ config / model
     @cached_property
     def run_config(self):
+        """The resolved, validated run config (overrides applied).
+
+        Raises:
+            hale_core.exceptions.ConfigError: if the YAML's ``variant`` is not this adapter's.
+        """
         cfg = self.resolver.load()
         if cfg.variant != self.variant:
             raise ConfigError(f"{type(self).__name__} deploys variant {self.variant!r}, but "
@@ -62,6 +67,11 @@ class HaleLLMAdapter(ModelAdapter):
 
     @cached_property
     def vocab_size(self) -> int:
+        """Vocabulary size: explicit argument, then checkpoint metadata, then the offline tokenizer.
+
+        Raises:
+            hale_core.exceptions.ConfigError: if none of the three is available.
+        """
         if self._vocab_size is not None:
             return int(self._vocab_size)
         if self.checkpoint:
@@ -76,9 +86,11 @@ class HaleLLMAdapter(ModelAdapter):
 
     @property
     def max_length(self) -> int:
+        """``model.max_length`` of the run config (the largest exportable sequence)."""
         return int(self.run_config.model.max_length)
 
     def build_model(self) -> nn.Module:
+        """Instantiate the registered variant with the resolved config and vocabulary."""
         import hale_llm.models  # noqa: F401 - registers the variants
         from hale_llm.core.registry import get_variant
 
@@ -92,9 +104,11 @@ class HaleLLMAdapter(ModelAdapter):
         raise NotImplementedError
 
     def token_spec(self, name: str) -> dict[str, Any]:
+        """Spec of an int64 ``[batch, seq]`` token input called ``name`` with values in ``[0, vocab)``."""
         return {"name": name, "shape": ["batch", "seq"], "dtype": "int64", "value_range": [0, self.vocab_size]}
 
     def default_signature(self) -> IOSignature:
+        """Export signature: dynamic batch ``1…max_batch``; sequence dynamic or pinned to ``max_length``."""
         seq_max = self.max_length
         seq_opt = min(self.opt_seq, seq_max)
         seq = [1, seq_opt, seq_max] if self.dynamic_seq else seq_max
@@ -107,6 +121,10 @@ class HaleLLMAdapter(ModelAdapter):
         return {"input_ids": token_ids}
 
     def calibration_batches(self, num_batches: int) -> Iterator[dict[str, torch.Tensor]] | None:
+        """``num_batches`` real-text calibration inputs, or ``None`` when the tokenizer is not cached.
+
+        The pipeline then falls back to random calibration data.
+        """
         sig = self.signature()
         seq = sig.dims["seq"].opt
         corpus = CalibrationCorpus(self.run_config.data.tokenizer_name)

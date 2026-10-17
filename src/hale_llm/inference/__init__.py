@@ -1,3 +1,5 @@
+"""Inference: load a checkpointed variant and sample from it with its registered sampler."""
+
 from hale_llm.inference.encode import encode_prompt
 from hale_llm.inference.generate import generate
 from hale_llm.inference.session import (

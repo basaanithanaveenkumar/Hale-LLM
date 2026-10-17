@@ -1,3 +1,5 @@
+"""Plain per-token cross-entropy (registered as ``ce``)."""
+
 from __future__ import annotations
 
 import torch
@@ -14,4 +16,5 @@ def cross_entropy_token_loss(
     ignore_index: int = -100,
     **_,
 ) -> torch.Tensor:
+    """Unreduced cross-entropy ``(B, L)``; positions equal to ``ignore_index`` give 0."""
     return per_token_cross_entropy(logits, targets, ignore_index=ignore_index)

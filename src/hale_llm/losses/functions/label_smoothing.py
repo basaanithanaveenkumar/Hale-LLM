@@ -1,3 +1,5 @@
+"""Label-smoothed cross-entropy, registered as ``label_smoothing``."""
+
 from __future__ import annotations
 
 import torch
@@ -15,6 +17,7 @@ def label_smoothing_token_loss(
     label_smoothing: float = 0.1,
     **_,
 ) -> torch.Tensor:
+    """Unreduced cross-entropy against targets smoothed by ``label_smoothing``."""
     return per_token_cross_entropy(
         logits, targets, ignore_index=ignore_index, label_smoothing=label_smoothing
     )

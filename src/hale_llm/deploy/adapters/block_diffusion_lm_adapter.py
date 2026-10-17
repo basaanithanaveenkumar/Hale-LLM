@@ -28,11 +28,13 @@ class BlockDiffusionLMAdapter(HaleLLMAdapter):
         super().__init__(config, dynamic_seq=dynamic_seq, **kwargs)
 
     def signature_inputs(self) -> list[dict[str, Any]]:
+        """Clean tokens, noised tokens and the per-position noise level ``t_noised`` in [0, 1]."""
         clean, noised, time = self.stream_names
         return [self.token_spec(clean), self.token_spec(noised),
                 {"name": time, "shape": ["batch", "seq"], "dtype": "float32", "value_range": [0.0, 1.0]}]
 
     def forward_for_export(self, model: nn.Module, inputs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        """Two-stream block-causal forward: logits for the noised stream."""
         clean, noised, time = self.stream_names
         return {"logits": model({"x_clean": inputs[clean], "x_noised": inputs[noised], "t_noised": inputs[time]})}
 

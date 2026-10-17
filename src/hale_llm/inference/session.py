@@ -21,6 +21,10 @@ from hale_llm.utils.device import get_device
 
 @dataclass
 class InferenceSession:
+    """A model, its tokenizer and config on one device, ready to sample.
+
+    Build it with :func:`load_session` (from a checkpoint) or :func:`session_from_model`.
+    """
     model: nn.Module
     tokenizer: Any
     cfg: RunConfig
@@ -71,6 +75,7 @@ class InferenceSession:
 
 
 def session_from_model(model: nn.Module, tokenizer, cfg: RunConfig, device: str | None = None) -> InferenceSession:
+    """Wrap an in-memory model (e.g. during training) as an :class:`InferenceSession`."""
     device = device or get_device(cfg.device)
     return InferenceSession(model=model.to(device), tokenizer=tokenizer, cfg=cfg, device=device)
 

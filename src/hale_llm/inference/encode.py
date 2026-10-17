@@ -9,6 +9,11 @@ from torch import nn
 
 
 def encode_prompt(tokenizer, prompt: str, model: nn.Module, device: str) -> torch.Tensor:
+    """Tokenise ``prompt`` (no special tokens), truncated to the backbone's ``max_length``.
+
+    Returns:
+        ``(1, L)`` token ids on ``device``.
+    """
     encode_kw: dict[str, Any] = {
         "return_tensors": "pt",
         "add_special_tokens": False,

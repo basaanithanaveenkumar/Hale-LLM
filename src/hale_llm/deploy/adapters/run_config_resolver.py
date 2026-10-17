@@ -32,6 +32,11 @@ class RunConfigResolver:
 
     @staticmethod
     def locate(path: str) -> Path:
+        """Resolve ``path`` relative to the cwd, then the repo root.
+
+        Raises:
+            hale_core.exceptions.ConfigError: if neither exists.
+        """
         for candidate in (Path(path).expanduser(), REPO_ROOT / path):
             if candidate.is_file():
                 return candidate.resolve()

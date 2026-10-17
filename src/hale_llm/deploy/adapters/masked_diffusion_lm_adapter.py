@@ -33,13 +33,16 @@ class MaskedDiffusionLMAdapter(HaleLLMAdapter):
         super().__init__(config, dynamic_seq=dynamic_seq, **kwargs)
 
     def signature_inputs(self) -> list[dict[str, Any]]:
+        """Noisy tokens ``x_t [batch, seq]`` and diffusion time ``t [batch]`` in ``[1e-3, 1]``."""
         return [self.token_spec(self.tokens_name),
                 {"name": self.time_name, "shape": ["batch"], "dtype": "float32", "value_range": [1e-3, 1.0]}]
 
     def forward_for_export(self, model: nn.Module, inputs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        """One denoising step: ``{'logits': [B, T, V]}`` for every position."""
         return {"logits": model({"x_t": inputs[self.tokens_name], "t": inputs[self.time_name]})}
 
     def calibration_inputs(self, token_ids: torch.Tensor) -> dict[str, torch.Tensor]:
+        """Real text with a random ``t`` per row and that fraction of tokens masked."""
         mask_id = self.vocab_size - 1  # setup_tokenizer appends [MASK] as the last token
         t = torch.rand(token_ids.size(0)).clamp(0.05, 0.95)
         masked = torch.rand(token_ids.shape) < t[:, None]

@@ -1,3 +1,5 @@
+"""Focal loss (Lin et al., 2017), registered as ``focal``."""
+
 from __future__ import annotations
 
 import torch

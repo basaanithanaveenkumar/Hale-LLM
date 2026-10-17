@@ -31,4 +31,5 @@ class HaleLLMDeployCLI(DeployCLI):
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Entry point of ``hale-llm-deploy``; returns the process exit code."""
     return HaleLLMDeployCLI().main(argv)

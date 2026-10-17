@@ -10,6 +10,7 @@ from hale_llm.losses.registry import get_token_loss
 
 
 def loss_settings(model) -> dict:
+    """Loss type and hyper-parameters from ``model.cfg.train`` (cross-entropy defaults without a config)."""
     train = getattr(getattr(model, "cfg", None), "train", None)
     if train is None:
         return {"loss_type": "ce", "focal_gamma": 2.0, "focal_alpha": 1.0, "label_smoothing": 0.1}
@@ -37,6 +38,11 @@ def token_nll(
 
 
 def model_token_nll(model, logits: torch.Tensor, targets: torch.Tensor, **kwargs) -> torch.Tensor:
+    """Per-token loss using the model's configured ``train.loss_type`` and its settings.
+
+    Explicit ``kwargs`` win over the configured settings; variant losses call this so a YAML
+    switch (``loss_type: focal``) changes every variant's objective.
+    """
     settings = loss_settings(model)
     kind = settings.pop("loss_type")
     kwargs.setdefault("loss_type", kind)

@@ -14,6 +14,12 @@ from hale_llm.utils.device import get_device
 
 
 class Evaluator:
+    """Runs the metrics named in ``eval.metrics`` (resolved per variant) over a loader.
+
+    Args:
+        cfg: the run config.
+        device: target device (default: ``cfg.device`` resolution).
+    """
     def __init__(self, cfg: RunConfig, device: str | None = None) -> None:
         self.cfg = cfg
         self.device = device or get_device(cfg.device)
@@ -21,6 +27,13 @@ class Evaluator:
 
     @torch.no_grad()
     def run(self, model, loader) -> dict[str, float]:
+        """Evaluate ``model`` on up to ``eval.max_batches`` batches of ``loader``.
+
+        The model is put in eval mode for the pass and back in train mode afterwards.
+
+        Returns:
+            ``{metric_name: value}`` merged over all metrics (empty if none apply to the variant).
+        """
         metric_objs = instantiate_metrics(list(self.cfg.eval.metrics), self.cfg.variant)
         if not metric_objs:
             logger.warning("no metrics instantiated for variant={}", self.cfg.variant)
@@ -57,4 +70,5 @@ class Evaluator:
 
 
 def evaluate(model, cfg, loader) -> dict[str, float]:
+    """Functional shortcut for ``Evaluator(cfg).run(model, loader)``."""
     return Evaluator(cfg).run(model, loader)

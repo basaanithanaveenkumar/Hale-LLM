@@ -1,3 +1,5 @@
+"""Evaluation: run the registered metrics of a variant over a validation loader."""
+
 from hale_llm.evaluation.evaluator import Evaluator, evaluate
 from hale_llm.metrics import Metric, MetricContext
 

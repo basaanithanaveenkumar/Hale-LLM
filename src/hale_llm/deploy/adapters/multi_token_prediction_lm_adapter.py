@@ -25,16 +25,20 @@ class MultiTokenPredictionLMAdapter(HaleLLMAdapter):
 
     @cached_property
     def head_names(self) -> tuple[str, ...]:
+        """``logits`` plus ``draft_logits_1 … draft_logits_{K-1}`` for ``K = n_mtp_heads``."""
         k = int(self.run_config.model.n_mtp_heads)
         return ("logits", *(f"draft_logits_{i}" for i in range(1, k)))
 
     @property
     def outputs(self) -> tuple[str, ...]:  # type: ignore[override] - depends on the config
+        """The exported output names (one per MTP head)."""
         return self.head_names
 
     def signature_inputs(self) -> list[dict[str, Any]]:
+        """One ``input_ids [batch, seq]`` int64 input."""
         return [self.token_spec("input_ids")]
 
     def forward_for_export(self, model: nn.Module, inputs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        """All K head distributions from one forward, keyed by :attr:`head_names`."""
         heads = model({"input_ids": inputs["input_ids"]})
         return dict(zip(self.head_names, heads, strict=True))

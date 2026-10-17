@@ -13,6 +13,7 @@ def per_token_cross_entropy(
     ignore_index: int = -100,
     label_smoothing: float = 0.0,
 ) -> torch.Tensor:
+    """Unreduced cross-entropy with the shape of ``targets`` (``ignore_index`` positions are 0)."""
     return F.cross_entropy(
         logits.reshape(-1, logits.size(-1)),
         targets.reshape(-1),
@@ -29,6 +30,10 @@ def reduce_per_token(
     ignore_index: int | None,
     reduction: str,
 ) -> torch.Tensor:
+    """Reduce a per-token loss: ``none``, ``sum``, or ``mean`` over non-ignored positions.
+
+    With ``ignore_index=None`` every position counts; the mean denominator is floored at 1.
+    """
     if reduction == "none":
         return nll
     if ignore_index is None:

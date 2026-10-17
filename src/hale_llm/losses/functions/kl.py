@@ -1,3 +1,5 @@
+"""Token-level distillation KL, registered as ``kl``."""
+
 from __future__ import annotations
 
 import torch

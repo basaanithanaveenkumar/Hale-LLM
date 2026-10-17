@@ -36,6 +36,7 @@ class CalibrationCorpus:
         self.tokenizer_name = tokenizer_name
 
     def tokenizer(self):
+        """The run's tokenizer loaded from the local cache only, or ``None`` (never downloads)."""
         try:
             from transformers import AutoTokenizer
 
