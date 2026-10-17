@@ -17,6 +17,7 @@ class GenerationResult:
         prompt: the prompt used.
         history: per-step snapshots from the sampler when requested, else ``None``.
     """
+
     token_ids: torch.Tensor
     text: str
     prompt: str

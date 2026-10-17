@@ -40,8 +40,8 @@ from hale_llm.metrics.base import Metric, MetricContext
 
 def _ngram_overlap_f1(hyp_toks: list[str], ref_toks: list[str], n: int) -> float:
     """Compute n-gram overlap F1 between hypothesis and reference."""
-    hyp_ng = Counter(tuple(hyp_toks[i: i + n]) for i in range(max(len(hyp_toks) - n + 1, 0)))
-    ref_ng = Counter(tuple(ref_toks[i: i + n]) for i in range(max(len(ref_toks) - n + 1, 0)))
+    hyp_ng = Counter(tuple(hyp_toks[i : i + n]) for i in range(max(len(hyp_toks) - n + 1, 0)))
+    ref_ng = Counter(tuple(ref_toks[i : i + n]) for i in range(max(len(ref_toks) - n + 1, 0)))
 
     overlap = sum(min(hyp_ng[g], ref_ng[g]) for g in hyp_ng)
     hyp_total = sum(hyp_ng.values())
@@ -51,7 +51,7 @@ def _ngram_overlap_f1(hyp_toks: list[str], ref_toks: list[str], n: int) -> float
         return 0.0
 
     prec = overlap / hyp_total
-    rec  = overlap / ref_total
+    rec = overlap / ref_total
     if prec + rec == 0:
         return 0.0
     return 2 * prec * rec / (prec + rec)
@@ -84,7 +84,7 @@ def _rouge_l_f1(hyp_toks: list[str], ref_toks: list[str]) -> float:
         return 0.0
     lcs = _lcs_length(hyp_toks, ref_toks)
     prec = lcs / len(hyp_toks)
-    rec  = lcs / len(ref_toks)
+    rec = lcs / len(ref_toks)
     if prec + rec == 0:
         return 0.0
     return 2 * prec * rec / (prec + rec)

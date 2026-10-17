@@ -36,7 +36,9 @@ class CharTokenizer:
         return self.vocab_size
 
     def encode(self, text: str) -> list[int]:
-        """Character ids of ``text`` (raises ``VisualizationError`` for characters outside the alphabet)."""
+        """Character ids of ``text`` (raises ``VisualizationError`` for characters outside the
+        alphabet).
+        """
         unknown = sorted({c for c in text if c not in self.stoi})
         if unknown:
             raise VisualizationError(f"characters outside the vocabulary: {unknown}")

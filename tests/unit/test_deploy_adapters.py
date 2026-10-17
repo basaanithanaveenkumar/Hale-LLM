@@ -5,11 +5,11 @@ from __future__ import annotations
 import pytest
 import torch
 import yaml
-
-import hale_llm.deploy  # noqa: F401 - registers the adapters
 from hale_core.deploy.calibration import AdapterCalibrationSource
 from hale_core.deploy.exceptions import ConfigError, RegistryError
 from hale_core.deploy.registry import ADAPTERS
+
+import hale_llm.deploy  # noqa: F401 - registers the adapters
 from hale_llm.deploy import (
     LLM_ADAPTERS,
     AutoregressiveLMAdapter,
@@ -43,7 +43,9 @@ def test_every_variant_has_a_scoped_adapter() -> None:
     assert VARIANTS == sorted(CONTRACTS)
     assert len(LLM_ADAPTERS) == 7
     assert ADAPTERS.get("hale_llm.AutoregressiveLMAdapter") is AutoregressiveLMAdapter
-    assert LLM_ADAPTERS.get("TorchModuleAdapter") is ADAPTERS.get("TorchModuleAdapter")  # parent fallback
+    assert LLM_ADAPTERS.get("TorchModuleAdapter") is ADAPTERS.get(
+        "TorchModuleAdapter"
+    )  # parent fallback
     with pytest.raises(RegistryError):
         ADAPTERS.get("AutoregressiveLMAdapter")  # only reachable through its scope
 
@@ -72,13 +74,19 @@ def test_vocab_and_weights_come_from_a_trainer_checkpoint(tmp_path) -> None:
     source = tiny("autoregressive")
     model = source.load()
     ckpt = tmp_path / "last.pt"
-    torch.save({"model_state_dict": model.state_dict(), "vocab_size": 128, "variant": "autoregressive"}, ckpt)
+    torch.save(
+        {"model_state_dict": model.state_dict(), "vocab_size": 128, "variant": "autoregressive"},
+        ckpt,
+    )
     cfg = yaml.safe_load((TINY_DIR / "autoregressive_adapter.yaml").read_text())["adapter"]
     cfg.pop("vocab_size")
     adapter = ADAPTERS.build({**cfg, "checkpoint": str(ckpt)})
     assert adapter.vocab_size == 128
     loaded = adapter.load()
-    assert all(torch.equal(a, b) for a, b in zip(loaded.state_dict().values(), model.state_dict().values(), strict=True))
+    assert all(
+        torch.equal(a, b)
+        for a, b in zip(loaded.state_dict().values(), model.state_dict().values(), strict=True)
+    )
 
 
 def test_config_errors_are_explicit() -> None:
@@ -87,10 +95,16 @@ def test_config_errors_are_explicit() -> None:
     with pytest.raises(ConfigError, match="deploys variant"):
         _ = MaskedDiffusionLMAdapter("configs/autoregressive/nano.yaml", vocab_size=8).run_config
     with pytest.raises(ConfigError, match="invalid overrides"):
-        _ = AutoregressiveLMAdapter("configs/autoregressive/nano.yaml", vocab_size=8,
-                                    overrides={"model": {"d_model": "wide"}}).run_config
-    act = LoopedLMAdapter("configs/looped/act.yaml", vocab_size=8,
-                          overrides={"model": {"d_model": 32, "n_heads": 2, "d_ff": 64}})
+        _ = AutoregressiveLMAdapter(
+            "configs/autoregressive/nano.yaml",
+            vocab_size=8,
+            overrides={"model": {"d_model": "wide"}},
+        ).run_config
+    act = LoopedLMAdapter(
+        "configs/looped/act.yaml",
+        vocab_size=8,
+        overrides={"model": {"d_model": 32, "n_heads": 2, "d_ff": 64}},
+    )
     with pytest.raises(ConfigError, match="ACT halting"):
         act.build_model()
 

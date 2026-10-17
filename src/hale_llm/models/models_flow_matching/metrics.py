@@ -11,6 +11,7 @@ from hale_llm.metrics.base import Metric, MetricContext
 @register_metric("masked_accuracy", variants=("flow_matching",))
 class FlowMatchingMaskedAccuracy(Metric):
     """Greedy accuracy on positions masked at a random flow time (``masked_accuracy``)."""
+
     def __init__(self) -> None:
         self.correct = 0.0
         self.total = 0.0

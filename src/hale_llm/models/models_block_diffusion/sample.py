@@ -27,7 +27,9 @@ def sample_block_diffusion(
     n = model.backbone.max_length
     block_size = model.block_size
     if n % block_size != 0:
-        raise ModelConfigurationError(f"max_length {n} must be divisible by block_size {block_size}")
+        raise ModelConfigurationError(
+            f"max_length {n} must be divisible by block_size {block_size}"
+        )
     num_blocks = n // block_size
     steps = sampling_steps or model.steps_per_block
     bsz = prompt_ids.size(0)
@@ -61,12 +63,10 @@ def sample_block_diffusion(
                 }
             )
             logits[:, start:end, mask_id] = -float("inf")
-            probs = F.softmax(
-                logits[:, start:end, :] / max(temperature, 1e-5), dim=-1
+            probs = F.softmax(logits[:, start:end, :] / max(temperature, 1e-5), dim=-1)
+            sampled = torch.multinomial(probs.reshape(-1, model.vocab_size), num_samples=1).reshape(
+                bsz, block_size
             )
-            sampled = torch.multinomial(
-                probs.reshape(-1, model.vocab_size), num_samples=1
-            ).reshape(bsz, block_size)
             block_tokens = x[:, start:end]
             is_masked = block_tokens.eq(mask_id)
             p_unmask = 1.0 if t_cur <= 1e-8 else (t_cur - t_next) / t_cur

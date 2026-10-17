@@ -45,7 +45,7 @@ class DistinctNMetric(Metric):
         # Accumulate n-gram counters across the whole corpus
         """Clear the running sums (called before every evaluation pass)."""
         self._unigrams: Counter = Counter()
-        self._bigrams:  Counter = Counter()
+        self._bigrams: Counter = Counter()
 
     def update(self, ctx: MetricContext) -> None:
         """Accumulate n-gram counts from generated text.
@@ -70,6 +70,6 @@ class DistinctNMetric(Metric):
         total_2 = sum(self._bigrams.values())
         return {
             "distinct_1": len(self._unigrams) / max(total_1, 1),
-            "distinct_2": len(self._bigrams)  / max(total_2, 1),
+            "distinct_2": len(self._bigrams) / max(total_2, 1),
             "vocab_size": float(len(self._unigrams)),
         }

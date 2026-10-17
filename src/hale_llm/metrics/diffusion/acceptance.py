@@ -69,7 +69,7 @@ class AcceptanceRateMetric(Metric):
             ctx.batch["total_steps"]:    list[int] per-sample total steps.
         """
         accepted_list = ctx.batch.get("accepted_steps", [])
-        total_list    = ctx.batch.get("total_steps", [])
+        total_list = ctx.batch.get("total_steps", [])
 
         for acc, tot in zip(accepted_list, total_list):
             acc_i = int(acc)
@@ -97,8 +97,8 @@ class AcceptanceRateMetric(Metric):
 
         rates = self._per_sample_rates
         return {
-            "acceptance_rate":      self._total_accepted / max(self._total_proposed, 1),
+            "acceptance_rate": self._total_accepted / max(self._total_proposed, 1),
             "acceptance_rate_mean": sum(rates) / len(rates),
-            "acceptance_rate_min":  min(rates),
-            "acceptance_rate_max":  max(rates),
+            "acceptance_rate_min": min(rates),
+            "acceptance_rate_max": max(rates),
         }

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import torch
 import pytest
+import torch
 
 
 class TinyTokenizer:
@@ -35,9 +35,7 @@ class TinyTokenizer:
         return {"input_ids": ids}
 
     def decode(self, ids, skip_special_tokens=True):
-        return "".join(
-            chr(32 + (i % 95)) for i in ids if not (skip_special_tokens and i in (0, 1))
-        )
+        return "".join(chr(32 + (i % 95)) for i in ids if not (skip_special_tokens and i in (0, 1)))
 
 
 @pytest.fixture(autouse=True)

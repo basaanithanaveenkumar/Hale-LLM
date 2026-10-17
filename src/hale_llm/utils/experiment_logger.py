@@ -11,12 +11,12 @@ from loguru import logger
 class ExperimentLogger:
     """
     Unified logger for experiment tracking with multiple backends.
-    
+
     Supports:
     - TensorBoard: Local visualization
     - Weights & Biases (W&B): Cloud-based experiment tracking
     """
-    
+
     def __init__(
         self,
         *,
@@ -33,11 +33,11 @@ class ExperimentLogger:
         self.wandb_enabled = wandb_enabled
         self.tb_writer = None
         self.wandb_run = None
-        
+
         # Initialize TensorBoard
         if tensorboard_enabled:
             self._init_tensorboard(tensorboard_dir, run_name)
-        
+
         # Initialize Weights & Biases
         if wandb_enabled:
             self._init_wandb(
@@ -46,7 +46,7 @@ class ExperimentLogger:
                 name=wandb_run_name or run_name,
                 tags=wandb_tags,
             )
-    
+
     def _init_tensorboard(self, log_dir: str | None, run_name: str | None) -> None:
         """Initialize TensorBoard writer."""
         try:
@@ -55,21 +55,21 @@ class ExperimentLogger:
             logger.warning("tensorboard requested but torch.utils.tensorboard not available")
             self.tensorboard_enabled = False
             return
-        
+
         if not log_dir:
             logger.warning("tensorboard enabled but no log_dir; skipping")
             self.tensorboard_enabled = False
             return
-        
+
         path = Path(log_dir)
         if run_name:
             path = path / run_name
         path.mkdir(parents=True, exist_ok=True)
-        
+
         self.tb_writer = SummaryWriter(log_dir=str(path))
         logger.info("tensorboard writing to {}", path.resolve())
         logger.debug("open tensorboard with: tensorboard --logdir {}", Path(log_dir).resolve())
-    
+
     def _init_wandb(
         self,
         project: str | None,
@@ -81,17 +81,15 @@ class ExperimentLogger:
         try:
             import wandb
         except ImportError:
-            logger.warning(
-                "wandb requested but not installed; install with: pip install wandb"
-            )
+            logger.warning("wandb requested but not installed; install with: pip install wandb")
             self.wandb_enabled = False
             return
-        
+
         if not project:
             logger.warning("wandb enabled but no project specified; skipping")
             self.wandb_enabled = False
             return
-        
+
         try:
             self.wandb_run = wandb.init(
                 project=project,
@@ -109,20 +107,21 @@ class ExperimentLogger:
         except Exception as e:
             logger.error("failed to initialize wandb: {}", e)
             self.wandb_enabled = False
-    
+
     def log_scalars(self, step: int, metrics: dict[str, float]) -> None:
         """Log scalar metrics to all enabled backends."""
         if self.tensorboard_enabled and self.tb_writer:
             for name, value in metrics.items():
                 self.tb_writer.add_scalar(name, value, step)
-        
+
         if self.wandb_enabled and self.wandb_run:
             try:
                 import wandb
+
                 wandb.log(metrics, step=step)
             except Exception as e:
                 logger.warning("failed to log to wandb: {}", e)
-    
+
     def log_hparams(
         self,
         hparams: dict[str, Any],
@@ -138,94 +137,100 @@ class ExperimentLogger:
                 clean_hparams[k] = "none"
             else:
                 clean_hparams[k] = str(v)
-        
+
         # TensorBoard
         if self.tensorboard_enabled and self.tb_writer:
             self.tb_writer.add_hparams(
                 clean_hparams,
                 metrics or {"hparam/placeholder": 0.0},
             )
-        
+
         # Weights & Biases
         if self.wandb_enabled and self.wandb_run:
             try:
                 import wandb
+
                 wandb.config.update(clean_hparams, allow_val_change=True)
             except Exception as e:
                 logger.warning("failed to log hparams to wandb: {}", e)
-    
+
     def log_text(self, tag: str, text: str, step: int = 0) -> None:
         """Log text to all enabled backends."""
         if self.tensorboard_enabled and self.tb_writer:
             self.tb_writer.add_text(tag, text, step)
-        
+
         if self.wandb_enabled and self.wandb_run:
             try:
                 import wandb
+
                 wandb.log({tag: wandb.Html(f"<pre>{text}</pre>")}, step=step)
             except Exception as e:
                 logger.warning("failed to log text to wandb: {}", e)
-    
+
     def log_image(self, tag: str, image, step: int = 0) -> None:
         """Log image to all enabled backends."""
         if self.tensorboard_enabled and self.tb_writer:
             self.tb_writer.add_image(tag, image, step)
-        
+
         if self.wandb_enabled and self.wandb_run:
             try:
                 import wandb
+
                 wandb.log({tag: wandb.Image(image)}, step=step)
             except Exception as e:
                 logger.warning("failed to log image to wandb: {}", e)
-    
+
     def log_histogram(self, tag: str, values, step: int = 0) -> None:
         """Log histogram to all enabled backends."""
         if self.tensorboard_enabled and self.tb_writer:
             self.tb_writer.add_histogram(tag, values, step)
-        
+
         if self.wandb_enabled and self.wandb_run:
             try:
                 import wandb
+
                 wandb.log({tag: wandb.Histogram(values)}, step=step)
             except Exception as e:
                 logger.warning("failed to log histogram to wandb: {}", e)
-    
+
     def watch_model(self, model, log_freq: int = 100) -> None:
         """Watch model gradients and parameters (W&B only)."""
         if self.wandb_enabled and self.wandb_run:
             try:
                 import wandb
+
                 wandb.watch(model, log="all", log_freq=log_freq)
                 logger.debug("wandb watching model gradients")
             except Exception as e:
                 logger.warning("failed to watch model in wandb: {}", e)
-    
+
     def flush(self) -> None:
         """Flush all loggers."""
         if self.tensorboard_enabled and self.tb_writer:
             self.tb_writer.flush()
-        
+
         # W&B flushes automatically
-    
+
     def close(self) -> None:
         """Close all loggers."""
         if self.tensorboard_enabled and self.tb_writer:
             self.tb_writer.flush()
             self.tb_writer.close()
             logger.debug("tensorboard writer closed")
-        
+
         if self.wandb_enabled and self.wandb_run:
             try:
                 import wandb
+
                 wandb.finish()
                 logger.debug("wandb run finished")
             except Exception as e:
                 logger.warning("failed to close wandb: {}", e)
-    
+
     def __enter__(self):
         """Context manager entry."""
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         self.close()
@@ -244,7 +249,7 @@ def make_experiment_logger(
 ) -> ExperimentLogger:
     """
     Factory function to create an experiment logger.
-    
+
     Args:
         tensorboard_enabled: Enable TensorBoard logging
         tensorboard_dir: Directory for TensorBoard logs
@@ -254,7 +259,7 @@ def make_experiment_logger(
         wandb_run_name: W&B run name
         wandb_tags: W&B tags for the run
         run_name: Common run name for both backends
-    
+
     Returns:
         ExperimentLogger instance
     """

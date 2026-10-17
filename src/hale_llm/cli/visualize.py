@@ -19,7 +19,9 @@ def main() -> None:
     p = argparse.ArgumentParser(prog="hale-llm-viz")
     p.add_argument("--config", required=True)
     p.add_argument("--checkpoint", default=None)
-    p.add_argument("--experiment", default=None, help="Run folder under data/experiments/<variant>/")
+    p.add_argument(
+        "--experiment", default=None, help="Run folder under data/experiments/<variant>/"
+    )
     p.add_argument("--prompt", default=None)
     p.add_argument("--output", default=None)
     p.add_argument("--log-level", default=None, choices=["DEBUG", "INFO", "WARNING", "ERROR"])

@@ -12,6 +12,7 @@ from hale_llm.models.models_diffusion.loss import _corrupt
 @register_metric("masked_accuracy", variants=("diffusion",))
 class DiffusionMaskedAccuracy(Metric):
     """Greedy accuracy on positions masked at a random diffusion time (``masked_accuracy``)."""
+
     def __init__(self) -> None:
         self.correct = 0.0
         self.total = 0.0

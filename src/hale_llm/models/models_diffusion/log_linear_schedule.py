@@ -28,6 +28,7 @@ class LogLinearSchedule(NoiseSchedule):
         return 1.0 / t.clamp(min=eps)
 
     def reveal_probability(self, t_cur: torch.Tensor, t_next: torch.Tensor) -> torch.Tensor:
-        # P(revealed by t_next | masked at t_cur) = (alpha(t_next) - alpha(t_cur)) / (1 - alpha(t_cur))
+        # P(revealed by t_next | masked at t_cur) = (alpha(t_next) - alpha(t_cur)) / (1 -
+        # alpha(t_cur))
         """``(t_cur - t_next) / t_cur``, clamped to [0, 1]."""
         return ((t_cur - t_next) / t_cur.clamp(min=1e-8)).clamp(0, 1)

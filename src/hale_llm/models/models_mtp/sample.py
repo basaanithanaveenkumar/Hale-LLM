@@ -62,7 +62,9 @@ def sample_mtp(
     def heads_at(seq: list[int]) -> tuple[list[torch.Tensor], int]:
         window = seq[-max_len:]
         ids = torch.tensor([window], device=prompt_ids.device)
-        return model({"input_ids": ids, "attention_mask": (ids != pad_id).long()}), len(seq) - len(window)
+        return model({"input_ids": ids, "attention_mask": (ids != pad_id).long()}), len(seq) - len(
+            window
+        )
 
     x = prompt_ids[0].tolist()
     target = len(x) + max_new_tokens
@@ -99,7 +101,9 @@ def sample_mtp(
         x.extend(emitted)
         if return_history:
             done = min(len(x), target) - prompt_ids.size(1)
-            history.append((done / max_new_tokens, torch.tensor([x[:target]], device=prompt_ids.device)))
+            history.append(
+                (done / max_new_tokens, torch.tensor([x[:target]], device=prompt_ids.device))
+            )
     out = torch.tensor([x[:target]], device=prompt_ids.device)
     model.speculative_trace = trace
     model.tokens_per_forward = (target - prompt_ids.size(1)) / forwards

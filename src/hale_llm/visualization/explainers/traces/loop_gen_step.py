@@ -8,6 +8,7 @@ from dataclasses import dataclass
 @dataclass
 class LoopGenStep:
     """The passes run for one token and the token finally emitted."""
+
     top_ids: list[int]
     top_probs: list[float]
     chosen: int

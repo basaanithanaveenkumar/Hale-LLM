@@ -42,6 +42,7 @@ class AutoregressiveLM(nn.Module):
         vocab_size: embedding / output vocabulary size.
         cfg: the run config (``model`` section selects the backbone).
     """
+
     def __init__(self, vocab_size: int, cfg):
         super().__init__()
         self.backbone = build_backbone(vocab_size, cfg.model)

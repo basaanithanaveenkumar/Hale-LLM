@@ -43,17 +43,30 @@ class ToyRun:
         return torch.tensor([self.tokenizer.encode(self.text)])
 
 
-def toy_config(variant: str, text: str, model: dict[str, Any] | None = None,
-               sample: dict[str, Any] | None = None) -> RunConfig:
+def toy_config(
+    variant: str,
+    text: str,
+    model: dict[str, Any] | None = None,
+    sample: dict[str, Any] | None = None,
+) -> RunConfig:
     """Run config of a toy model whose ``max_length`` is the sentence length."""
-    model_cfg = {"d_model": 64, "n_heads": 4, "n_layers": 2, "d_ff": 128, "dropout": 0.0,
-                 "max_length": len(text), **(model or {})}
-    return RunConfig.model_validate({
-        "variant": variant,
-        "model": model_cfg,
-        "sample": {"eps": 1e-3, **(sample or {})},
-        "device": "cpu",
-    })
+    model_cfg = {
+        "d_model": 64,
+        "n_heads": 4,
+        "n_layers": 2,
+        "d_ff": 128,
+        "dropout": 0.0,
+        "max_length": len(text),
+        **(model or {}),
+    }
+    return RunConfig.model_validate(
+        {
+            "variant": variant,
+            "model": model_cfg,
+            "sample": {"eps": 1e-3, **(sample or {})},
+            "device": "cpu",
+        }
+    )
 
 
 def train_toy(

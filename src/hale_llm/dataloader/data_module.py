@@ -23,6 +23,7 @@ class DataModule:
         cfg: the run config.
         tokenizer: optional pre-loaded tokenizer (default: ``data.tokenizer_name``).
     """
+
     def __init__(self, cfg: RunConfig, tokenizer=None) -> None:
         self.cfg = cfg
         self.tokenizer = tokenizer or setup_tokenizer(cfg.data.tokenizer_name)
@@ -37,7 +38,9 @@ class DataModule:
         if self.cfg.viz.prompt_source != "dataset":
             return self.cfg.sample.prompt
         if self._viz_passages is None:
-            self._viz_passages = collect_dataset_passages(self.cfg, min_words=self.cfg.viz.prompt_words)
+            self._viz_passages = collect_dataset_passages(
+                self.cfg, min_words=self.cfg.viz.prompt_words
+            )
         return dataset_prompt(self.cfg, seed=seed, passages=self._viz_passages)
 
     def train_loader(self) -> DataLoader:
@@ -51,7 +54,9 @@ class DataModule:
             if not cfg.data.overfit_text:
                 raise DataPipelineError("data.source=overfit requires data.overfit_text")
             logger.warning("overfit mode enabled; HuggingFace loader is bypassed")
-            logger.debug("overfit_text={!r} copies={}", cfg.data.overfit_text, cfg.data.n_overfit_copies)
+            logger.debug(
+                "overfit_text={!r} copies={}", cfg.data.overfit_text, cfg.data.n_overfit_copies
+            )
             return make_overfit_loader(
                 cfg.variant,
                 self.tokenizer,

@@ -20,10 +20,14 @@ def main() -> None:
     """
     p = argparse.ArgumentParser(prog="hale-llm-train")
     p.add_argument("--config", required=True, help="YAML under configs/")
-    p.add_argument("--experiment", default=None, help="Reuse this run folder under data/experiments/<variant>/")
+    p.add_argument(
+        "--experiment", default=None, help="Reuse this run folder under data/experiments/<variant>/"
+    )
     p.add_argument("--log-level", default=None, choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     p.add_argument("--epochs", type=int, default=None, help="Override train.epochs")
-    p.add_argument("--steps", type=int, default=None, help="Override train.steps (ignored if --epochs is set)")
+    p.add_argument(
+        "--steps", type=int, default=None, help="Override train.steps (ignored if --epochs is set)"
+    )
     resume = p.add_mutually_exclusive_group()
     resume.add_argument(
         "--resume",
@@ -52,7 +56,7 @@ def main() -> None:
         action="store_false",
         help="Disable GIFs during training",
     )
-    
+
     # Logging arguments
     tb = p.add_mutually_exclusive_group()
     tb.add_argument(
@@ -68,7 +72,7 @@ def main() -> None:
         action="store_false",
         help="Disable TensorBoard logging",
     )
-    
+
     wandb_group = p.add_mutually_exclusive_group()
     wandb_group.add_argument(
         "--wandb",
@@ -83,12 +87,12 @@ def main() -> None:
         action="store_false",
         help="Disable Weights & Biases logging",
     )
-    
+
     p.add_argument("--wandb-project", default=None, help="W&B project name")
     p.add_argument("--wandb-entity", default=None, help="W&B entity (username or team)")
     p.add_argument("--wandb-run-name", default=None, help="W&B run name")
     p.add_argument("--wandb-tags", nargs="+", default=None, help="W&B tags for the run")
-    
+
     args = p.parse_args()
     try:
         cfg = load_config(args.config)
@@ -104,7 +108,7 @@ def main() -> None:
             cfg.train.resume = args.resume
         if args.viz_enabled is not None:
             cfg.viz.enabled = args.viz_enabled
-        
+
         # Logging overrides
         if args.tensorboard is not None:
             cfg.logging.tensorboard = args.tensorboard
@@ -118,7 +122,7 @@ def main() -> None:
             cfg.logging.wandb_run_name = args.wandb_run_name
         if args.wandb_tags is not None:
             cfg.logging.wandb_tags = args.wandb_tags
-        
+
         apply_experiment_layout(cfg, create=True, name=args.experiment)
         setup_logging(level=cfg.logging.level, log_file=cfg.logging.log_file, force=True)
         logger.info(

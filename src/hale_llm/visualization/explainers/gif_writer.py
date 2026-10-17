@@ -42,7 +42,9 @@ class GifWriter:
             self.durations[-1] += int(extra_ms)
 
     def save(self, path: str | Path) -> Path:
-        """Write the GIF on one shared palette and return its path (raises ``VisualizationError`` if empty)."""
+        """Write the GIF on one shared palette and return its path (raises ``VisualizationError`` if
+        empty).
+        """
         if not self.frames:
             raise VisualizationError("no frames to save")
         path = Path(path)

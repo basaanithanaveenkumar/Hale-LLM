@@ -30,7 +30,9 @@ class LoopScalingMetric(Metric):
 
     @staticmethod
     def budgets(model) -> list[int]:
-        """Loop budgets evaluated: ``1``, ``T/2``, ``T`` and ``2T`` (the last only without a learned depth embedding)."""
+        """Loop budgets evaluated: ``1``, ``T/2``, ``T`` and ``2T`` (the last only without a learned
+        depth embedding).
+        """
         spec = model.loop
         out = {1, max(1, spec.n_loops // 2), spec.n_loops}
         if spec.depth_embedding != "learned":

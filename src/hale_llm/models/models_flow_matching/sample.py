@@ -43,7 +43,9 @@ def sample_flow_matching(
         t = torch.full((b,), t_val, device=device)
         logits = model({"x_t": x, "t": t}) / max(temperature, 1e-5)
         logits[..., mask_id] = -float("inf")
-        pred = torch.multinomial(F.softmax(logits, dim=-1).reshape(-1, model.vocab_size), 1).reshape(b, seq)
+        pred = torch.multinomial(
+            F.softmax(logits, dim=-1).reshape(-1, model.vocab_size), 1
+        ).reshape(b, seq)
         p_unmask = min(dt / max(mask_prob(t_val), model.eps), 1.0)
         do = x.eq(mask_id) & gen & (torch.rand(b, seq, device=device) < p_unmask)
         x = torch.where(do, pred, x)

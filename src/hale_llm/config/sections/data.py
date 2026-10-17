@@ -15,6 +15,7 @@ class DataConfig(StrictModel):
     ``overfit_text`` ``n_overfit_copies`` times (sanity runs). Text is split into words and packed
     into ``model.max_length``-token windows that start every ``stride_words`` words.
     """
+
     source: Literal["huggingface", "overfit"] = "huggingface"
     dataset: str = "Salesforce/wikitext"
     subset: str | None = "wikitext-2-raw-v1"

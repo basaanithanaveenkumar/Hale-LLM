@@ -7,13 +7,14 @@ from hale_llm.config.sections.common import StrictModel
 
 class LoggingConfig(StrictModel):
     """Console log level, rotating log file, and the optional TensorBoard / W&B sinks."""
+
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_file: str | None = "logs/hale_llm.log"
-    
+
     # TensorBoard configuration
     tensorboard: bool = True
     tensorboard_dir: str = "runs"
-    
+
     # Weights & Biases configuration
     wandb: bool = False
     wandb_project: str | None = None

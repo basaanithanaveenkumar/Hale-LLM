@@ -28,20 +28,25 @@ class LoopedLMAdapter(HaleLLMAdapter):
         """Build the looped model with a fixed loop count.
 
         Raises:
-            hale_core.exceptions.ConfigError: for ACT halting, whose per-token early exit cannot be traced.
+            hale_core.exceptions.ConfigError: for ACT halting, whose per-token early exit cannot be
+            traced.
         """
         loop = self.run_config.model.loop
         if loop is not None and getattr(loop, "halting", "none") == "act":
             from hale_core.deploy.exceptions import ConfigError
 
-            raise ConfigError("ACT halting exits early per token (data-dependent control flow) and cannot be "
-                              "exported; override model.loop.halting: none (fixed depth) for deployment")
+            raise ConfigError(
+                "ACT halting exits early per token (data-dependent control flow) and cannot be "
+                "exported; override model.loop.halting: none (fixed depth) for deployment"
+            )
         return super().build_model()
 
     def signature_inputs(self) -> list[dict[str, Any]]:
         """One ``input_ids [batch, seq]`` int64 input."""
         return [self.token_spec("input_ids")]
 
-    def forward_for_export(self, model: nn.Module, inputs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    def forward_for_export(
+        self, model: nn.Module, inputs: dict[str, torch.Tensor]
+    ) -> dict[str, torch.Tensor]:
         """Forward with the loop unrolled ``n_loops`` times: ``{'logits': [B, T, V]}``."""
         return {"logits": model({"input_ids": inputs["input_ids"]})}

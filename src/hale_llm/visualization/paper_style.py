@@ -159,7 +159,16 @@ def _draw_tokens(ax, tokens: list[TokenSpan], x0: float, y: float) -> None:
             line_y -= ROW_WRAP_DY
             x = x0
         if tok.muted:
-            ax.text(x, line_y, tok.text, fontsize=FONTSIZE, color=MASK_COLOR, va="center", ha="left", family="monospace")
+            ax.text(
+                x,
+                line_y,
+                tok.text,
+                fontsize=FONTSIZE,
+                color=MASK_COLOR,
+                va="center",
+                ha="left",
+                family="monospace",
+            )
         else:
             color = PROMPT_COLOR if tok.prompt else TEXT_COLOR
             if tok.highlight:
@@ -212,7 +221,11 @@ def render_paper_figure(
         ax.clear()
         _draw_static(ax, rows, n_visible=fi + 1)
 
-    gif_path = output_path if output_path.lower().endswith(".gif") else output_path.rsplit(".", 1)[0] + ".gif"
+    gif_path = (
+        output_path
+        if output_path.lower().endswith(".gif")
+        else output_path.rsplit(".", 1)[0] + ".gif"
+    )
     png_path = output_path.rsplit(".", 1)[0] + ".png"
 
     if as_gif:

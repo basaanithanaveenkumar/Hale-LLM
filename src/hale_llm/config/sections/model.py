@@ -16,6 +16,7 @@ class ModelConfig(StrictModel):
     variant (``causal`` for AR/MTP/looped, ``bidirectional`` for diffusion and flow matching,
     ``block_causal`` for block variants); models validate the combination at construction.
     """
+
     d_model: int = 128
     n_heads: int = 4
     n_layers: int = 4

@@ -11,7 +11,9 @@ def test_label_smoothing_is_registered():
     logits = torch.randn(1, 3, 5)
     targets = torch.tensor([[1, 2, 0]])
     ce = token_nll(logits, targets, reduction="none", loss_type="ce")
-    sm = token_nll(logits, targets, reduction="none", loss_type="label_smoothing", label_smoothing=0.1)
+    sm = token_nll(
+        logits, targets, reduction="none", loss_type="label_smoothing", label_smoothing=0.1
+    )
     assert sm.shape == ce.shape
     assert torch.isfinite(sm).all()
 
@@ -22,7 +24,9 @@ def test_focal_downweights_easy_examples():
     logits[0, 1, 2] = 0.1
     targets = torch.tensor([[1, 2]])
     ce = token_nll(logits, targets, reduction="none", loss_type="ce")
-    fl = token_nll(logits, targets, reduction="none", loss_type="focal", focal_gamma=2.0, focal_alpha=1.0)
+    fl = token_nll(
+        logits, targets, reduction="none", loss_type="focal", focal_gamma=2.0, focal_alpha=1.0
+    )
     assert fl[0, 0] < ce[0, 0]
     assert fl[0, 1] <= ce[0, 1] + 1e-6
 

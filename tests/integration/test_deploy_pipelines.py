@@ -1,12 +1,14 @@
-"""Real deployment runs of every variant (tiny models): ONNX Runtime everywhere, MLX on Apple Silicon."""
+"""Real deployment runs of every variant (tiny models): ONNX Runtime everywhere, MLX on Apple
+Silicon.
+"""
 
 from __future__ import annotations
 
 import json
 
 import pytest
-
 from hale_core.deploy import DeployRunner
+
 from hale_llm.deploy.adapters.run_config_resolver import REPO_ROOT
 
 pytestmark = pytest.mark.integration
@@ -20,7 +22,9 @@ def test_onnx_runtime_parity(path, tmp_path) -> None:
     run = next(tmp_path.iterdir())
     parity = json.loads((run / "onnx_parity/parity.json").read_text())
     assert set(parity) == {"min", "opt", "max"}
-    assert all(m["ok"] and m["max_abs"] < 1e-3 for corner in parity.values() for m in corner.values())
+    assert all(
+        m["ok"] and m["max_abs"] < 1e-3 for corner in parity.values() for m in corner.values()
+    )
 
 
 @pytest.mark.parametrize("path", sorted(CI.glob("*_mlx_fp32.yaml")), ids=lambda p: p.stem)

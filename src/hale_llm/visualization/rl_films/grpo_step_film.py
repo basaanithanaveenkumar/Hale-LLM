@@ -51,7 +51,9 @@ class GRPOStepFilm(RLFilm):
         pseudo_label: str | None = None,
     ) -> None:
         if not (len(completions) == len(rewards) == len(advantages)):
-            raise VisualizationError("completions, rewards and advantages must have the same length")
+            raise VisualizationError(
+                "completions, rewards and advantages must have the same length"
+            )
         self.prompt = prompt
         self.completions = list(completions)
         self.rewards = [float(r) for r in rewards]

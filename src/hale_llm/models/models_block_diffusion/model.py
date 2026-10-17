@@ -30,12 +30,11 @@ class BlockDiffusionLM(nn.Module):
         vocab_size: vocabulary size.
         cfg: run config; ``model.block_size`` (default 16) must divide ``model.max_length``.
     """
+
     def __init__(self, vocab_size: int, cfg):
         super().__init__()
         block_size = cfg.model.block_size or 16
-        self.backbone = build_backbone(
-            vocab_size, cfg.model, block_size=block_size
-        )
+        self.backbone = build_backbone(vocab_size, cfg.model, block_size=block_size)
         self.vocab_size = vocab_size
         self.block_size = block_size
         self.eps = cfg.sample.eps
@@ -43,7 +42,9 @@ class BlockDiffusionLM(nn.Module):
         self.cfg = cfg
 
     def forward(self, batch: dict) -> torch.Tensor:
-        """Run ``[x_clean ; x_noised]`` through the block-causal backbone; return the noised half's logits."""
+        """Run ``[x_clean ; x_noised]`` through the block-causal backbone; return the noised half's
+        logits.
+        """
         x_clean, x_noised = batch["x_clean"], batch["x_noised"]
         t_noised = batch["t_noised"]
         t_clean = torch.zeros_like(t_noised)

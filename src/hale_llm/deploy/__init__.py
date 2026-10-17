@@ -18,7 +18,13 @@ from hale_llm.deploy.adapters import (
 from hale_llm.deploy.registry import LLM_ADAPTERS
 
 __all__ = [
-    "LLM_ADAPTERS", "AutoregressiveLMAdapter", "BlockDiffusionLMAdapter", "BlockFlowMatchingLMAdapter",
-    "FlowMatchingLMAdapter", "HaleLLMAdapter", "LoopedLMAdapter", "MaskedDiffusionLMAdapter",
+    "LLM_ADAPTERS",
+    "AutoregressiveLMAdapter",
+    "BlockDiffusionLMAdapter",
+    "BlockFlowMatchingLMAdapter",
+    "FlowMatchingLMAdapter",
+    "HaleLLMAdapter",
+    "LoopedLMAdapter",
+    "MaskedDiffusionLMAdapter",
     "MultiTokenPredictionLMAdapter",
 ]

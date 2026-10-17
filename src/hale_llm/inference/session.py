@@ -25,6 +25,7 @@ class InferenceSession:
 
     Build it with :func:`load_session` (from a checkpoint) or :func:`session_from_model`.
     """
+
     model: nn.Module
     tokenizer: Any
     cfg: RunConfig
@@ -46,14 +47,23 @@ class InferenceSession:
         it is ignored by other architectures.
         """
         prompt = prompt if prompt is not None else self.cfg.sample.prompt
-        max_new_tokens = max_new_tokens if max_new_tokens is not None else self.cfg.sample.max_new_tokens
+        max_new_tokens = (
+            max_new_tokens if max_new_tokens is not None else self.cfg.sample.max_new_tokens
+        )
         temperature = temperature if temperature is not None else self.cfg.sample.temperature
-        sampling_steps = sampling_steps if sampling_steps is not None else self.cfg.sample.sampling_steps
+        sampling_steps = (
+            sampling_steps if sampling_steps is not None else self.cfg.sample.sampling_steps
+        )
         num_loops = num_loops if num_loops is not None else self.cfg.sample.num_loops
         sampler = get_sampler(self.cfg.variant)
         self.model.eval()
         ids = encode_prompt(self.tokenizer, prompt, self.model, self.device)
-        logger.info("inference variant={} prompt={!r} return_history={}", self.cfg.variant, prompt, return_history)
+        logger.info(
+            "inference variant={} prompt={!r} return_history={}",
+            self.cfg.variant,
+            prompt,
+            return_history,
+        )
         with loop_budget(self.model, num_loops):
             out = sampler(
                 self.model,
@@ -74,7 +84,9 @@ class InferenceSession:
         return GenerationResult(token_ids=token_ids, text=text, prompt=prompt, history=history)
 
 
-def session_from_model(model: nn.Module, tokenizer, cfg: RunConfig, device: str | None = None) -> InferenceSession:
+def session_from_model(
+    model: nn.Module, tokenizer, cfg: RunConfig, device: str | None = None
+) -> InferenceSession:
     """Wrap an in-memory model (e.g. during training) as an :class:`InferenceSession`."""
     device = device or get_device(cfg.device)
     return InferenceSession(model=model.to(device), tokenizer=tokenizer, cfg=cfg, device=device)
@@ -115,8 +127,7 @@ def load_session(
         store.load(path, device)
 
     logger.warning(
-        "no checkpoint at {}; using untrained {}. "
-        "Train first, or pass --checkpoint PATH",
+        "no checkpoint at {}; using untrained {}. Train first, or pass --checkpoint PATH",
         path,
         cfg.variant,
     )

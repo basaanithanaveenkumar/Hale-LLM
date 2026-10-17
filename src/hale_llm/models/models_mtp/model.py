@@ -46,7 +46,9 @@ class MultiTokenPredictionLM(nn.Module):
         if cfg.model.n_mtp_heads < 1:
             raise ModelConfigurationError(f"n_mtp_heads must be >= 1, got {cfg.model.n_mtp_heads}")
         if cfg.model.attn_type != "causal":
-            raise ModelConfigurationError(f"mtp is a causal LM; got attn_type={cfg.model.attn_type!r}")
+            raise ModelConfigurationError(
+                f"mtp is a causal LM; got attn_type={cfg.model.attn_type!r}"
+            )
         self.n_heads = cfg.model.n_mtp_heads
         # Untied: the shared unembedding serves K heads (hale-mtp loads it with the same flag).
         self.backbone = build_backbone(vocab_size, cfg.model, tie_embeddings=False)
@@ -59,7 +61,9 @@ class MultiTokenPredictionLM(nn.Module):
         self.vocab_size = vocab_size
         self.cfg = cfg
 
-    def trunk(self, input_ids: torch.Tensor, attention_mask: torch.Tensor | None = None) -> torch.Tensor:
+    def trunk(
+        self, input_ids: torch.Tensor, attention_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
         """Final hidden states ``(batch, seq, d_model)`` of the shared backbone."""
         bb = self.backbone
         attn_mask, key_padding = bb.attention_inputs(input_ids, attention_mask, None, None)

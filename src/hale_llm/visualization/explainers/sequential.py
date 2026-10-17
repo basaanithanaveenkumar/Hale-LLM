@@ -51,7 +51,9 @@ class TokenStep(Protocol):
 Overlay = Callable[[Stage, Layout, int, str, float], None]
 
 
-def candidate_items(run: ToyRun, step: TokenStep, k: int = 3, floor: float = 0.03) -> tuple[list, int]:
+def candidate_items(
+    run: ToyRun, step: TokenStep, k: int = 3, floor: float = 0.03
+) -> tuple[list, int]:
     """Top candidates worth showing (``p >= floor``) and the index of the sampled one.
 
     The sampled token is always included, even if it was an unlikely draw.
@@ -89,15 +91,21 @@ def render_next_token(
         items, chosen = candidate_items(run, step)
         decision = step.top_probs[0] < DECISION
         slow = decision or k < slow_first
-        script = ([("read", 3), ("predict", 4), ("pick", 6 if decision else 2), ("fly", 4), ("land", 2)] if slow
-                  else [("predict", 1), ("fly", 2)])
+        script = (
+            [("read", 3), ("predict", 4), ("pick", 6 if decision else 2), ("fly", 4), ("land", 2)]
+            if slow
+            else [("predict", 1), ("fly", 2)]
+        )
         slot = layout.pos(pos)
         cands = None
         for phase, count in script:
             for f in range(count):
                 u = (f + 1) / count
-                caption = ("a real choice: the training sentences branch here" if decision else
-                           "one forward pass  →  one new character")
+                caption = (
+                    "a real choice: the training sentences branch here"
+                    if decision
+                    else "one forward pass  →  one new character"
+                )
                 s = explainer.stage("generation", caption, ORANGE if decision else CYAN)
                 for i in range(len(seq)):
                     x, y = layout.pos(i)
@@ -111,17 +119,37 @@ def render_next_token(
                         s.tile(x, y, "", "slot")
                 pulse = {"read": ease(u), "predict": 1 - 0.6 * ease(u)}.get(phase, 0.0)
                 s.model_box(model_name, model_detail(k, phase, u), pulse=pulse)
-                s.arrow((12.5, layout.bottom - 0.6), (12.5, MODEL_BOX[3] + 0.4), color=CYAN if pulse > 0.3 else MUTED,
-                        lw=2.0)
-                s.text(13.8, (layout.bottom + MODEL_BOX[3]) / 2, "reads everything so far", size=8.5,
-                       color=MUTED, ha="left")
+                s.arrow(
+                    (12.5, layout.bottom - 0.6),
+                    (12.5, MODEL_BOX[3] + 0.4),
+                    color=CYAN if pulse > 0.3 else MUTED,
+                    lw=2.0,
+                )
+                s.text(
+                    13.8,
+                    (layout.bottom + MODEL_BOX[3]) / 2,
+                    "reads everything so far",
+                    size=8.5,
+                    color=MUTED,
+                    ha="left",
+                )
                 if phase != "read":
                     grow = ease(u) if phase == "predict" else 1.0
                     picked = chosen if phase in ("pick", "fly", "land") or not slow else None
-                    s.arrow((MODEL_BOX[2] + 0.4, 15.0), (CANDIDATES_XY[0] - 2.4, 15.0), color=MUTED, lw=1.6)
-                    cands = s.candidates(*CANDIDATES_XY, items, chosen=picked, grow=grow,
-                                         hide=chosen if phase in ("fly", "land") else None,
-                                         alpha=1.0 if phase != "land" else 1 - 0.6 * u)
+                    s.arrow(
+                        (MODEL_BOX[2] + 0.4, 15.0),
+                        (CANDIDATES_XY[0] - 2.4, 15.0),
+                        color=MUTED,
+                        lw=1.6,
+                    )
+                    cands = s.candidates(
+                        *CANDIDATES_XY,
+                        items,
+                        chosen=picked,
+                        grow=grow,
+                        hide=chosen if phase in ("fly", "land") else None,
+                        alpha=1.0 if phase != "land" else 1 - 0.6 * u,
+                    )
                     if decision and phase in ("pick", "fly", "land"):
                         top2 = "   vs   ".join(f"'{c}' {p:.0%}" for c, p in items[:2])
                         s.text(63, 19.5, top2, size=14, weight="bold", color=GOLD)
@@ -142,4 +170,11 @@ def render_next_token(
     writer.hold(500)
 
 
-__all__ = ["CANDIDATES_XY", "DECISION", "Overlay", "TokenStep", "candidate_items", "render_next_token"]
+__all__ = [
+    "CANDIDATES_XY",
+    "DECISION",
+    "Overlay",
+    "TokenStep",
+    "candidate_items",
+    "render_next_token",
+]

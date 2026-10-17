@@ -20,6 +20,7 @@ def register_collate(name: str):
     Raises:
         hale_core.exceptions.RegistryError: if ``name`` already has a collate function.
     """
+
     def deco(fn):
         COLLATE_REGISTRY.add(name, fn)
         return fn

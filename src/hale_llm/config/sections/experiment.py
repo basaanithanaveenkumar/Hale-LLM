@@ -8,6 +8,7 @@ class ExperimentConfig(StrictModel):
 
     ``source_yaml`` is set by :func:`~hale_llm.config.load.load_config`, not by users.
     """
+
     enabled: bool = True
     root: str = "data/experiments"
     name: str | None = None

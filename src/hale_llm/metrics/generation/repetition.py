@@ -33,7 +33,7 @@ def _rep_n(tokens: list[str], n: int) -> float:
     """Per-sentence repetition rate for n-grams."""
     if len(tokens) < n:
         return 0.0
-    ngrams = [tuple(tokens[i: i + n]) for i in range(len(tokens) - n + 1)]
+    ngrams = [tuple(tokens[i : i + n]) for i in range(len(tokens) - n + 1)]
     total = len(ngrams)
     unique = len(set(ngrams))
     return 1.0 - unique / total

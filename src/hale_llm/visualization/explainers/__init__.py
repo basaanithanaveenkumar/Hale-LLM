@@ -34,10 +34,20 @@ from hale_llm.visualization.explainers.tokenizer import CharTokenizer
 from hale_llm.visualization.explainers.toy import ToyRun, train_toy
 
 #: README / gallery order.
-ORDER = ("autoregressive", "mtp", "looped", "diffusion", "flow_matching", "block_diffusion", "block_flow_matching")
+ORDER = (
+    "autoregressive",
+    "mtp",
+    "looped",
+    "diffusion",
+    "flow_matching",
+    "block_diffusion",
+    "block_flow_matching",
+)
 
 
-def build_explainer_gifs(out_dir: str | Path = "assets/explainers", variants=None, seed: int = 0) -> list[Path]:
+def build_explainer_gifs(
+    out_dir: str | Path = "assets/explainers", variants=None, seed: int = 0
+) -> list[Path]:
     """Train, trace and render the explainer GIF of each variant into ``out_dir/<variant>.gif``."""
     out = []
     for name in variants or ORDER:

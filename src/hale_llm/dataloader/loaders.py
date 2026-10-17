@@ -47,7 +47,8 @@ def make_dataloader(cfg, split: str = "train", **collate_kwargs) -> DataLoader:
     """DataLoader of ``split`` whose batches are already collated for ``cfg.variant``.
 
     With ``data.webdataset.enabled`` the windows are written to tar shards once (keyed by
-    :func:`dataset_fingerprint`) and streamed afterwards. Under ``torch.distributed`` each rank reads
+    :func:`dataset_fingerprint`) and streamed afterwards. Under ``torch.distributed`` each rank
+    reads
     its own shard of map-style data through a :class:`DistributedSampler`.
 
     Args:

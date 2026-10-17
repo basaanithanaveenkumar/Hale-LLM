@@ -22,6 +22,7 @@ class RunConfig(StrictModel):
     time instead of silently using a default. ``variant`` selects the registered model, loss,
     sampler, collate function and metrics; ``device=None`` picks CUDA, then MPS, then CPU.
     """
+
     variant: str
     model: ModelConfig = Field(default_factory=ModelConfig)
     train: TrainConfig = Field(default_factory=TrainConfig)

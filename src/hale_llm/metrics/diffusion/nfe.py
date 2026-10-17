@@ -78,8 +78,8 @@ class NFEMetric(Metric):
         total = sum(self._nfe_list)
         n = len(self._nfe_list)
         return {
-            "nfe_mean":  total / n,
-            "nfe_min":   float(min(self._nfe_list)),
-            "nfe_max":   float(max(self._nfe_list)),
+            "nfe_mean": total / n,
+            "nfe_min": float(min(self._nfe_list)),
+            "nfe_max": float(max(self._nfe_list)),
             "nfe_total": float(total),
         }

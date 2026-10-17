@@ -8,6 +8,7 @@ from loguru import logger
 
 class DeviceResolver:
     """Picks the compute device: the requested one when available, else the best present."""
+
     def resolve(self, device: str | None = None) -> str:
         """Resolve ``device`` (``"cuda"``, ``"mps"``, ``"cpu"`` or ``None`` for automatic).
 

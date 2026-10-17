@@ -26,7 +26,9 @@ class NoiseSchedule(ABC):
 
     @abstractmethod
     def loss_weight(self, t: torch.Tensor, eps: float) -> torch.Tensor:
-        """ELBO weight ``-alpha'(t) / (1 - alpha(t))`` of a masked token, with ``t`` floored at ``eps``."""
+        """ELBO weight ``-alpha'(t) / (1 - alpha(t))`` of a masked token, with ``t`` floored at
+        ``eps``.
+        """
 
     @abstractmethod
     def reveal_probability(self, t_cur: torch.Tensor, t_next: torch.Tensor) -> torch.Tensor:

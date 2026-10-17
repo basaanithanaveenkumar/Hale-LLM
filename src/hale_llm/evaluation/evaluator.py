@@ -20,6 +20,7 @@ class Evaluator:
         cfg: the run config.
         device: target device (default: ``cfg.device`` resolution).
     """
+
     def __init__(self, cfg: RunConfig, device: str | None = None) -> None:
         self.cfg = cfg
         self.device = device or get_device(cfg.device)

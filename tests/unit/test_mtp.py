@@ -36,11 +36,24 @@ def test_heads_share_the_trunk_and_the_unembedding(tiny_tokenizer) -> None:
     model, _ = mtp(tiny_tokenizer)
     logits = model(batch(tiny_tokenizer))
     assert len(logits) == 3 and all(x.shape == (2, 12, 64) for x in logits)
-    torch.testing.assert_close(logits[0], model.backbone(batch(tiny_tokenizer)["input_ids"],
-                                                         attention_mask=batch(tiny_tokenizer)["attention_mask"]))
+    torch.testing.assert_close(
+        logits[0],
+        model.backbone(
+            batch(tiny_tokenizer)["input_ids"],
+            attention_mask=batch(tiny_tokenizer)["attention_mask"],
+        ),
+    )
     # extra heads start as the identity on the trunk -> same logits as head 0 at init
-    torch.testing.assert_close(logits[1], model.backbone.lm_head(model.extra_heads[0].norm_out(
-        model.trunk(batch(tiny_tokenizer)["input_ids"], batch(tiny_tokenizer)["attention_mask"]))))
+    torch.testing.assert_close(
+        logits[1],
+        model.backbone.lm_head(
+            model.extra_heads[0].norm_out(
+                model.trunk(
+                    batch(tiny_tokenizer)["input_ids"], batch(tiny_tokenizer)["attention_mask"]
+                )
+            )
+        ),
+    )
 
 
 def test_loss_scores_head_k_against_the_token_k_plus_one_ahead(tiny_tokenizer) -> None:
@@ -51,8 +64,11 @@ def test_loss_scores_head_k_against_the_token_k_plus_one_ahead(tiny_tokenizer) -
     for k, loss in enumerate(losses):
         target = b["labels"][:, k + 1 :]
         nll = torch.nn.functional.cross_entropy(
-            logits[k][:, : -(k + 1)].reshape(-1, 64), target.reshape(-1), ignore_index=0,
-            label_smoothing=0.0)
+            logits[k][:, : -(k + 1)].reshape(-1, 64),
+            target.reshape(-1),
+            ignore_index=0,
+            label_smoothing=0.0,
+        )
         assert model.cfg.train.loss_type == "ce"
         torch.testing.assert_close(loss, nll, rtol=1e-4, atol=1e-4)
     total = get_loss("mtp")(model, b)
@@ -62,7 +78,9 @@ def test_loss_scores_head_k_against_the_token_k_plus_one_ahead(tiny_tokenizer) -
 
 
 @pytest.mark.parametrize("heads", [1, 2, 4])
-def test_greedy_speculative_decoding_equals_greedy_autoregressive(tiny_tokenizer, heads: int) -> None:
+def test_greedy_speculative_decoding_equals_greedy_autoregressive(
+    tiny_tokenizer, heads: int
+) -> None:
     model, _ = mtp(tiny_tokenizer, heads)
     for head in model.extra_heads:  # make the drafts imperfect so rejections happen
         torch.nn.init.normal_(head.mlp[-1].weight, std=0.5)
@@ -95,8 +113,11 @@ def test_head_accuracy_metric(tiny_tokenizer) -> None:
     (metric,) = instantiate_metrics(["head_accuracy"], "mtp")
     metric.reset()
     with torch.no_grad():
-        metric.update(MetricContext(model=model, batch=batch(tiny_tokenizer), loss=torch.tensor(0.0),
-                                    variant="mtp"))
+        metric.update(
+            MetricContext(
+                model=model, batch=batch(tiny_tokenizer), loss=torch.tensor(0.0), variant="mtp"
+            )
+        )
     out = metric.compute()
     assert set(out) == {"head0_accuracy", "head1_accuracy", "head2_accuracy"}
     assert all(0.0 <= v <= 1.0 for v in out.values())

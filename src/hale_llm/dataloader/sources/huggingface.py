@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import torch
 from datasets import load_dataset
 from loguru import logger
 from torch.utils.data import Dataset
@@ -61,6 +60,7 @@ class HuggingFaceTextDataset(Dataset):
         cfg: the run config.
         split: Hugging Face split name.
     """
+
     def __init__(self, tokenizer, cfg, split: str):
         self.tokenizer = tokenizer
         self.max_length = cfg.model.max_length

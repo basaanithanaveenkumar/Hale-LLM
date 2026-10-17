@@ -48,7 +48,9 @@ class BlockFlowMatchingLM(nn.Module):
                 f"block_flow_matching needs attn_type: block_causal, got {cfg.model.attn_type!r}"
             )
         if not cfg.model.use_time_cond:
-            raise ModelConfigurationError("block_flow_matching conditions on the flow time: set use_time_cond")
+            raise ModelConfigurationError(
+                "block_flow_matching conditions on the flow time: set use_time_cond"
+            )
         block_size = cfg.model.block_size or 16
         if cfg.model.max_length % block_size != 0:
             raise ModelConfigurationError(

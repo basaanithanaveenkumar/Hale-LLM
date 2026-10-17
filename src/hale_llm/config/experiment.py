@@ -37,11 +37,13 @@ def latest_run_dir(cfg: RunConfig) -> Path | None:
 
 
 def _copy_source_yamls(source: Path, dest_dir: Path) -> None:
-    """Copy ``source`` and every file it inherits from (``inherits`` / ``_base_``) into ``dest_dir``.
+    """Copy ``source`` and every file it inherits from (``inherits`` / ``_base_``) into
+    ``dest_dir``.
 
     The run folder then holds the exact YAML files that produced it, next to the resolved
     ``config.yaml``. Inheritance is a DAG, so the walk is breadth-first with a ``seen`` set: each
-    ancestor is copied once and cycles terminate. ``pkg://`` bases are resolved like the loader does.
+    ancestor is copied once and cycles terminate. ``pkg://`` bases are resolved like the loader
+    does.
     """
     from hale_core.config.config_loader import ConfigLoader
 
@@ -97,7 +99,9 @@ def _point_latest(cfg: RunConfig, run_dir: Path) -> None:
         logger.warning("could not update latest symlink at {}", latest)
 
 
-def apply_experiment_layout(cfg: RunConfig, *, create: bool = True, name: str | None = None) -> Path | None:
+def apply_experiment_layout(
+    cfg: RunConfig, *, create: bool = True, name: str | None = None
+) -> Path | None:
     """Rewrite checkpoint/log/tb/viz paths onto one experiment folder.
 
     create=True  — new ``{variant}_{YYYYMMDD_HHMMSS}`` run (or ``name`` if given).

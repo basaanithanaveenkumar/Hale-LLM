@@ -21,21 +21,21 @@ from hale_llm.evaluation.evaluator import Evaluator
 from hale_llm.exceptions import NonFiniteLossError, TrainingError
 from hale_llm.losses.auxiliary import with_auxiliary_losses
 from hale_llm.training.distributed import (
-    DistributedConfig,
     cleanup_distributed,
     is_main_process,
     reduce_dict,
     setup_distributed,
     wrap_model_parallel,
 )
-from hale_llm.training.schedule import TrainSchedule, resolve_schedule
+from hale_llm.training.schedule import TrainSchedule
 from hale_llm.utils.device import get_device
 from hale_llm.utils.experiment_logger import ExperimentLogger, make_experiment_logger
 from hale_llm.utils.logging import setup_logging
 
 
 class Trainer:
-    """Train one variant: data, optimiser, schedule, checkpoints, evaluation, visualisation, logging.
+    """Train one variant: data, optimiser, schedule, checkpoints, evaluation, visualisation,
+    logging.
 
     Collaborators are injected (data module, checkpoint store, evaluator) so tests and the Ray
     launcher can swap them; defaults are built from ``cfg``.
@@ -47,6 +47,7 @@ class Trainer:
         checkpoints: checkpoint store (default local files).
         evaluator: runs the metrics (default :class:`Evaluator`).
     """
+
     def __init__(
         self,
         cfg: RunConfig,
@@ -60,7 +61,7 @@ class Trainer:
         self._tokenizer = tokenizer
         self.data = data_module
         self.checkpoints = checkpoints or CheckpointStore()
-        
+
         # Initialize distributed training
         self.dist_config = setup_distributed(
             strategy=cfg.train.parallel_strategy,
@@ -74,7 +75,7 @@ class Trainer:
 
         # Set device (may be overridden by distributed setup)
         self.device = self._get_device(cfg.device)
-        
+
         self.tokenizer = tokenizer
         self.evaluator = evaluator
         self.model = None
@@ -86,7 +87,7 @@ class Trainer:
         self.start_epoch = 0
         self.schedule: TrainSchedule | None = None
         self._reporter = RayReporter()  # no-op unless running inside a Ray Train worker
-    
+
     def _get_device(self, device_str: str | None) -> torch.device:
         """Get device, accounting for distributed training."""
         if self.dist_config.strategy in ("ddp", "fsdp") and self.dist_config.is_initialized:
@@ -99,8 +100,10 @@ class Trainer:
     def fit(self) -> tuple:
         """Run the full training loop and return ``(model, tokenizer)``.
 
-        Lays out the experiment folder, resumes from the last checkpoint when ``train.resume``, steps
-        the optimiser with gradient clipping, evaluates every ``eval.every_n_epochs`` and checkpoints
+        Lays out the experiment folder, resumes from the last checkpoint when ``train.resume``,
+        steps
+        the optimiser with gradient clipping, evaluates every ``eval.every_n_epochs`` and
+        checkpoints
         every epoch.
 
         Raises:
@@ -130,10 +133,10 @@ class Trainer:
 
         self.model = model_cls(vocab_size=vocab_size, cfg=cfg).to(self.device)
         n_params = count_parameters(self.model)
-        
+
         # Wrap model with parallelization strategy
         self.model = wrap_model_parallel(self.model, self.dist_config, self.device)
-        
+
         # Log model summary only on main process
         if is_main_process(self.dist_config):
             log_model_summary(self.model, title=f"model summary  variant={cfg.variant}")
@@ -145,7 +148,7 @@ class Trainer:
 
         self.schedule = TrainSchedule.from_config(cfg, len(loader))
         n_epochs, total_steps = self.schedule.n_epochs, self.schedule.total_steps
-        
+
         # Log training info only on main process
         if is_main_process(self.dist_config):
             logger.info(
@@ -180,7 +183,7 @@ class Trainer:
         run_name = None if cfg.experiment.enabled else cfg.variant
         if cfg.experiment.enabled and cfg.experiment.name:
             run_name = cfg.experiment.name
-        
+
         self.logger = make_experiment_logger(
             tensorboard_enabled=cfg.logging.tensorboard and is_main_process(self.dist_config),
             tensorboard_dir=cfg.logging.tensorboard_dir,
@@ -209,7 +212,7 @@ class Trainer:
         )
         self.logger.log_text("config", str(cfg.model_dump()))
         self.logger.log_scalars(0, {"model/n_params": float(n_params)})
-        
+
         # Watch model with W&B if enabled
         if cfg.logging.wandb and cfg.logging.wandb_watch_model:
             self.logger.watch_model(self.model, log_freq=cfg.logging.wandb_log_freq)
@@ -228,12 +231,12 @@ class Trainer:
         if is_main_process(self.dist_config):
             self._save(epoch=n_epochs - 1, vocab_size=vocab_size)
             logger.info("checkpoint saved to {}", cfg.train.checkpoint_path)
-        
+
         if self.logger is not None:
             if self.losses:
                 self.logger.log_scalars(self.global_step, {"train/final_loss": self.losses[-1]})
             self.logger.close()
-        
+
         if is_main_process(self.dist_config):
             logger.info(
                 "training finished variant={} epochs={} steps={} final_loss={:.4f}",
@@ -242,10 +245,10 @@ class Trainer:
                 self.global_step,
                 self.losses[-1] if self.losses else float("nan"),
             )
-        
+
         # Clean up distributed resources
         cleanup_distributed(self.dist_config)
-        
+
         return self.model, self.tokenizer, self.losses
 
     def _maybe_resume(self, n_epochs: int) -> None:
@@ -257,12 +260,12 @@ class Trainer:
             if is_main_process(self.dist_config):
                 logger.info("resume=true; loading {}", ckpt_path)
             ckpt = self.checkpoints.load(ckpt_path, self.device)
-            
+
             # Handle DDP/FSDP wrapped models
             model_to_load = self.model
             if hasattr(self.model, "module"):
                 model_to_load = self.model.module
-            
+
             model_to_load.load_state_dict(ckpt["model_state_dict"])
             if "optimizer_state_dict" in ckpt:
                 self.opt.load_state_dict(ckpt["optimizer_state_dict"])
@@ -270,7 +273,9 @@ class Trainer:
                     logger.debug("restored optimizer state")
             else:
                 if is_main_process(self.dist_config):
-                    logger.warning("checkpoint has no optimizer_state_dict; continuing with fresh optimizer")
+                    logger.warning(
+                        "checkpoint has no optimizer_state_dict; continuing with fresh optimizer"
+                    )
             self.start_epoch = int(ckpt.get("epoch", -1)) + 1
             self.global_step = int(ckpt.get("step", 0))
             if is_main_process(self.dist_config):
@@ -294,7 +299,7 @@ class Trainer:
         model_to_save = self.model
         if hasattr(self.model, "module"):
             model_to_save = self.model.module
-        
+
         self.checkpoints.save(
             self.cfg.train.checkpoint_path,
             model_state_dict=model_to_save.state_dict(),
@@ -337,7 +342,9 @@ class Trainer:
 
                 self.opt.zero_grad(set_to_none=True)
                 loss.backward()
-                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), cfg.train.grad_clip)
+                grad_norm = torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(), cfg.train.grad_clip
+                )
                 self.opt.step()
                 lr = self.opt.param_groups[0]["lr"]
                 self.losses.append(loss.item())
@@ -370,7 +377,7 @@ class Trainer:
 
             epoch_mean = sum(epoch_losses) / max(len(epoch_losses), 1)
             self.logger.log_scalars(epoch, {"train/epoch_loss": epoch_mean})
-            
+
             if is_main_process(self.dist_config):
                 logger.info(
                     "epoch {}/{} done mean_loss={:.4f} steps_this_epoch={}",
@@ -379,24 +386,24 @@ class Trainer:
                     epoch_mean,
                     len(epoch_losses),
                 )
-            
+
             eval_metrics: dict[str, float] = {}
             if cfg.eval.every_n_epochs and (epoch + 1) % cfg.eval.every_n_epochs == 0:
                 eval_loader = self.data.val_loader(loader)
                 eval_metrics = self.evaluator.run(self.model, eval_loader)
-                
+
                 # Reduce metrics across all processes
                 eval_metrics = reduce_dict(eval_metrics, self.dist_config, average=True)
-                
+
                 self.logger.log_scalars(
                     epoch,
                     {f"eval/{k}": v for k, v in eval_metrics.items()},
                 )
-            
+
             # Only main process does visualization
             if is_main_process(self.dist_config):
                 self._maybe_visualize(tag=f"epoch{epoch + 1}", by_epoch=True)
-            
+
             # Only main process saves checkpoints
             saved = cfg.train.checkpoint_every_epoch and is_main_process(self.dist_config)
             if saved:

@@ -20,6 +20,7 @@ class TrainSchedule:
         n_epochs: passes over the training loader.
         total_steps: optimisation steps (drives the LR scheduler).
     """
+
     n_epochs: int
     total_steps: int
 

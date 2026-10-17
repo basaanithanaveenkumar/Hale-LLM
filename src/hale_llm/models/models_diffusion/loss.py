@@ -29,6 +29,7 @@ def _corrupt(x0, t, mask_id, schedule: NoiseSchedule | None = None):
     x_t = torch.where(is_masked, torch.full_like(x0, mask_id), x0)
     return x_t, is_masked
 
+
 @register_loss("diffusion")
 def diffusion_loss(model, batch: dict) -> torch.Tensor:
     """Continuous-time MDLM loss: schedule-weighted NLL of the masked tokens at a random ``t``."""

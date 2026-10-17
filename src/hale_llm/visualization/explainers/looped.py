@@ -35,13 +35,23 @@ N_LOOPS = 6
 
 class LoopedExplainer(Explainer):
     """Film of the looped transformer: one weight-tied block applied several times per token."""
+
     variant = "looped"
     title = "Looped Transformer LM"
     subtitle = f"one weight-tied block applied up to {N_LOOPS}×  ·  ACT: every character decides when to stop"
-    train_kwargs = {"model": {"arch": "looped", "n_layers": 1,
-                              "loop": {"n_loops": N_LOOPS, "halting": "act", "act_init_bias": -1.0,
-                                       "ponder_weight": 0.003}},
-                    "steps": 500}
+    train_kwargs = {
+        "model": {
+            "arch": "looped",
+            "n_layers": 1,
+            "loop": {
+                "n_loops": N_LOOPS,
+                "halting": "act",
+                "act_init_bias": -1.0,
+                "ponder_weight": 0.003,
+            },
+        },
+        "steps": 500,
+    }
 
     def trace(self, run: ToyRun, seed: int = 0) -> LoopedTrace:
         """Generate with per-pass predictions recorded (mirrors the looped sampler)."""
@@ -59,9 +69,16 @@ class LoopedExplainer(Explainer):
                 probs = F.softmax(logits[:, -1, :] / max(self.temperature, 1e-5), dim=-1)
                 nxt = torch.multinomial(probs, 1)
                 top = probs[0].topk(5)
-                updates = float(stats.token_updates[0, -1]) if stats.token_updates is not None else stats.loops
-                out.steps.append(LoopGenStep(top.indices.tolist(), top.values.tolist(), int(nxt), stats.loops,
-                                             updates))
+                updates = (
+                    float(stats.token_updates[0, -1])
+                    if stats.token_updates is not None
+                    else stats.loops
+                )
+                out.steps.append(
+                    LoopGenStep(
+                        top.indices.tolist(), top.values.tolist(), int(nxt), stats.loops, updates
+                    )
+                )
                 x = torch.cat([x, nxt], dim=1)
         out.ids = x
         return out
@@ -83,24 +100,46 @@ class LoopedExplainer(Explainer):
         for t, state in enumerate(states):
             act = stack.halting.step(act, state, last=t + 1 == stack.spec.n_loops)
             lens = F.softmax(bb.lm_head(stack.ln_out(state))[0, -1], dim=-1).topk(5)
-            change = ([1.0] * state.size(1) if previous is None else
-                      ((state - previous).norm(dim=-1) / previous.norm(dim=-1).clamp_min(1e-6))[0].tolist())
-            out.passes.append(LoopPass(lens.indices.tolist(), lens.values.tolist(), act.halting[0].tolist(),
-                                       act.running[0].tolist(), change))
+            change = (
+                [1.0] * state.size(1)
+                if previous is None
+                else ((state - previous).norm(dim=-1) / previous.norm(dim=-1).clamp_min(1e-6))[
+                    0
+                ].tolist()
+            )
+            out.passes.append(
+                LoopPass(
+                    lens.indices.tolist(),
+                    lens.values.tolist(),
+                    act.halting[0].tolist(),
+                    act.running[0].tolist(),
+                    change,
+                )
+            )
             previous = state
 
     # ------------------------------------------------------------------ film
     def render(self, run: ToyRun, trace: LoopedTrace, writer: GifWriter) -> None:
-        """Draw the film into ``writer``: intro, how training sees a sentence, generation in motion, outcome."""
+        """Draw the film into ``writer``: intro, how training sees a sentence, generation in motion,
+        outcome.
+        """
         self.intro(run, writer)
         self._loop(run, writer)
         self._slow_motion_scene(run, trace, writer)
         self._generation(run, trace, writer)
         n = len(trace.steps)
         mean = sum(st.updates for st in trace.steps) / n
-        self.outro(run, writer, trace.ids[0], "one block of weights, as deep as each character needs",
-                   [(f"{n}", "forward passes"), (f"{mean:.1f} / {N_LOOPS}", "loop passes per character"),
-                    ("1", "block of parameters")])
+        self.outro(
+            run,
+            writer,
+            trace.ids[0],
+            "one block of weights, as deep as each character needs",
+            [
+                (f"{n}", "forward passes"),
+                (f"{mean:.1f} / {N_LOOPS}", "loop passes per character"),
+                ("1", "block of parameters"),
+            ],
+        )
 
     def _loop(self, run: ToyRun, writer: GifWriter) -> None:
         """One block W with a loop arrow; a state dot laps it while the unrolled strip fills."""
@@ -111,10 +150,17 @@ class LoopedExplainer(Explainer):
         for lap in range(laps):
             for f in range(per_lap):
                 u = (f + 1) / per_lap
-                s = self.stage("the loop", "the SAME block runs again and again on its own output", GOLD)
+                s = self.stage(
+                    "the loop", "the SAME block runs again and again on its own output", GOLD
+                )
                 s.model_box("embed", "characters → vectors", box=(4.0, 20.0, 22.0, 29.0))
-                s.model_box("shared block W", f"pass {lap + 1} of {N_LOOPS}", pulse=0.6 + 0.4 * (f == 0), color=GOLD,
-                            box=w_box)
+                s.model_box(
+                    "shared block W",
+                    f"pass {lap + 1} of {N_LOOPS}",
+                    pulse=0.6 + 0.4 * (f == 0),
+                    color=GOLD,
+                    box=w_box,
+                )
                 s.model_box("LM head", "→ next character", box=(78.0, 20.0, 96.0, 29.0))
                 s.arrow((22.4, 24.5), (w_box[0] - 0.4, 24.5), color=INK, lw=2.0)
                 s.text(30.2, 26.3, "e", size=13, color=INK, style="italic")
@@ -127,14 +173,35 @@ class LoopedExplainer(Explainer):
                 for k in range(N_LOOPS):
                     x0 = 22.0 + k * 9.6
                     lit = k < lap or (k == lap and u > 0.5)
-                    s.box(x0, 35.0, x0 + 7.6, 39.0, face="#3A2A08" if lit else PANEL, edge=GOLD if lit else FAINT,
-                          lw=1.4, radius=0.6)
-                    s.text(x0 + 3.8, 37.0, "W", size=11, weight="bold", color=GOLD if lit else MUTED)
+                    s.box(
+                        x0,
+                        35.0,
+                        x0 + 7.6,
+                        39.0,
+                        face="#3A2A08" if lit else PANEL,
+                        edge=GOLD if lit else FAINT,
+                        lw=1.4,
+                        radius=0.6,
+                    )
+                    s.text(
+                        x0 + 3.8, 37.0, "W", size=11, weight="bold", color=GOLD if lit else MUTED
+                    )
                     if k:
-                        s.arrow((x0 - 2.0, 37.0), (x0 - 0.1, 37.0), color=GOLD if lit else FAINT, lw=1.2, head=7)
+                        s.arrow(
+                            (x0 - 2.0, 37.0),
+                            (x0 - 0.1, 37.0),
+                            color=GOLD if lit else FAINT,
+                            lw=1.2,
+                            head=7,
+                        )
                 s.text(20.5, 37.0, "unrolled:", size=9.5, color=MUTED, ha="right")
                 s.counter(f"{lap + 1}×", label="compute depth", color=GOLD, xy=(88.0, 11.5))
-                s.counter("1×", label=f"parameters ({core_params / 1e3:.0f}k)", color=TEAL, xy=(12.0, 11.5))
+                s.counter(
+                    "1×",
+                    label=f"parameters ({core_params / 1e3:.0f}k)",
+                    color=TEAL,
+                    xy=(12.0, 11.5),
+                )
                 s.progress((lap + u) / laps, GOLD)
                 writer.stage(s, 80)
         writer.hold(1400)
@@ -149,30 +216,76 @@ class LoopedExplainer(Explainer):
         frames = 6
         prev = [0.0] * n
         for t, p in enumerate(trace.passes):
-            items = [(tok.token(i), q) for i, q in zip(p.lens_ids, p.lens_probs, strict=True) if q >= 0.03][:3]
+            items = [
+                (tok.token(i), q)
+                for i, q in zip(p.lens_ids, p.lens_probs, strict=True)
+                if q >= 0.03
+            ][:3]
             for f in range(frames):
                 u = ease((f + 1) / frames)
                 halted_now = sum(1 for r in p.running if not r)
-                s = self.stage("one forward, slowed down",
-                               f"after pass {t + 1}: {halted_now} of {n} characters have stopped (halted)", GOLD)
+                s = self.stage(
+                    "one forward, slowed down",
+                    f"after pass {t + 1}: {halted_now} of {n} characters have stopped (halted)",
+                    GOLD,
+                )
                 for i, token_id in enumerate(prompt):
                     halted = not p.running[i] and u > 0.6
                     just_halted = halted and (t == 0 or trace.passes[t - 1].running[i])
-                    s.tile(xs[i], tile_y, tok.token(token_id), "accept" if halted else "prompt", w=4.6, h=5.6,
-                           size=16, glow=0.9 if just_halted else 0)
+                    s.tile(
+                        xs[i],
+                        tile_y,
+                        tok.token(token_id),
+                        "accept" if halted else "prompt",
+                        w=4.6,
+                        h=5.6,
+                        size=16,
+                        glow=0.9 if just_halted else 0,
+                    )
                     frac = lerp(prev[i], p.halting[i], u)
                     s.ring(xs[i], ring_y, 2.2, frac, color=GREEN if halted else GOLD)
-                    s.text(xs[i], ring_y, f"{frac:.0%}" if frac < 0.995 else "✓", size=8.5 if frac < 0.995 else 12,
-                           color=GREEN if halted else MUTED, weight="bold")
+                    s.text(
+                        xs[i],
+                        ring_y,
+                        f"{frac:.0%}" if frac < 0.995 else "✓",
+                        size=8.5 if frac < 0.995 else 12,
+                        color=GREEN if halted else MUTED,
+                        weight="bold",
+                    )
                 top = items[0]
-                s.tile(xs[n], tile_y, "", "slot", ghost=top[0], ghost_alpha=top[1], edge=GOLD, w=4.6, h=5.6, size=16)
+                s.tile(
+                    xs[n],
+                    tile_y,
+                    "",
+                    "slot",
+                    ghost=top[0],
+                    ghost_alpha=top[1],
+                    edge=GOLD,
+                    w=4.6,
+                    h=5.6,
+                    size=16,
+                )
                 s.text(xs[n], tile_y + 4.3, "next?", size=9, color=GOLD)
                 s.text(4.0, ring_y, "halting\nprobability", size=9, color=MUTED, ha="left")
-                s.model_box("W", f"pass {t + 1} / {N_LOOPS}", pulse=1 - u, color=GOLD, box=(3.0, 6.0, 17.0, 17.0))
-                s.candidates(28.0, 15.0, items, chosen=0, grow=u if t == 0 else 1.0,
-                             title=f"if it stopped after pass {t + 1}, the next character would be")
+                s.model_box(
+                    "W",
+                    f"pass {t + 1} / {N_LOOPS}",
+                    pulse=1 - u,
+                    color=GOLD,
+                    box=(3.0, 6.0, 17.0, 17.0),
+                )
+                s.candidates(
+                    28.0,
+                    15.0,
+                    items,
+                    chosen=0,
+                    grow=u if t == 0 else 1.0,
+                    title=f"if it stopped after pass {t + 1}, the next character would be",
+                )
                 s.counter(f"{t + 1}", label="passes so far", color=GOLD)
-                s.footer("ring = each character's halting probability (ACT); at ~100% it stops updating")
+                s.footer(
+                    "ring = each character's halting probability (ACT); at ~100% it stops updating"
+                )
                 writer.stage(s, 110)
             writer.hold(500)
             prev = p.halting
@@ -192,14 +305,28 @@ class LoopedExplainer(Explainer):
             for j in range(last):
                 x, y = layout.pos(self.prompt_len + j)
                 used = steps[j].updates
-                s.bar(x - layout.tile_w / 2, y - layout.tile_h / 2 - 1.1, layout.tile_w, 0.6, used / N_LOOPS,
-                      color=GOLD if used > 2.5 else TEAL)
+                s.bar(
+                    x - layout.tile_w / 2,
+                    y - layout.tile_h / 2 - 1.1,
+                    layout.tile_w,
+                    0.6,
+                    used / N_LOOPS,
+                    color=GOLD if used > 2.5 else TEAL,
+                )
 
         render_next_token(
-            self, run, trace.ids[0].tolist(), steps, writer,
-            model_name="looped W", model_detail=detail, overlay=passes_bar,
+            self,
+            run,
+            trace.ids[0].tolist(),
+            steps,
+            writer,
+            model_name="looped W",
+            model_detail=detail,
+            overlay=passes_bar,
             footer="bar under each new character = loop passes its position used before halting",
-            counter_sub=lambda k: f"avg {sum(st.updates for st in steps[: k + 1]) / (k + 1):.1f} loops / char",
+            counter_sub=lambda k: (
+                f"avg {sum(st.updates for st in steps[: k + 1]) / (k + 1):.1f} loops / char"
+            ),
         )
 
 

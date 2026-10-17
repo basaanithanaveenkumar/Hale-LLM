@@ -42,8 +42,9 @@ def test_load_session_falls_back_when_checkpoint_missing(tiny_tokenizer, tmp_pat
 
 
 def test_load_session_explicit_missing_checkpoint_raises(tiny_tokenizer, tmp_path):
-    from hale_llm.inference import load_session
     import pytest
+
+    from hale_llm.inference import load_session
 
     cfg = RunConfig(
         variant="autoregressive",

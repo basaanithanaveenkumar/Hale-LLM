@@ -126,7 +126,9 @@ def render_unmasking_gif(
         t_val, tokens_str, seq_ids, current = snapshots[fi]
         seq_ids = np.asarray(seq_ids)
 
-        ax.text(-1, y_top, "Prompt:", ha="right", va="center", fontsize=LABEL_FONTSIZE, weight="bold")
+        ax.text(
+            -1, y_top, "Prompt:", ha="right", va="center", fontsize=LABEL_FONTSIZE, weight="bold"
+        )
         for i, tok in enumerate(tokens_str[:L_prompt]):
             pos = compute_positions(tokens_str[:L_prompt])[0][i]
             ax.text(
@@ -143,7 +145,15 @@ def render_unmasking_gif(
 
         answer_tokens = tokens_str[L_prompt:]
         wrapped_lines = wrap_tokens(answer_tokens, max_line_width)
-        ax.text(-1, y_top - row_spacing, "Answer:", ha="right", va="center", fontsize=LABEL_FONTSIZE, weight="bold")
+        ax.text(
+            -1,
+            y_top - row_spacing,
+            "Answer:",
+            ha="right",
+            va="center",
+            fontsize=LABEL_FONTSIZE,
+            weight="bold",
+        )
 
         for line_idx, line in enumerate(wrapped_lines):
             y_pos = y_top - ((line_idx + 1) * row_spacing)
@@ -193,7 +203,9 @@ def render_unmasking_gif(
             pad=20,
         )
 
-    anim = animation.FuncAnimation(fig, draw_frame, frames=len(snapshots), interval=200, repeat=False)
+    anim = animation.FuncAnimation(
+        fig, draw_frame, frames=len(snapshots), interval=200, repeat=False
+    )
     anim.save(output_gif, writer="pillow", fps=fps, dpi=dpi)
     plt.close(fig)
     logger.info("GIF saved as {}", output_gif)
@@ -320,14 +332,32 @@ def render_token_grid_gif(
             if is_prompt:
                 text_color = "steelblue"
             elif is_mask:
-                ax.add_patch(Rectangle((x - 0.4, y - 0.4), 0.8, 0.8, facecolor="#EEEEEE", edgecolor="#CCCCCC"))
+                ax.add_patch(
+                    Rectangle(
+                        (x - 0.4, y - 0.4), 0.8, 0.8, facecolor="#EEEEEE", edgecolor="#CCCCCC"
+                    )
+                )
                 text_color = "dimgray"
             else:
                 text_color = "orange"
-            ax.text(x, y, tok, ha="center", va="center", fontsize=12, color=text_color, weight="bold", family="monospace")
-        ax.set_title(f"{title_prefix}  t={t_val:.2f}  ({fi + 1}/{len(snapshots)})", fontsize=14, pad=16)
+            ax.text(
+                x,
+                y,
+                tok,
+                ha="center",
+                va="center",
+                fontsize=12,
+                color=text_color,
+                weight="bold",
+                family="monospace",
+            )
+        ax.set_title(
+            f"{title_prefix}  t={t_val:.2f}  ({fi + 1}/{len(snapshots)})", fontsize=14, pad=16
+        )
 
-    anim = animation.FuncAnimation(fig, draw_frame, frames=len(snapshots), interval=200, repeat=False)
+    anim = animation.FuncAnimation(
+        fig, draw_frame, frames=len(snapshots), interval=200, repeat=False
+    )
     anim.save(output_gif, writer="pillow", fps=fps, dpi=dpi)
     plt.close(fig)
     return output_gif

@@ -70,7 +70,11 @@ def corruption_scene(
     layout = Layout(len(text))
     g = torch.Generator().manual_seed(seed)
     u = torch.rand(len(text), generator=g).tolist()
-    stops = [lerp(a, b, (f + 1) / 8) for a, b in zip(sweep[:-1], sweep[1:], strict=True) for f in range(8)]
+    stops = [
+        lerp(a, b, (f + 1) / 8)
+        for a, b in zip(sweep[:-1], sweep[1:], strict=True)
+        for f in range(8)
+    ]
 
     def masked_at(t: float) -> list[bool]:
         return [i >= explainer.prompt_len and is_masked(u[i], t) for i in range(len(text))]
@@ -85,18 +89,35 @@ def corruption_scene(
             if masked[i]:
                 s.tile(x, y, "", "mask", glow=0.9 if flipped else 0)
             else:
-                s.tile(x, y, ch, "prompt" if i < explainer.prompt_len else "clean", glow=0.9 if flipped else 0)
-        s.schedule(SCHEDULE_BOX, clock.fn, t, title=clock.title, value=f"t = {t:.2f}", reverse=clock.reverse,
-                   extra=clock.extra)
+                s.tile(
+                    x,
+                    y,
+                    ch,
+                    "prompt" if i < explainer.prompt_len else "clean",
+                    glow=0.9 if flipped else 0,
+                )
+        s.schedule(
+            SCHEDULE_BOX,
+            clock.fn,
+            t,
+            title=clock.title,
+            value=f"t = {t:.2f}",
+            reverse=clock.reverse,
+            extra=clock.extra,
+        )
         s.counter(f"{sum(masked)}", label="masked characters", color=GOLD)
-        s.footer("? = the [MASK] token  ·  one random draw per character decides when it gets masked")
+        s.footer(
+            "? = the [MASK] token  ·  one random draw per character decides when it gets masked"
+        )
         s.progress((k + 1) / len(stops), TEAL)
         writer.stage(s, 90)
         previous = masked
     writer.hold(700)
 
     masked = masked_at(train_t)
-    x_t = torch.tensor([[tok.mask_token_id if m else tok.stoi[c] for c, m in zip(text, masked, strict=True)]])
+    x_t = torch.tensor(
+        [[tok.mask_token_id if m else tok.stoi[c] for c, m in zip(text, masked, strict=True)]]
+    )
     with torch.no_grad():
         guess = predict(x_t, train_t).argmax(-1).tolist()
     correct = sum(1 for i, m in enumerate(masked) if m and tok.token(guess[i]) == text[i])
@@ -112,16 +133,31 @@ def corruption_scene(
                 s.tile(x, y, "", "mask")
             else:
                 ok = tok.token(guess[i]) == ch
-                s.tile(x, y, tok.token(guess[i]), "accept" if ok else "reject", scale=pop(a, 0.2) if f < 8 else 1.0)
+                s.tile(
+                    x,
+                    y,
+                    tok.token(guess[i]),
+                    "accept" if ok else "reject",
+                    scale=pop(a, 0.2) if f < 8 else 1.0,
+                )
                 if not ok:
-                    s.text(x, y - layout.tile_h / 2 - 1.2, f"→{ch}", size=8, color=RED, family="DejaVu Sans Mono",
-                           alpha=a)
+                    s.text(
+                        x,
+                        y - layout.tile_h / 2 - 1.2,
+                        f"→{ch}",
+                        size=8,
+                        color=RED,
+                        family="DejaVu Sans Mono",
+                        alpha=a,
+                    )
         s.model_box("Denoiser", "sees all positions", pulse=1 - abs(f - 2.5) / 3 if f < 6 else 0.0)
         s.text(44, 16.5, f"{correct} / {total}", size=26, weight="bold", color=GREEN, alpha=a)
         s.text(44, 11.0, "masked characters guessed right", size=10, color=MUTED, alpha=a)
         s.text(44, 7.2, loss_note, size=10, color=INK, alpha=a)
         s.counter(f"{train_t:.2f}", label="this example's t", color=GOLD)
-        s.footer("green = right guess  ·  red = wrong (the loss pushes it toward the true character)")
+        s.footer(
+            "green = right guess  ·  red = wrong (the loss pushes it toward the true character)"
+        )
         writer.stage(s, 110)
     writer.hold(2200)
 
@@ -148,7 +184,9 @@ def render_masked_generation(
     fast = blocks
     start = explainer.prompt(run)[0].tolist() + [mask_id] * (n - explainer.prompt_len)
 
-    def frame(x: list[int], step: MaskedStep | None, k: int, phase: str, u: float, cap: str, color: str) -> Stage:
+    def frame(
+        x: list[int], step: MaskedStep | None, k: int, phase: str, u: float, cap: str, color: str
+    ) -> Stage:
         s = explainer.stage("generation", cap, color)
         active = step.block if step is not None and blocks else None
         for i in range(n):
@@ -160,34 +198,58 @@ def render_masked_generation(
                 s.tile(px, py, tok.token(x[i]), "prompt")
             elif x[i] != mask_id:
                 fresh = step is not None and i in step.revealed and phase == "keep"
-                s.tile(px, py, tok.token(x[i]), "new" if fresh else "done", scale=pop(u, 0.3) if fresh else 1.0,
-                       glow=(1 - u) if fresh else 0)
+                s.tile(
+                    px,
+                    py,
+                    tok.token(x[i]),
+                    "new" if fresh else "done",
+                    scale=pop(u, 0.3) if fresh else 1.0,
+                    glow=(1 - u) if fresh else 0,
+                )
             elif future:
                 s.tile(px, py, "", "ghost")
             elif step is not None and in_scope and phase in ("guess", "keep"):
                 a = ease(u) if phase == "guess" else 1 - ease(u)
-                s.tile(px, py, "", "mask", ghost=tok.token(step.pred[i]), ghost_alpha=step.conf[i] * a)
+                s.tile(
+                    px, py, "", "mask", ghost=tok.token(step.pred[i]), ghost_alpha=step.conf[i] * a
+                )
             else:
                 s.tile(px, py, "", "mask")
         if blocks and active is not None:
             x0, y0, x1, y1 = layout.block_span(active, pad=0.7)
             s.box(x0, y0, x1, y1, face="none", edge=ORANGE, lw=2.0, radius=0.9, z=5)
         pulse = (1 - 0.6 * ease(u)) if phase == "guess" else 0.0
-        s.model_box(model_name, "fills every ? at once" if not blocks else "current block only", pulse=pulse)
-        s.arrow((12.5, layout.bottom - 0.6), (12.5, MODEL_BOX[3] + 0.4), color=GOLD if pulse > 0.3 else MUTED, lw=2.0)
+        s.model_box(
+            model_name, "fills every ? at once" if not blocks else "current block only", pulse=pulse
+        )
+        s.arrow(
+            (12.5, layout.bottom - 0.6),
+            (12.5, MODEL_BOX[3] + 0.4),
+            color=GOLD if pulse > 0.3 else MUTED,
+            lw=2.0,
+        )
         if step is None:
             t = start_t
         else:
             t = step.t_from if phase == "guess" else lerp(step.t_from, step.t_to, ease(u))
-        s.schedule(SCHEDULE_BOX, clock.fn, t, title=clock.title, value=f"t = {t:.2f}", reverse=clock.reverse,
-                   extra=clock.extra)
+        s.schedule(
+            SCHEDULE_BOX,
+            clock.fn,
+            t,
+            title=clock.title,
+            value=f"t = {t:.2f}",
+            reverse=clock.reverse,
+            extra=clock.extra,
+        )
         if step is not None and phase == "keep":
             s.text(72, 17.0, f"+{len(step.revealed)}", size=26, weight="bold", color=GOLD)
             s.text(72, 11.5, "kept this step", size=10, color=MUTED)
         left = sum(1 for i, v in enumerate(x) if v == mask_id and i >= explainer.prompt_len)
         s.text(72, 7.5, f"{left} ? left", size=10.5, color=INK)
         s.counter(str(k), sub="")
-        s.footer("faint gold letter = the model's guess (brighter = more sure)  ·  only a few guesses are kept per step")
+        s.footer(
+            "faint gold letter = the model's guess (brighter = more sure)  ·  only a few guesses are kept per step"
+        )
         s.progress(1 - left / (n - explainer.prompt_len), GOLD)
         return s
 
@@ -200,12 +262,29 @@ def render_masked_generation(
         for phase, count in (("guess", 3 if slow else 2), ("keep", 3 if slow else 2)):
             for f in range(count):
                 shown = x if phase == "guess" else step.x
-                writer.stage(frame(shown, step, k + 1, phase, (f + 1) / count, cap, GOLD if step.final_fill else ORANGE),
-                             110 if slow else 75)
+                writer.stage(
+                    frame(
+                        shown,
+                        step,
+                        k + 1,
+                        phase,
+                        (f + 1) / count,
+                        cap,
+                        GOLD if step.final_fill else ORANGE,
+                    ),
+                    110 if slow else 75,
+                )
         x = step.x
         if blocks and (k + 1 == len(trace.steps) or trace.steps[k + 1].block != step.block):
             writer.hold(500)
     writer.hold(700)
 
 
-__all__ = ["SCHEDULE_BOX", "Clock", "MaskedStep", "MaskedTrace", "corruption_scene", "render_masked_generation"]
+__all__ = [
+    "SCHEDULE_BOX",
+    "Clock",
+    "MaskedStep",
+    "MaskedTrace",
+    "corruption_scene",
+    "render_masked_generation",
+]

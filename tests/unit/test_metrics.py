@@ -75,9 +75,7 @@ def test_evaluate_returns_dict(tiny_tokenizer):
     from hale_llm.dataloader import make_overfit_loader
 
     model = get_variant("autoregressive")(vocab_size=len(tiny_tokenizer), cfg=cfg)
-    loader = make_overfit_loader(
-        "autoregressive", tiny_tokenizer, "hi", 8, 2, 4
-    )
+    loader = make_overfit_loader("autoregressive", tiny_tokenizer, "hi", 8, 2, 4)
     out = evaluate(model, cfg, loader)
     assert "loss" in out and "perplexity" in out and "token_accuracy" in out
     assert out["perplexity"] > 1.0

@@ -59,9 +59,9 @@ class VLBMetric(Metric):
 
     def reset(self) -> None:
         """Clear the running sums (called before every evaluation pass)."""
-        self._all_kl:    list[float] = []   # all steps, all samples
-        self._l0_kl:     list[float] = []   # timestep 0 only
-        self._lt_kl:     list[float] = []   # timestep > 0
+        self._all_kl: list[float] = []  # all steps, all samples
+        self._l0_kl: list[float] = []  # timestep 0 only
+        self._lt_kl: list[float] = []  # timestep > 0
 
     def update(self, ctx: MetricContext) -> None:
         """Accumulate VLB components from one training batch.
@@ -71,7 +71,7 @@ class VLBMetric(Metric):
             ctx.batch["timestep"]:     list[int]   — one timestep per sample.
         """
         kl_values = ctx.batch.get("vlb_per_step", [])
-        timesteps  = ctx.batch.get("timestep", [])
+        timesteps = ctx.batch.get("timestep", [])
 
         for kl, t in zip(kl_values, timesteps):
             kl_f = float(kl)
@@ -102,8 +102,8 @@ class VLBMetric(Metric):
             return sum(lst) / len(lst) if lst else 0.0
 
         return {
-            "vlb_mean":    _mean(self._all_kl),
-            "vlb_l0":      _mean(self._l0_kl),
+            "vlb_mean": _mean(self._all_kl),
+            "vlb_l0": _mean(self._l0_kl),
             "vlb_lt_mean": _mean(self._lt_kl),
-            "vlb_lt_max":  max(self._lt_kl) if self._lt_kl else 0.0,
+            "vlb_lt_max": max(self._lt_kl) if self._lt_kl else 0.0,
         }

@@ -29,6 +29,7 @@ from loguru import logger
 # Builders
 # ---------------------------------------------------------------------------
 
+
 def _base_kwargs(args) -> dict:
     return dict(
         vocab_size=args.vocab_size,
@@ -68,25 +69,26 @@ _BUILDERS = {"gpt": build_gpt, "lgt": build_lgt, "dit": build_dit}
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="HaloDiffusionLLM profiler")
-    p.add_argument("--arch",          default="gpt", choices=list(_BUILDERS))
-    p.add_argument("--device",        default="cpu")
-    p.add_argument("--batch-size",    type=int, default=2)
-    p.add_argument("--seq-len",       type=int, default=128)
-    p.add_argument("--vocab-size",    type=int, default=8192)
-    p.add_argument("--d-model",       type=int, default=256)
-    p.add_argument("--n-heads",       type=int, default=4)
-    p.add_argument("--n-layers",      type=int, default=6)
-    p.add_argument("--d-ff",          type=int, default=1024)
-    p.add_argument("--attn-impl",     default="mha", choices=["mha", "gqa", "mqa"])
-    p.add_argument("--ffn-type",      default="mlp", choices=["mlp", "geglu", "moe"])
-    p.add_argument("--top",           type=int, default=40)
-    p.add_argument("--sort",          default="latency", choices=["latency", "flops", "matmuls"])
-    p.add_argument("--warmup",        type=int, default=2)
+    p.add_argument("--arch", default="gpt", choices=list(_BUILDERS))
+    p.add_argument("--device", default="cpu")
+    p.add_argument("--batch-size", type=int, default=2)
+    p.add_argument("--seq-len", type=int, default=128)
+    p.add_argument("--vocab-size", type=int, default=8192)
+    p.add_argument("--d-model", type=int, default=256)
+    p.add_argument("--n-heads", type=int, default=4)
+    p.add_argument("--n-layers", type=int, default=6)
+    p.add_argument("--d-ff", type=int, default=1024)
+    p.add_argument("--attn-impl", default="mha", choices=["mha", "gqa", "mqa"])
+    p.add_argument("--ffn-type", default="mlp", choices=["mlp", "geglu", "moe"])
+    p.add_argument("--top", type=int, default=40)
+    p.add_argument("--sort", default="latency", choices=["latency", "flops", "matmuls"])
+    p.add_argument("--warmup", type=int, default=2)
     p.add_argument("--torch-profiler", action="store_true")
-    p.add_argument("--trace",         default=None)
-    p.add_argument("--json",          default=None)
+    p.add_argument("--trace", default=None)
+    p.add_argument("--json", default=None)
     return p.parse_args()
 
 
@@ -96,8 +98,14 @@ def main() -> None:
 
     logger.info(
         "profiling arch={} device={} batch={} seq={} d_model={} n_layers={} attn={} ffn={}",
-        args.arch, device, args.batch_size, args.seq_len, args.d_model, args.n_layers,
-        args.attn_impl, args.ffn_type,
+        args.arch,
+        device,
+        args.batch_size,
+        args.seq_len,
+        args.d_model,
+        args.n_layers,
+        args.attn_impl,
+        args.ffn_type,
     )
 
     model, dummy = _BUILDERS[args.arch](args)
@@ -128,6 +136,7 @@ def main() -> None:
 
     if args.json:
         import json
+
         Path(args.json).parent.mkdir(parents=True, exist_ok=True)
         with open(args.json, "w") as f:
             json.dump(report.to_dict(), f, indent=2)

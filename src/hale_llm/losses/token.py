@@ -10,7 +10,9 @@ from hale_llm.losses.registry import get_token_loss
 
 
 def loss_settings(model) -> dict:
-    """Loss type and hyper-parameters from ``model.cfg.train`` (cross-entropy defaults without a config)."""
+    """Loss type and hyper-parameters from ``model.cfg.train`` (cross-entropy defaults without a
+    config).
+    """
     train = getattr(getattr(model, "cfg", None), "train", None)
     if train is None:
         return {"loss_type": "ce", "focal_gamma": 2.0, "focal_alpha": 1.0, "label_smoothing": 0.1}

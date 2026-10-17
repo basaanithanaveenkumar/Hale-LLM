@@ -32,6 +32,7 @@ class MaskedDiffusionLM(nn.Module):
         schedule: forward-masking :class:`NoiseSchedule` shared by the loss and the sampler.
         eps: smallest diffusion time (avoids the ``1/t`` singularity).
     """
+
     def __init__(self, vocab_size: int, cfg):
         super().__init__()
         self.backbone = build_backbone(vocab_size, cfg.model)

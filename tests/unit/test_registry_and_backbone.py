@@ -2,9 +2,9 @@ import torch
 
 import hale_llm.core.optimizers  # noqa: F401
 import hale_llm.models  # noqa: F401
-from hale_llm.core.registry import MODELS, get_model, get_optimizer
 from hale_llm.core.backbones import TransformerBackbone
 from hale_llm.core.components import build_attn_mask
+from hale_llm.core.registry import MODELS, get_model, get_optimizer
 
 
 def test_registry_has_all_models():

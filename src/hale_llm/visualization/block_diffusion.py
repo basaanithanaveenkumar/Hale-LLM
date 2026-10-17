@@ -118,8 +118,7 @@ def render_block_diffusion_gif(
 
         block_label = "prompt" if active < 0 else f"block {active + 1}/{num_blocks}"
         ax.set_title(
-            f"Block diffusion  {block_label}  t={t_val:.2f}  "
-            f"({fi + 1}/{len(snapshots)})",
+            f"Block diffusion  {block_label}  t={t_val:.2f}  ({fi + 1}/{len(snapshots)})",
             fontsize=13,
             pad=14,
         )
@@ -147,9 +146,9 @@ def visualize_block_diffusion(
 ) -> torch.Tensor:
     """Run the registered block-diffusion sampler and write a per-block reveal GIF."""
     model.eval()
-    prompt_ids = tokenizer(prompt, return_tensors="pt", add_special_tokens=False)[
-        "input_ids"
-    ].to(device)
+    prompt_ids = tokenizer(prompt, return_tensors="pt", add_special_tokens=False)["input_ids"].to(
+        device
+    )
     prompt_len = prompt_ids.shape[1]
     block_size = getattr(model, "block_size", None) or model.backbone.block_size
     steps = sampling_steps or getattr(model, "steps_per_block", 8)
@@ -172,9 +171,7 @@ def visualize_block_diffusion(
             t_val, seq = item
             meta = {"block": -1, "block_size": block_size}
         row = seq[0].detach().cpu()
-        snapshots.append(
-            (float(t_val), _token_strings(tokenizer, row), row.numpy(), meta)
-        )
+        snapshots.append((float(t_val), _token_strings(tokenizer, row), row.numpy(), meta))
 
     render_block_diffusion_gif(
         snapshots,

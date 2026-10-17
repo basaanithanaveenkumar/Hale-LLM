@@ -25,6 +25,7 @@ def collate_flow_matching(input_ids: torch.Tensor, tokenizer, **_):
 @register_variant("flow_matching")
 class FlowMatchingLM(nn.Module):
     """Bidirectional, time-conditioned posterior ``p(x_1 | x_t, t)`` on the linear masking path."""
+
     def __init__(self, vocab_size: int, cfg):
         super().__init__()
         self.backbone = build_backbone(vocab_size, cfg.model)

@@ -38,7 +38,9 @@ class MultiTokenPredictionLMAdapter(HaleLLMAdapter):
         """One ``input_ids [batch, seq]`` int64 input."""
         return [self.token_spec("input_ids")]
 
-    def forward_for_export(self, model: nn.Module, inputs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    def forward_for_export(
+        self, model: nn.Module, inputs: dict[str, torch.Tensor]
+    ) -> dict[str, torch.Tensor]:
         """All K head distributions from one forward, keyed by :attr:`head_names`."""
         heads = model({"input_ids": inputs["input_ids"]})
         return dict(zip(self.head_names, heads, strict=True))

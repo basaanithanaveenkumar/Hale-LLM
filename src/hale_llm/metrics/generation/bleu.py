@@ -39,7 +39,7 @@ from hale_llm.metrics.base import Metric, MetricContext
 
 def _get_ngrams(tokens: list[str], n: int) -> Counter:
     """Extract all n-grams from a token list as a Counter."""
-    return Counter(tuple(tokens[i: i + n]) for i in range(len(tokens) - n + 1))
+    return Counter(tuple(tokens[i : i + n]) for i in range(len(tokens) - n + 1))
 
 
 def _clip_count(hyp_ngrams: Counter, ref_ngrams: Counter) -> int:
@@ -65,10 +65,10 @@ class BLEUMetric(Metric):
     def reset(self) -> None:
         # Accumulate corpus-level counts across all batches
         """Clear the running sums (called before every evaluation pass)."""
-        self._clip_counts: list[int] = [0, 0, 0, 0]    # for n=1..4
+        self._clip_counts: list[int] = [0, 0, 0, 0]  # for n=1..4
         self._total_counts: list[int] = [0, 0, 0, 0]
-        self._hyp_len: int = 0   # total hypothesis token count
-        self._ref_len: int = 0   # total reference token count
+        self._hyp_len: int = 0  # total hypothesis token count
+        self._ref_len: int = 0  # total reference token count
 
     def update(self, ctx: MetricContext) -> None:
         """Accumulate BLEU statistics from one batch.

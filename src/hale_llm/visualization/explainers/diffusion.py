@@ -19,9 +19,12 @@ from hale_llm.visualization.explainers.toy import ToyRun
 
 class DiffusionExplainer(Explainer):
     """Film of masked diffusion: the whole canvas denoised in parallel as ``t`` falls."""
+
     variant = "diffusion"
     title = "Masked Diffusion LM"
-    subtitle = "training: mask each character w.p. t, learn to fill the masks  ·  sampling: t runs 1 → 0"
+    subtitle = (
+        "training: mask each character w.p. t, learn to fill the masks  ·  sampling: t runs 1 → 0"
+    )
     train_kwargs = {"model": {"attn_type": "bidirectional", "use_time_cond": True}, "steps": 900}
 
     def trace(self, run: ToyRun, seed: int = 0) -> MaskedTrace:
@@ -50,15 +53,24 @@ class DiffusionExplainer(Explainer):
                 can[:, :lp] = False
                 do = can & (torch.rand(b, seq) < p_reveal)
                 x = torch.where(do, pred, x)
-                out.steps.append(MaskedStep(
-                    float(t_cur), float(t_next), float(p_reveal), pred[0].tolist(),
-                    probs[0].gather(-1, pred[0, :, None]).squeeze(-1).tolist(),
-                    set(do[0].nonzero().flatten().tolist()), x[0].tolist()))
+                out.steps.append(
+                    MaskedStep(
+                        float(t_cur),
+                        float(t_next),
+                        float(p_reveal),
+                        pred[0].tolist(),
+                        probs[0].gather(-1, pred[0, :, None]).squeeze(-1).tolist(),
+                        set(do[0].nonzero().flatten().tolist()),
+                        x[0].tolist(),
+                    )
+                )
         out.ids = x
         return out
 
     def render(self, run: ToyRun, trace: MaskedTrace, writer: GifWriter) -> None:
-        """Draw the film into ``writer``: intro, how training sees a sentence, generation in motion, outcome."""
+        """Draw the film into ``writer``: intro, how training sees a sentence, generation in motion,
+        outcome.
+        """
         self.intro(run, writer)
         model = run.model
 
@@ -66,22 +78,42 @@ class DiffusionExplainer(Explainer):
             return F.softmax(model({"x_t": x_t, "t": torch.tensor([t])})[0], dim=-1)
 
         corruption_scene(
-            self, run, writer, predict=predict, is_masked=lambda u, t: u < t,
-            clock=Clock(lambda t: t, "share of characters masked = t"), sweep=(0.0, 0.5), train_t=0.5,
+            self,
+            run,
+            writer,
+            predict=predict,
+            is_masked=lambda u, t: u < t,
+            clock=Clock(lambda t: t, "share of characters masked = t"),
+            sweep=(0.0, 0.5),
+            train_t=0.5,
             sweep_caption="forward process: raise the noise t, each character is masked with probability t",
             train_caption="the denoiser guesses every masked character at once",
             loss_note="loss = cross-entropy on masked positions × 1/t",
         )
         render_masked_generation(
-            self, run, trace, writer, clock=Clock(lambda t: 1 - t, "share of real characters", reverse=True),
+            self,
+            run,
+            trace,
+            writer,
+            clock=Clock(lambda t: 1 - t, "share of real characters", reverse=True),
             start_t=1.0,
-            caption=lambda st: (f"t {st.t_from:.2f} → {st.t_to:.2f}: guess every ?, keep each with p = "
-                                f"{st.p_reveal:.0%}"),
+            caption=lambda st: (
+                f"t {st.t_from:.2f} → {st.t_to:.2f}: guess every ?, keep each with p = "
+                f"{st.p_reveal:.0%}"
+            ),
         )
         n = len(trace.steps)
-        self.outro(run, writer, trace.ids[0], "denoised in parallel, in any order",
-                   [(f"{n}", "forward passes"), (f"{self.max_new_tokens}", "new characters"),
-                    (f"{self.max_new_tokens / n:.2f}", "characters / pass")])
+        self.outro(
+            run,
+            writer,
+            trace.ids[0],
+            "denoised in parallel, in any order",
+            [
+                (f"{n}", "forward passes"),
+                (f"{self.max_new_tokens}", "new characters"),
+                (f"{self.max_new_tokens / n:.2f}", "characters / pass"),
+            ],
+        )
 
 
 register_explainer(DiffusionExplainer)

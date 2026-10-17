@@ -41,9 +41,17 @@ class HaleLLMAdapter(ModelAdapter):
     variant: ClassVar[str]
     outputs: ClassVar[tuple[str, ...]] = ("logits",)
 
-    def __init__(self, config: str, checkpoint: str | None = None, vocab_size: int | None = None,
-                 overrides: Mapping[str, Any] | None = None, max_batch: int = 8, opt_seq: int = 64,
-                 dynamic_seq: bool = True, **base: Any) -> None:
+    def __init__(
+        self,
+        config: str,
+        checkpoint: str | None = None,
+        vocab_size: int | None = None,
+        overrides: Mapping[str, Any] | None = None,
+        max_batch: int = 8,
+        opt_seq: int = 64,
+        dynamic_seq: bool = True,
+        **base: Any,
+    ) -> None:
         super().__init__(checkpoint=checkpoint, **base)
         self.resolver = RunConfigResolver(config, overrides)
         self._vocab_size = vocab_size
@@ -61,8 +69,10 @@ class HaleLLMAdapter(ModelAdapter):
         """
         cfg = self.resolver.load()
         if cfg.variant != self.variant:
-            raise ConfigError(f"{type(self).__name__} deploys variant {self.variant!r}, but "
-                              f"{self.resolver.path.name} is {cfg.variant!r}")
+            raise ConfigError(
+                f"{type(self).__name__} deploys variant {self.variant!r}, but "
+                f"{self.resolver.path.name} is {cfg.variant!r}"
+            )
         return cfg
 
     @cached_property
@@ -80,8 +90,10 @@ class HaleLLMAdapter(ModelAdapter):
                 return int(meta["vocab_size"])
         tokenizer = CalibrationCorpus(self.run_config.data.tokenizer_name).tokenizer()
         if tokenizer is None:
-            raise ConfigError("cannot infer vocab_size: pass adapter.vocab_size, a checkpoint with "
-                              "'vocab_size', or make the tokenizer available offline")
+            raise ConfigError(
+                "cannot infer vocab_size: pass adapter.vocab_size, a checkpoint with "
+                "'vocab_size', or make the tokenizer available offline"
+            )
         return len(tokenizer)
 
     @property
@@ -94,8 +106,13 @@ class HaleLLMAdapter(ModelAdapter):
         import hale_llm.models  # noqa: F401 - registers the variants
         from hale_llm.core.registry import get_variant
 
-        logger.info("building {} (vocab={}, d_model={}, layers={})", self.variant, self.vocab_size,
-                    self.run_config.model.d_model, self.run_config.model.n_layers)
+        logger.info(
+            "building {} (vocab={}, d_model={}, layers={})",
+            self.variant,
+            self.vocab_size,
+            self.run_config.model.d_model,
+            self.run_config.model.n_layers,
+        )
         return get_variant(self.variant)(vocab_size=self.vocab_size, cfg=self.run_config)
 
     # ------------------------------------------------------------------ signature
@@ -104,16 +121,30 @@ class HaleLLMAdapter(ModelAdapter):
         raise NotImplementedError
 
     def token_spec(self, name: str) -> dict[str, Any]:
-        """Spec of an int64 ``[batch, seq]`` token input called ``name`` with values in ``[0, vocab)``."""
-        return {"name": name, "shape": ["batch", "seq"], "dtype": "int64", "value_range": [0, self.vocab_size]}
+        """Spec of an int64 ``[batch, seq]`` token input called ``name`` with values in ``[0,
+        vocab)``.
+        """
+        return {
+            "name": name,
+            "shape": ["batch", "seq"],
+            "dtype": "int64",
+            "value_range": [0, self.vocab_size],
+        }
 
     def default_signature(self) -> IOSignature:
-        """Export signature: dynamic batch ``1…max_batch``; sequence dynamic or pinned to ``max_length``."""
+        """Export signature: dynamic batch ``1…max_batch``; sequence dynamic or pinned to
+        ``max_length``.
+        """
         seq_max = self.max_length
         seq_opt = min(self.opt_seq, seq_max)
         seq = [1, seq_opt, seq_max] if self.dynamic_seq else seq_max
-        return IOSignature.from_config({"inputs": self.signature_inputs(), "outputs": list(self.outputs),
-                                        "dims": {"batch": [1, 1, self.max_batch], "seq": seq}})
+        return IOSignature.from_config(
+            {
+                "inputs": self.signature_inputs(),
+                "outputs": list(self.outputs),
+                "dims": {"batch": [1, 1, self.max_batch], "seq": seq},
+            }
+        )
 
     # ------------------------------------------------------------------ calibration
     def calibration_inputs(self, token_ids: torch.Tensor) -> dict[str, torch.Tensor]:
@@ -121,7 +152,8 @@ class HaleLLMAdapter(ModelAdapter):
         return {"input_ids": token_ids}
 
     def calibration_batches(self, num_batches: int) -> Iterator[dict[str, torch.Tensor]] | None:
-        """``num_batches`` real-text calibration inputs, or ``None`` when the tokenizer is not cached.
+        """``num_batches`` real-text calibration inputs, or ``None`` when the tokenizer is not
+        cached.
 
         The pipeline then falls back to random calibration data.
         """

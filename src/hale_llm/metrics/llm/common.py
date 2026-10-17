@@ -5,6 +5,7 @@ from hale_llm.metrics.base import MetricContext
 
 class MeanLossMixin:
     """Mixin keeping a running mean of ``ctx.loss`` (used by loss, perplexity and bits per token)."""
+
     def __init__(self) -> None:
         self.total = 0.0
         self.n = 0

@@ -14,6 +14,7 @@ def register_token_loss(name: str):
 
     The function maps ``(logits, targets, **settings)`` to an unreduced ``(B, L)`` loss.
     """
+
     def deco(fn: Callable) -> Callable:
         TOKEN_LOSSES.add(name, fn)
         return fn

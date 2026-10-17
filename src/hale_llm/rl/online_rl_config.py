@@ -52,7 +52,8 @@ class OnlineRLConfig(RLConfigSection):
     def from_yaml(cls, path: str | Path) -> OnlineRLConfig:
         """Load ``path``, resolving ``inherits:`` / ``_base_`` chains of any depth (child keys win).
 
-        Inheritance is resolved by HaleBlocks' :class:`~hale_core.config.config_loader.ConfigLoader`.
+        Inheritance is resolved by HaleBlocks'
+        :class:`~hale_core.config.config_loader.ConfigLoader`.
 
         Raises:
             OnlineRLError: on a missing file or an inheritance cycle (the loader's

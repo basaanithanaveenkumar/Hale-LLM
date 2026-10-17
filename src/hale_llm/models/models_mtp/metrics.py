@@ -39,4 +39,7 @@ class MTPHeadAccuracy(Metric):
 
     def compute(self) -> dict[str, float]:
         """``{'head{k}_accuracy': value}`` for every head that saw a valid target."""
-        return {f"head{k}_accuracy": self.correct[k] / max(self.total[k], 1.0) for k in sorted(self.total)}
+        return {
+            f"head{k}_accuracy": self.correct[k] / max(self.total[k], 1.0)
+            for k in sorted(self.total)
+        }

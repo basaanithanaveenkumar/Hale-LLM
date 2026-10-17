@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
-
 from hale_core.deploy import DeployRunner
+
 from hale_llm.deploy.adapters.run_config_resolver import REPO_ROOT
 from hale_llm.deploy.deploy_cli import main
 
@@ -24,7 +24,9 @@ def test_config_builds_a_valid_pipeline(path, tmp_path) -> None:
     pipeline, ctx = runner.build()
     pipeline.validate()
     assert runner.spec.adapter["type"].startswith("hale_llm.")
-    vendor_neutral = path.stem.endswith("_onnx_ort")  # CPU ONNX Runtime CI pipelines have no device profile
+    vendor_neutral = path.stem.endswith(
+        "_onnx_ort"
+    )  # CPU ONNX Runtime CI pipelines have no device profile
     assert vendor_neutral or ctx.device.get("vendor") in {"nvidia", "apple", "amd", "qualcomm"}
 
 

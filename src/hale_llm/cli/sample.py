@@ -21,10 +21,16 @@ def main() -> None:
     p = argparse.ArgumentParser(prog="hale-llm-sample")
     p.add_argument("--config", required=True)
     p.add_argument("--checkpoint", default=None)
-    p.add_argument("--experiment", default=None, help="Run folder under data/experiments/<variant>/")
+    p.add_argument(
+        "--experiment", default=None, help="Run folder under data/experiments/<variant>/"
+    )
     p.add_argument("--prompt", default=None)
-    p.add_argument("--num-loops", type=int, default=None,
-                   help="Looped backbones: passes per forward (overrides sample.num_loops)")
+    p.add_argument(
+        "--num-loops",
+        type=int,
+        default=None,
+        help="Looped backbones: passes per forward (overrides sample.num_loops)",
+    )
     p.add_argument("--log-level", default=None, choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     args = p.parse_args()
     try:

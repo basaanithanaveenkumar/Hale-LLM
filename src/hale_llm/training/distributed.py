@@ -16,7 +16,7 @@ ParallelStrategy = Literal["none", "dp", "ddp", "fsdp"]
 
 class DistributedConfig:
     """Configuration for distributed training."""
-    
+
     def __init__(
         self,
         strategy: ParallelStrategy = "none",
@@ -30,7 +30,7 @@ class DistributedConfig:
         self.find_unused_parameters = find_unused_parameters
         self.gradient_as_bucket_view = gradient_as_bucket_view
         self.static_graph = static_graph
-        
+
         # Runtime state
         self.is_initialized = False
         self.rank = 0
@@ -45,35 +45,37 @@ def setup_distributed(
 ) -> DistributedConfig:
     """
     Initialize distributed training environment.
-    
+
     Args:
         strategy: Parallelization strategy ('none', 'dp', 'ddp', 'fsdp')
         backend: Communication backend for DDP/FSDP ('nccl', 'gloo', 'mpi')
-    
+
     Returns:
         DistributedConfig with runtime information
     """
     config = DistributedConfig(strategy=strategy)
-    
+
     if strategy == "none":
         logger.info("distributed training disabled (strategy=none)")
         return config
-    
+
     if strategy == "dp":
         # DataParallel doesn't require distributed initialization
         if not torch.cuda.is_available():
             logger.warning("DataParallel requires CUDA; falling back to single device")
             config.strategy = "none"
             return config
-        
+
         n_gpus = torch.cuda.device_count()
         if n_gpus < 2:
-            logger.warning("DataParallel requires multiple GPUs; found {}; using single device", n_gpus)
+            logger.warning(
+                "DataParallel requires multiple GPUs; found {}; using single device", n_gpus
+            )
             config.strategy = "none"
         else:
             logger.info("DataParallel enabled with {} GPUs", n_gpus)
         return config
-    
+
     # DDP and FSDP require torch.distributed
     if strategy in ("ddp", "fsdp"):
         # Auto-detect backend if not specified
@@ -83,7 +85,7 @@ def setup_distributed(
             else:
                 backend = "gloo"
         config.backend = backend
-        
+
         # Check if already initialized (e.g., by torchrun)
         if dist.is_available() and dist.is_initialized():
             config.is_initialized = True
@@ -100,19 +102,19 @@ def setup_distributed(
                 config.local_rank,
             )
             return config
-        
+
         # Initialize from environment variables (torchrun sets these)
         if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
             config.rank = int(os.environ["RANK"])
             config.world_size = int(os.environ["WORLD_SIZE"])
             config.local_rank = int(os.environ.get("LOCAL_RANK", 0))
-            
+
             # Initialize process group
             if not dist.is_available():
                 logger.error("torch.distributed not available; cannot use {}", strategy)
                 config.strategy = "none"
                 return config
-            
+
             try:
                 dist.init_process_group(
                     backend=backend,
@@ -122,7 +124,7 @@ def setup_distributed(
                 )
                 config.is_initialized = True
                 config.is_main_process = config.rank == 0
-                
+
                 if config.is_main_process:
                     logger.info(
                         "initialized {} with backend={} world_size={} local_rank={}",
@@ -142,7 +144,7 @@ def setup_distributed(
                 strategy.upper(),
             )
             config.strategy = "none"
-    
+
     return config
 
 
@@ -160,18 +162,18 @@ def wrap_model_parallel(
 ) -> torch.nn.Module:
     """
     Wrap model with appropriate parallelization strategy.
-    
+
     Args:
         model: The model to wrap
         config: Distributed configuration
         device: Target device
-    
+
     Returns:
         Wrapped model (or original if strategy is 'none')
     """
     if config.strategy == "none":
         return model
-    
+
     if config.strategy == "dp":
         # DataParallel: simple multi-GPU on single node
         if torch.cuda.is_available() and torch.cuda.device_count() > 1:
@@ -181,19 +183,19 @@ def wrap_model_parallel(
         else:
             logger.warning("DataParallel requested but insufficient GPUs; using single device")
         return model
-    
+
     if config.strategy == "ddp":
         # DistributedDataParallel: multi-GPU, multi-node
         if not config.is_initialized:
             logger.error("DDP requested but distributed not initialized")
             return model
-        
+
         # Set device for this process
         if torch.cuda.is_available():
             torch.cuda.set_device(config.local_rank)
             device = torch.device(f"cuda:{config.local_rank}")
             model = model.to(device)
-        
+
         model = DDP(
             model,
             device_ids=[config.local_rank] if torch.cuda.is_available() else None,
@@ -209,7 +211,7 @@ def wrap_model_parallel(
             device,
         )
         return model
-    
+
     if config.strategy == "fsdp":
         # Fully Sharded Data Parallel: memory-efficient multi-GPU
         try:
@@ -220,22 +222,22 @@ def wrap_model_parallel(
             logger.error("FSDP requires PyTorch >= 1.12; falling back to DDP")
             config.strategy = "ddp"
             return wrap_model_parallel(model, config, device)
-        
+
         if not config.is_initialized:
             logger.error("FSDP requested but distributed not initialized")
             return model
-        
+
         # Set device for this process
         if torch.cuda.is_available():
             torch.cuda.set_device(config.local_rank)
             device = torch.device(f"cuda:{config.local_rank}")
             model = model.to(device)
-        
+
         # Configure FSDP with auto-wrapping for large models
         auto_wrap_policy = size_based_auto_wrap_policy(
             min_num_params=1e6  # Wrap modules with >1M parameters
         )
-        
+
         model = FSDP(
             model,
             auto_wrap_policy=auto_wrap_policy,
@@ -250,7 +252,7 @@ def wrap_model_parallel(
             device,
         )
         return model
-    
+
     logger.warning("unknown strategy={}; returning unwrapped model", config.strategy)
     return model
 
@@ -295,25 +297,25 @@ def reduce_dict(
 ) -> dict[str, float]:
     """
     Reduce metrics across all processes.
-    
+
     Args:
         metrics: Dictionary of metric name -> value
         config: Distributed configuration
         average: If True, average across processes; otherwise sum
-    
+
     Returns:
         Reduced metrics dictionary
     """
     if not config or not config.is_initialized:
         return metrics
-    
+
     if not dist.is_initialized():
         return metrics
-    
+
     world_size = get_world_size(config)
     if world_size == 1:
         return metrics
-    
+
     reduced = {}
     for key, value in metrics.items():
         tensor = torch.tensor(value, dtype=torch.float32, device=torch.cuda.current_device())
@@ -321,5 +323,5 @@ def reduce_dict(
         if average:
             tensor /= world_size
         reduced[key] = tensor.item()
-    
+
     return reduced

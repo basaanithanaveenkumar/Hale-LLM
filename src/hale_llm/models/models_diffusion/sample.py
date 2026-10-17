@@ -42,7 +42,9 @@ def sample_diffusion(
         t = t_cur.expand(b)
         logits = model({"x_t": x, "t": t, "attention_mask": None}) / max(temperature, 1e-5)
         logits[..., mask_id] = -float("inf")
-        pred = torch.multinomial(F.softmax(logits, dim=-1).reshape(-1, model.vocab_size), 1).reshape(b, seq)
+        pred = torch.multinomial(
+            F.softmax(logits, dim=-1).reshape(-1, model.vocab_size), 1
+        ).reshape(b, seq)
         p_reveal = model.schedule.reveal_probability(t_cur, t_next)
         if i == sampling_steps - 1:
             p_reveal = torch.ones_like(p_reveal)  # t_next = eps ~ 0: nothing stays masked

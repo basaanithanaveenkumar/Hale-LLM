@@ -26,6 +26,8 @@ class AutoregressiveLMAdapter(HaleLLMAdapter):
         """One ``input_ids [batch, seq]`` int64 input."""
         return [self.token_spec("input_ids")]
 
-    def forward_for_export(self, model: nn.Module, inputs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    def forward_for_export(
+        self, model: nn.Module, inputs: dict[str, torch.Tensor]
+    ) -> dict[str, torch.Tensor]:
         """Full-sequence (prefill) forward: ``{'logits': [B, T, V]}``."""
         return {"logits": model({"input_ids": inputs["input_ids"]})}

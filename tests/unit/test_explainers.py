@@ -6,6 +6,7 @@ import pytest
 import torch
 from PIL import Image
 
+import hale_llm.models  # noqa: F401,E402
 from hale_llm.visualization.explainers import (
     CORPUS,
     EXPLAINERS,
@@ -18,9 +19,15 @@ from hale_llm.visualization.explainers import (
 from hale_llm.visualization.explainers.canvas import Layout, Stage
 from hale_llm.visualization.explainers.sequential import candidate_items
 
-import hale_llm.models  # noqa: F401,E402
-
-MODELS = {"autoregressive", "mtp", "looped", "diffusion", "flow_matching", "block_diffusion", "block_flow_matching"}
+MODELS = {
+    "autoregressive",
+    "mtp",
+    "looped",
+    "diffusion",
+    "flow_matching",
+    "block_diffusion",
+    "block_flow_matching",
+}
 
 
 def test_every_model_package_has_an_explainer() -> None:
@@ -69,7 +76,9 @@ def test_render_writes_an_animated_gif(variant: str, tmp_path) -> None:
     explainer.render(run, explainer.trace(run), writer)
     path = writer.save(tmp_path / f"{variant}.gif")
     with Image.open(path) as gif:
-        assert gif.is_animated and 10 < gif.n_frames <= len(writer)  # Pillow merges identical frames
+        assert gif.is_animated and 10 < gif.n_frames <= len(
+            writer
+        )  # Pillow merges identical frames
         assert gif.size == writer.frames[0].size and gif.size[0] == 300  # 10 in × 30 dpi, 16:9
 
 
@@ -93,7 +102,11 @@ def test_candidate_items_drop_noise_but_keep_the_sample() -> None:
     run = SimpleNamespace(tokenizer=CharTokenizer())
     tok = run.tokenizer
     a, b, c = (tok.stoi[ch] for ch in "abc")
-    items, chosen = candidate_items(run, SimpleNamespace(top_ids=[a, b, c], top_probs=[0.97, 0.02, 0.01], chosen=a))
+    items, chosen = candidate_items(
+        run, SimpleNamespace(top_ids=[a, b, c], top_probs=[0.97, 0.02, 0.01], chosen=a)
+    )
     assert items == [("a", 0.97)] and chosen == 0
-    items, chosen = candidate_items(run, SimpleNamespace(top_ids=[a, b, c], top_probs=[0.97, 0.02, 0.01], chosen=c))
+    items, chosen = candidate_items(
+        run, SimpleNamespace(top_ids=[a, b, c], top_probs=[0.97, 0.02, 0.01], chosen=c)
+    )
     assert [ch for ch, _ in items] == ["a", "c"] and chosen == 1  # an unlikely draw is still shown

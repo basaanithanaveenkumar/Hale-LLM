@@ -28,15 +28,21 @@ def main() -> None:
     p = argparse.ArgumentParser(prog="hale-llm-eval")
     p.add_argument("--config", required=True)
     p.add_argument("--checkpoint", default=None)
-    p.add_argument("--experiment", default=None, help="Run folder under data/experiments/<variant>/")
+    p.add_argument(
+        "--experiment", default=None, help="Run folder under data/experiments/<variant>/"
+    )
     p.add_argument("--log-level", default=None, choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     p.add_argument(
         "--metrics",
         default=None,
         help="Comma-separated metric names (overrides eval.metrics)",
     )
-    p.add_argument("--num-loops", type=int, default=None,
-                   help="Looped backbones: passes per forward (default model.loop.n_loops)")
+    p.add_argument(
+        "--num-loops",
+        type=int,
+        default=None,
+        help="Looped backbones: passes per forward (default model.loop.n_loops)",
+    )
     args = p.parse_args()
     try:
         cfg = load_config(args.config)
