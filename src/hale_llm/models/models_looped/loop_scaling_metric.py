@@ -24,11 +24,13 @@ class LoopScalingMetric(Metric):
         self.n = 0
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self.sums = {}
         self.n = 0
 
     @staticmethod
     def budgets(model) -> list[int]:
+        """Loop budgets evaluated: ``1``, ``T/2``, ``T`` and ``2T`` (the last only without a learned depth embedding)."""
         spec = model.loop
         out = {1, max(1, spec.n_loops // 2), spec.n_loops}
         if spec.depth_embedding != "learned":
@@ -36,6 +38,7 @@ class LoopScalingMetric(Metric):
         return sorted(out)
 
     def update(self, ctx: MetricContext) -> None:
+        """Add the next-token loss at every budget for this batch."""
         model = ctx.model
         for budget in self.budgets(model):
             loss = next_token_nll(model, ctx.batch, model.forward_with_loops(ctx.batch, budget))
@@ -43,6 +46,7 @@ class LoopScalingMetric(Metric):
         self.n += 1
 
     def compute(self) -> dict[str, float]:
+        """``{'loss@T{k}': mean loss}`` for each budget."""
         if not self.n:
             return {}
         return {f"loss@T{budget}": total / self.n for budget, total in sorted(self.sums.items())}

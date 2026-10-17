@@ -20,6 +20,14 @@ def sample_diffusion(
     return_history=False,
     **_,
 ):
+    """Generate by reverse diffusion from a fully masked canvas after the prompt.
+
+    Each of ``sampling_steps`` steps samples every position and reveals each still-masked one with
+    the schedule's reveal probability; the last step reveals everything.
+
+    Returns:
+        ``(B, L_prompt + max_new_tokens)`` ids, or ``(ids, history)`` with ``(t, ids)`` snapshots.
+    """
     model.eval()
     device = prompt_ids.device
     b, lp = prompt_ids.shape

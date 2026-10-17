@@ -23,10 +23,12 @@ class PonderHistogramMetric(Metric):
         self.total = 0.0
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self.counts = {}
         self.total = 0.0
 
     def update(self, ctx: MetricContext) -> None:
+        """Add this batch's per-token update counts to the histogram."""
         model = ctx.model
         if model.loop.halting != "act":
             return
@@ -40,6 +42,7 @@ class PonderHistogramMetric(Metric):
         self.total += float(valid.sum())
 
     def compute(self) -> dict[str, float]:
+        """Fractions of tokens per number of loop updates (empty without ACT)."""
         if not self.total:
             return {}
         out = {f"ponder_frac@{k}": c / self.total for k, c in sorted(self.counts.items())}

@@ -16,10 +16,12 @@ class BlockFlowMatchingMaskedAccuracy(Metric):
         self.total = 0.0
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self.correct = 0.0
         self.total = 0.0
 
     def update(self, ctx: MetricContext) -> None:
+        """Accumulate correct predictions on masked positions from one evaluation batch."""
         model, x1 = ctx.model, ctx.batch["input_ids"]
         x_t, is_masked, t = corrupt_blocks(
             x1, model.block_size, ctx.batch["mask_token_id"], model.path
@@ -35,4 +37,5 @@ class BlockFlowMatchingMaskedAccuracy(Metric):
         self.total += n
 
     def compute(self) -> dict[str, float]:
+        """``{'masked_accuracy': correct / total}`` over the batches seen (0 if none)."""
         return {"masked_accuracy": self.correct / max(self.total, 1.0)}

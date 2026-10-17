@@ -104,6 +104,7 @@ class ROUGEMetric(Metric):
     metric_name = "rouge"
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self._scores: dict[str, list[float]] = {
             "rouge_1": [],
             "rouge_2": [],

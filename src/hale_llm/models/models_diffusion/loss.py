@@ -31,6 +31,7 @@ def _corrupt(x0, t, mask_id, schedule: NoiseSchedule | None = None):
 
 @register_loss("diffusion")
 def diffusion_loss(model, batch: dict) -> torch.Tensor:
+    """Continuous-time MDLM loss: schedule-weighted NLL of the masked tokens at a random ``t``."""
     x0 = batch["input_ids"]
     b = x0.size(0)
     device = x0.device

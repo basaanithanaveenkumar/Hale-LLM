@@ -1,3 +1,5 @@
+"""Perplexity derived from the mean loss (``perplexity``)."""
+
 import math
 
 from hale_llm.core.registry import register_metric
@@ -10,6 +12,7 @@ class PerplexityMetric(MeanLossMixin, Metric):
     """exp(mean batch loss). Comparable across variants only when the loss is token NLL."""
 
     def compute(self) -> dict[str, float]:
+        """``{'perplexity': exp(mean_loss)}`` (``inf`` on overflow)."""
         mean = self.mean_loss()
         try:
             ppl = math.exp(mean)

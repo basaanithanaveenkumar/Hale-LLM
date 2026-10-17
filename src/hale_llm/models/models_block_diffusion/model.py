@@ -1,3 +1,5 @@
+"""Block-diffusion variant: block-causal two-stream backbone and its collate function."""
+
 from __future__ import annotations
 
 import torch
@@ -10,6 +12,7 @@ from hale_llm.dataloader.collate import register_collate
 
 @register_collate("block_diffusion")
 def collate_block_diffusion(input_ids: torch.Tensor, tokenizer, **_):
+    """Batch dict with ``input_ids``, ``attention_mask`` and the pad / mask token ids."""
     pad_id = tokenizer.pad_token_id
     return {
         "input_ids": input_ids,
@@ -21,6 +24,12 @@ def collate_block_diffusion(input_ids: torch.Tensor, tokenizer, **_):
 
 @register_variant("block_diffusion")
 class BlockDiffusionLM(nn.Module):
+    """Autoregressive across blocks, absorbing-state diffusion inside a block.
+
+    Args:
+        vocab_size: vocabulary size.
+        cfg: run config; ``model.block_size`` (default 16) must divide ``model.max_length``.
+    """
     def __init__(self, vocab_size: int, cfg):
         super().__init__()
         block_size = cfg.model.block_size or 16
@@ -34,6 +43,7 @@ class BlockDiffusionLM(nn.Module):
         self.cfg = cfg
 
     def forward(self, batch: dict) -> torch.Tensor:
+        """Run ``[x_clean ; x_noised]`` through the block-causal backbone; return the noised half's logits."""
         x_clean, x_noised = batch["x_clean"], batch["x_noised"]
         t_noised = batch["t_noised"]
         t_clean = torch.zeros_like(t_noised)

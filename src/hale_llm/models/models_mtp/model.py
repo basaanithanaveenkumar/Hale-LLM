@@ -67,6 +67,7 @@ class MultiTokenPredictionLM(nn.Module):
         return bb.encode(bb.embed(input_ids), None, attn_mask, key_padding, positions)
 
     def forward(self, batch: dict) -> list[torch.Tensor]:
+        """K logits tensors ``(B, L, V)``: head 0 is next-token, head ``k`` predicts ``i + k + 1``."""
         hidden = self.trunk(batch["input_ids"], batch.get("attention_mask"))
         head = self.backbone.lm_head
         return [head(hidden)] + [head(extra(hidden)) for extra in self.extra_heads]

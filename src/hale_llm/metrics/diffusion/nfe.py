@@ -51,6 +51,7 @@ class NFEMetric(Metric):
     metric_name = "nfe"
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self._nfe_list: list[int] = []
 
     def update(self, ctx: MetricContext) -> None:

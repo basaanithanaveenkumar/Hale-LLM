@@ -21,9 +21,11 @@ class MTPHeadAccuracy(Metric):
         self.total: dict[int, float] = {}
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self.correct, self.total = {}, {}
 
     def update(self, ctx: MetricContext) -> None:
+        """Add each head's exact-match hits on its own offset for this batch."""
         labels, pad = ctx.batch["labels"], ctx.batch["pad_token_id"]
         for k, logits in enumerate(ctx.model(ctx.batch)):
             shift = k + 1
@@ -36,4 +38,5 @@ class MTPHeadAccuracy(Metric):
             self.total[k] = self.total.get(k, 0.0) + float(valid.sum())
 
     def compute(self) -> dict[str, float]:
+        """``{'head{k}_accuracy': value}`` for every head that saw a valid target."""
         return {f"head{k}_accuracy": self.correct[k] / max(self.total[k], 1.0) for k in sorted(self.total)}

@@ -21,6 +21,13 @@ def sample_flow_matching(
     return_history=False,
     **_,
 ):
+    """Euler integration of the masking path from ``t = 0`` (all masks) to ``t = 1``.
+
+    Each step unmasks a masked generated position with probability ``dt / mask_prob(t)``.
+
+    Returns:
+        ``(B, L_prompt + max_new_tokens)`` ids, or ``(ids, history)``.
+    """
     model.eval()
     device = prompt_ids.device
     b, lp = prompt_ids.shape

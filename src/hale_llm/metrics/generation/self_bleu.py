@@ -84,6 +84,7 @@ class SelfBLEUMetric(Metric):
         self.reset()
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self._sentences: list[list[str]] = []
 
     def update(self, ctx: MetricContext) -> None:

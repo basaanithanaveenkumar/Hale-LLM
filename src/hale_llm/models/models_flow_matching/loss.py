@@ -11,6 +11,7 @@ from hale_llm.models.models_flow_matching.vector_field import mask_prob
 
 @register_loss("flow_matching")
 def flow_matching_loss(model, batch: dict) -> torch.Tensor:
+    """Masked-token NLL weighted by ``1 / mask_prob(t)`` on the linear path at a random ``t``."""
     x1 = batch["input_ids"]
     b, l = x1.shape
     device = x1.device

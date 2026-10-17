@@ -16,6 +16,7 @@ from hale_llm.losses import model_token_nll
 
 @register_loss("looped")
 def looped_loss(model, batch: dict) -> torch.Tensor:
+    """Mean next-token NLL; the ACT ponder cost is added by the trainer, not here."""
     logits = model(batch)
     return model_token_nll(
         model,

@@ -1,3 +1,5 @@
+"""Masked-token accuracy of the block-diffusion denoiser."""
+
 from __future__ import annotations
 
 import torch
@@ -8,15 +10,18 @@ from hale_llm.metrics.base import Metric, MetricContext
 
 @register_metric("masked_accuracy", variants=("block_diffusion",))
 class BlockDiffusionMaskedAccuracy(Metric):
+    """Greedy accuracy on positions masked by a random per-block corruption (``masked_accuracy``)."""
     def __init__(self) -> None:
         self.correct = 0.0
         self.total = 0.0
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self.correct = 0.0
         self.total = 0.0
 
     def update(self, ctx: MetricContext) -> None:
+        """Accumulate correct predictions on masked positions from one evaluation batch."""
         x = ctx.batch["input_ids"]
         b, n = x.shape
         bs = ctx.model.block_size
@@ -37,4 +42,5 @@ class BlockDiffusionMaskedAccuracy(Metric):
         self.total += n
 
     def compute(self) -> dict[str, float]:
+        """``{'masked_accuracy': correct / total}`` over the batches seen (0 if none)."""
         return {"masked_accuracy": self.correct / max(self.total, 1.0)}

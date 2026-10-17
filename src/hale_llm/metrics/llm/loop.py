@@ -24,10 +24,12 @@ class LoopDepthMetric(Metric):
         self.n = 0
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self.sums = {}
         self.n = 0
 
     def update(self, ctx: MetricContext) -> None:
+        """Add the backbone's loop statistics from the forward the loss just ran."""
         stats = loop_stats(ctx.model)
         if not stats:
             return
@@ -37,4 +39,5 @@ class LoopDepthMetric(Metric):
         self.n += 1
 
     def compute(self) -> dict[str, float]:
+        """Mean of each loop statistic over the batches (empty for non-looped models)."""
         return {name: total / self.n for name, total in self.sums.items()} if self.n else {}

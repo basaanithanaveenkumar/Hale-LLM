@@ -56,6 +56,7 @@ class AcceptanceRateMetric(Metric):
     metric_name = "acceptance_rate"
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self._per_sample_rates: list[float] = []
         self._total_accepted: int = 0
         self._total_proposed: int = 0

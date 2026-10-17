@@ -36,6 +36,12 @@ def collate_autoregressive(input_ids: torch.Tensor, tokenizer, **_):
 
 @register_variant("autoregressive")
 class AutoregressiveLM(nn.Module):
+    """Decoder-only next-token LM on the shared HaleBlocks backbone.
+
+    Args:
+        vocab_size: embedding / output vocabulary size.
+        cfg: the run config (``model`` section selects the backbone).
+    """
     def __init__(self, vocab_size: int, cfg):
         super().__init__()
         self.backbone = build_backbone(vocab_size, cfg.model)
@@ -43,4 +49,5 @@ class AutoregressiveLM(nn.Module):
         self.cfg = cfg
 
     def forward(self, batch: dict) -> torch.Tensor:
+        """Logits ``(B, L, V)`` for ``batch['input_ids']`` under causal attention."""
         return self.backbone(batch["input_ids"], attention_mask=batch.get("attention_mask"))

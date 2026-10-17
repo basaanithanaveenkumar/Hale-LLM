@@ -11,6 +11,13 @@ from hale_llm.losses import model_token_nll
 
 @register_loss("block_diffusion")
 def block_diffusion_loss(model, batch: dict) -> torch.Tensor:
+    """1/t-weighted masked-token NLL with one diffusion time per block.
+
+    Clean blocks feed the second stream, so noised block ``b`` sees the clean blocks before it.
+
+    Raises:
+        ModelConfigurationError: if the sequence length is not a multiple of ``block_size``.
+    """
     x = batch["input_ids"]
     b, n = x.shape
     bs = model.block_size

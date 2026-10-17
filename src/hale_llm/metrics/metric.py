@@ -13,12 +13,15 @@ class Metric(ABC):
     metric_name: str = ""
 
     def reset(self) -> None:
+        """Clear accumulated state before an evaluation pass (default: nothing to clear)."""
         return
 
     @abstractmethod
     def update(self, ctx: MetricContext) -> None:
+        """Accumulate statistics from one batch (``ctx`` holds model, batch, loss and variant)."""
         raise NotImplementedError
 
     @abstractmethod
     def compute(self) -> dict[str, float]:
+        """Return ``{name: value}`` scalars for everything accumulated since :meth:`reset`."""
         raise NotImplementedError

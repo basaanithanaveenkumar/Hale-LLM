@@ -1,3 +1,5 @@
+"""Top-k next-token accuracy (``topk_accuracy``)."""
+
 from __future__ import annotations
 
 import torch
@@ -16,10 +18,12 @@ class TopKAccuracyMetric(Metric):
         self.total = 0.0
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self.correct = 0.0
         self.total = 0.0
 
     def update(self, ctx: MetricContext) -> None:
+        """Accumulate top-k hits over valid labels from one evaluation batch."""
         labels = ctx.batch.get("labels")
         if labels is None:
             return
@@ -47,4 +51,5 @@ class TopKAccuracyMetric(Metric):
         self.total += n
 
     def compute(self) -> dict[str, float]:
+        """``{'topk_accuracy': correct / total}`` over the batches seen (0 if none)."""
         return {"topk_accuracy": self.correct / max(self.total, 1.0)}

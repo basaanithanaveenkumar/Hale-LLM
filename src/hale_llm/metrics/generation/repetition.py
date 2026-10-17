@@ -54,6 +54,7 @@ class RepetitionMetric(Metric):
     metric_name = "repetition"
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self._rep_scores: dict[int, list[float]] = {1: [], 2: [], 3: []}
 
     def update(self, ctx: MetricContext) -> None:

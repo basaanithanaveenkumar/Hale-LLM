@@ -1,3 +1,5 @@
+"""Ancestral sampling for the autoregressive variant."""
+
 from __future__ import annotations
 
 import torch
@@ -17,6 +19,14 @@ def sample_autoregressive(
     return_history: bool = False,
     **_,
 ):
+    """Append ``max_new_tokens`` tokens one forward at a time (temperature sampling).
+
+    The context is cropped to the backbone's ``max_length``. ``return_history`` also returns
+    ``(progress, ids)`` after every step for visualisation.
+
+    Returns:
+        ``(B, L + max_new_tokens)`` ids, or ``(ids, history)``.
+    """
     model.eval()
     x = prompt_ids
     pad_id = tokenizer.pad_token_id

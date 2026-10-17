@@ -16,6 +16,7 @@ from hale_llm.models.models_block_flow_matching.path import corrupt_blocks
 
 @register_loss("block_flow_matching")
 def block_flow_matching_loss(model, batch: dict) -> torch.Tensor:
+    """Masked-token NLL weighted by the path rate, with one flow time per block."""
     x1 = batch["input_ids"]
     x_t, is_masked, t = corrupt_blocks(x1, model.block_size, batch["mask_token_id"], model.path)
     logits = model({**batch, "x_clean": x1, "x_t": x_t, "t": t})

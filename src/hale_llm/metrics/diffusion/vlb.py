@@ -58,6 +58,7 @@ class VLBMetric(Metric):
     metric_name = "vlb"
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self._all_kl:    list[float] = []   # all steps, all samples
         self._l0_kl:     list[float] = []   # timestep 0 only
         self._lt_kl:     list[float] = []   # timestep > 0

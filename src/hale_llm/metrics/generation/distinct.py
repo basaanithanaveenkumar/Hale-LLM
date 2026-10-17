@@ -43,6 +43,7 @@ class DistinctNMetric(Metric):
 
     def reset(self) -> None:
         # Accumulate n-gram counters across the whole corpus
+        """Clear the running sums (called before every evaluation pass)."""
         self._unigrams: Counter = Counter()
         self._bigrams:  Counter = Counter()
 

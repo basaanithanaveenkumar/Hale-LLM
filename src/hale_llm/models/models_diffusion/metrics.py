@@ -1,3 +1,5 @@
+"""Masked-token accuracy of the diffusion denoiser."""
+
 from __future__ import annotations
 
 import torch
@@ -9,15 +11,18 @@ from hale_llm.models.models_diffusion.loss import _corrupt
 
 @register_metric("masked_accuracy", variants=("diffusion",))
 class DiffusionMaskedAccuracy(Metric):
+    """Greedy accuracy on positions masked at a random diffusion time (``masked_accuracy``)."""
     def __init__(self) -> None:
         self.correct = 0.0
         self.total = 0.0
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self.correct = 0.0
         self.total = 0.0
 
     def update(self, ctx: MetricContext) -> None:
+        """Accumulate correct predictions on masked positions from one evaluation batch."""
         x0 = ctx.batch["input_ids"]
         b = x0.size(0)
         t = torch.rand(b, device=x0.device) * (1.0 - ctx.model.eps) + ctx.model.eps
@@ -34,4 +39,5 @@ class DiffusionMaskedAccuracy(Metric):
         self.total += n
 
     def compute(self) -> dict[str, float]:
+        """``{'masked_accuracy': correct / total}`` over the batches seen (0 if none)."""
         return {"masked_accuracy": self.correct / max(self.total, 1.0)}

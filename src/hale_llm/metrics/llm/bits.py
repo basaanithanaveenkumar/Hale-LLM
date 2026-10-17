@@ -1,3 +1,5 @@
+"""Bits per token derived from the mean loss (``bits_per_token``)."""
+
 import math
 
 from hale_llm.core.registry import register_metric
@@ -10,4 +12,5 @@ class BitsPerTokenMetric(MeanLossMixin, Metric):
     """mean_loss / ln(2). Same caveat as perplexity when the loss is not token NLL."""
 
     def compute(self) -> dict[str, float]:
+        """``{'bits_per_token': mean_loss / ln 2}``."""
         return {"bits_per_token": self.mean_loss() / math.log(2.0)}

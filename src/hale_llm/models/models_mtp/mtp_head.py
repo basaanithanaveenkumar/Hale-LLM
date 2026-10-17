@@ -24,4 +24,5 @@ class MTPHead(nn.Module):
         nn.init.zeros_(self.mlp[-1].bias)
 
     def forward(self, hidden: torch.Tensor) -> torch.Tensor:
+        """Residual pre-norm MLP over the trunk's hidden states (identity at initialisation)."""
         return self.norm_out(hidden + self.mlp(self.norm_in(hidden)))

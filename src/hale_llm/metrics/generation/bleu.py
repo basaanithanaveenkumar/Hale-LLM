@@ -64,6 +64,7 @@ class BLEUMetric(Metric):
 
     def reset(self) -> None:
         # Accumulate corpus-level counts across all batches
+        """Clear the running sums (called before every evaluation pass)."""
         self._clip_counts: list[int] = [0, 0, 0, 0]    # for n=1..4
         self._total_counts: list[int] = [0, 0, 0, 0]
         self._hyp_len: int = 0   # total hypothesis token count

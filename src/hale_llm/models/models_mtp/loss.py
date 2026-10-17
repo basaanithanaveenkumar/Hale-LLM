@@ -36,4 +36,5 @@ def head_losses(model, batch: dict) -> list[torch.Tensor]:
 
 @register_loss("mtp")
 def mtp_loss(model, batch: dict) -> torch.Tensor:
+    """Mean over heads of each head's shifted next-``k`` NLL (keeps the AR loss scale)."""
     return torch.stack(head_losses(model, batch)).mean()

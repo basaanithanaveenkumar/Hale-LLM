@@ -1,3 +1,5 @@
+"""Greedy next-token accuracy (``token_accuracy``)."""
+
 from __future__ import annotations
 
 import torch
@@ -37,10 +39,12 @@ class TokenAccuracyMetric(Metric):
         self.total = 0.0
 
     def reset(self) -> None:
+        """Clear the running sums (called before every evaluation pass)."""
         self.correct = 0.0
         self.total = 0.0
 
     def update(self, ctx: MetricContext) -> None:
+        """Accumulate correct greedy predictions over valid labels from one evaluation batch."""
         pred, labels, valid = _pred_and_labels(ctx)
         if pred is None:
             return
@@ -51,4 +55,5 @@ class TokenAccuracyMetric(Metric):
         self.total += n
 
     def compute(self) -> dict[str, float]:
+        """``{'token_accuracy': correct / total}`` over the batches seen (0 if none)."""
         return {"token_accuracy": self.correct / max(self.total, 1.0)}
