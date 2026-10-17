@@ -23,6 +23,7 @@ class HaleLLMDeployCLI(DeployCLI):
         from hale_llm.deploy.registry import LLM_ADAPTERS
 
         DeployCLI.cmd_list(args)
+        # stdout = the listing itself, matching hale-deploy list
         print(f"{LLM_ADAPTERS.name}s (scope {LLM_ADAPTERS.scope}):")
         for key in LLM_ADAPTERS:
             print(f"  {LLM_ADAPTERS.scope}.{key}")

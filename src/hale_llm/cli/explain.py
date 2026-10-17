@@ -25,7 +25,7 @@ def main() -> None:
         start = time.time()
         (path,) = build_explainer_gifs(args.out, [name], seed=args.seed)
         logger.info("{} -> {} ({:.0f} KB, {:.1f}s)", name, path, path.stat().st_size / 1024, time.time() - start)
-        print(path)
+        print(path)  # stdout = the command's product (one GIF path per line, pipeable)
 
 
 if __name__ == "__main__":

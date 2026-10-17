@@ -51,7 +51,7 @@ def main() -> None:
             writer.close()
         for name, value in metrics.items():
             logger.info("eval {}: {:.4f}", name, value)
-            print(f"{name}: {value:.4f}")
+            print(f"{name}: {value:.4f}")  # stdout = the metric table (pipeable)
     except Exception:
         logger.exception("hale-llm-eval failed")
         raise

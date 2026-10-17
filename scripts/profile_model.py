@@ -21,11 +21,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "HaleBlocks" / "src"))
 
 import torch
-import torch.nn as nn
-
+from hale_core.nn import DiTBackbone, GPTBackbone, LGTBackbone
 from hale_core.profiling import ModelProfiler
-from hale_core.nn import GPTBackbone, LGTBackbone, DiTBackbone
-
+from loguru import logger
 
 # ---------------------------------------------------------------------------
 # Builders
@@ -96,10 +94,11 @@ def main() -> None:
     args = parse_args()
     device = torch.device(args.device)
 
-    print(f"\n[profile] HaloDiffusionLLM  arch={args.arch}  device={device}  "
-          f"batch={args.batch_size}  seq={args.seq_len}  "
-          f"d_model={args.d_model}  n_layers={args.n_layers}  "
-          f"attn={args.attn_impl}  ffn={args.ffn_type}")
+    logger.info(
+        "profiling arch={} device={} batch={} seq={} d_model={} n_layers={} attn={} ffn={}",
+        args.arch, device, args.batch_size, args.seq_len, args.d_model, args.n_layers,
+        args.attn_impl, args.ffn_type,
+    )
 
     model, dummy = _BUILDERS[args.arch](args)
     model = model.to(device).eval()
@@ -120,6 +119,7 @@ def main() -> None:
         _ = model(dummy)
 
     report = profiler.report()
+    # stdout = the profiling report (the script's product); status messages go to the log
     print("\n" + report.summary_table(top_k=args.top, sort_by=args.sort))
 
     if args.torch_profiler:
@@ -131,10 +131,10 @@ def main() -> None:
         Path(args.json).parent.mkdir(parents=True, exist_ok=True)
         with open(args.json, "w") as f:
             json.dump(report.to_dict(), f, indent=2)
-        print(f"[profile] JSON saved → {args.json}")
+        logger.info("profile JSON saved to {}", args.json)
 
     if args.trace:
-        print(f"[profile] Chrome trace → {args.trace}")
+        logger.info("Chrome trace saved to {}", args.trace)
 
 
 if __name__ == "__main__":

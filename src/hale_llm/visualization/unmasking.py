@@ -195,7 +195,6 @@ def render_unmasking_gif(
     anim.save(output_gif, writer="pillow", fps=fps, dpi=dpi)
     plt.close(fig)
     logger.info("GIF saved as {}", output_gif)
-    print(f"GIF saved as {output_gif}")
     return output_gif
 
 
@@ -258,8 +257,6 @@ def visualize_generation(
         row_spacing=row_spacing,
         overlay_current=variant in OVERLAY_VARIANTS,
     )
-    print("\nFinal generated text:")
-    print(tokenizer.decode(final_seq[0].tolist(), skip_special_tokens=True))
     logger.info("generated: {}", tokenizer.decode(final_seq[0].tolist(), skip_special_tokens=True))
     return final_seq
 

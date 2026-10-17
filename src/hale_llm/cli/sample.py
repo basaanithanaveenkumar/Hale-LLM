@@ -29,7 +29,7 @@ def main() -> None:
         setup_logging(level=cfg.logging.level, log_file=cfg.logging.log_file, force=True)
         session = load_session(cfg, args.checkpoint)
         result = session.generate(args.prompt, num_loops=args.num_loops)
-        print(result.text)
+        print(result.text)  # stdout = the generated text; diagnostics go to the log
     except Exception:
         logger.exception("hale-llm-sample failed")
         raise
