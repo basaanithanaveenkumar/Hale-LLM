@@ -49,6 +49,7 @@ class OnlineRLExperiment:
     def from_yaml(
         cls, path: str | Path, overrides: dict[str, Any] | None = None
     ) -> OnlineRLExperiment:
+        """Build from a YAML config, optionally deep-merging ``overrides`` on top."""
         cfg = OnlineRLConfig.from_yaml(path)
         return cls(cfg.with_overrides(overrides) if overrides else cfg)
 
@@ -92,6 +93,7 @@ class OnlineRLExperiment:
         return REWARDS.get(self.cfg.reward.type)(self.task.answers)
 
     def trainer(self, policy: torch.nn.Module) -> OnlineRLTrainer:
+        """A GRPO :class:`OnlineRLTrainer` for ``policy`` with this config's reward and estimator."""
         return OnlineRLTrainer(
             policy,
             self.tokenizer,
@@ -104,6 +106,7 @@ class OnlineRLExperiment:
         )
 
     def evaluate(self, policy: torch.nn.Module, step: int) -> dict[str, float]:
+        """Greedy accuracy of ``policy`` on SFT-seen, unseen and all facts, tagged with ``step``."""
         answers = self.task.answers
         seen = self.evaluator.accuracy(policy, self.task.seen_prompts, answers)
         unseen = self.evaluator.accuracy(policy, self.task.unseen_prompts, answers)

@@ -153,6 +153,7 @@ class DiffusionLogProbFilm(RLFilm):
         return stage
 
     def frames(self) -> Iterator[tuple[Stage, int]]:
+        """Yield every ``(stage, duration_ms)`` frame of the film."""
         yield (
             self._draw(
                 "rollout", "a sampled rollout: prompt + completion", False, None, False, 0.0

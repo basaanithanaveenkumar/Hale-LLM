@@ -31,6 +31,7 @@ def _linear(t: float) -> float:
 
 
 class BlockFlowMatchingExplainer(Explainer):
+    """Film of block flow matching: per-block flow from masks to data, blocks in order."""
     variant = "block_flow_matching"
     title = "Block Flow Matching LM"
     subtitle = "blocks of 8, left to right  ·  inside each block a cosine flow from masks to text (t: 0 → 1)"
@@ -93,6 +94,7 @@ class BlockFlowMatchingExplainer(Explainer):
         return out
 
     def render(self, run: ToyRun, trace: MaskedTrace, writer: GifWriter) -> None:
+        """Draw the film into ``writer``: intro, how training sees a sentence, generation in motion, outcome."""
         self.intro(run, writer)
         g = torch.Generator().manual_seed(5)
         times = (torch.rand(len(run.text) // BLOCK, generator=g) * 0.9).tolist()

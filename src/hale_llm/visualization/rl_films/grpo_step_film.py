@@ -154,6 +154,7 @@ class GRPOStepFilm(RLFilm):
         return stage
 
     def frames(self) -> Iterator[tuple[Stage, int]]:
+        """Yield every ``(stage, duration_ms)`` frame of the film."""
         G = len(self.completions)
         yield self._draw("sample", f"The policy answers '{self.prompt}' {G} times", 0), 900
         for j in range(G):

@@ -86,6 +86,7 @@ def history_to_rows(
     variant: str,
     n_show: int = 4,
 ) -> list[StepRow]:
+    """Pick ``n_show`` informative steps of a sampler history and turn them into figure rows."""
     unpacked: list[tuple[np.ndarray, dict]] = []
     for item in history:
         if len(item) == 3:
@@ -195,6 +196,7 @@ def render_paper_figure(
     fps: int = 2,
     as_gif: bool = True,
 ) -> str:
+    """Draw ``rows`` as a paper-style figure (one line per step, revealed tokens highlighted)."""
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     nchars = max(
         (sum(len(t.text) for t in r.tokens) if r.tokens else len(r.text) for r in rows),
@@ -241,6 +243,7 @@ def visualize_paper_style(
     n_show: int = 4,
     fps: int = 2,
 ) -> torch.Tensor:
+    """Sample with history and save a paper-style figure of the denoising steps."""
     model.eval()
     prompt_ids = tokenizer(
         prompt,

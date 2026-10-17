@@ -29,6 +29,7 @@ TITLE_FONTSIZE = 14
 
 
 def compute_positions(tokens, char_spacing=0.5):
+    """Centre x of each token string laid out left to right, and the total width."""
     x, positions = 0.0, []
     for tok in tokens:
         positions.append(x + len(tok) / 2.0)
@@ -37,6 +38,7 @@ def compute_positions(tokens, char_spacing=0.5):
 
 
 def wrap_tokens(tokens, max_width, char_spacing=0.5):
+    """Split ``tokens`` into lines no wider than ``max_width`` (character units)."""
     lines = []
     current_line = []
     current_x = 0.0
@@ -215,6 +217,11 @@ def visualize_generation(
     variant="flow_matching",
     **_,
 ):
+    """Sample with history and render it as a GIF (masked tokens shown as ``[MASK]``).
+
+    Returns:
+        The final ``(1, L)`` sequence.
+    """
     prompt_enc = tokenizer(prompt, return_tensors="pt", add_special_tokens=False)
     prompt_ids = prompt_enc["input_ids"].to(device)
     L_prompt = prompt_ids.shape[1]
@@ -283,6 +290,7 @@ def render_token_grid_gif(
     dpi=120,
     title_prefix="hale-llm",
 ):
+    """Render sampler ``snapshots`` as a fixed grid of token cells, one frame per snapshot."""
     from matplotlib.patches import Rectangle
 
     total_len = len(snapshots[0][1])

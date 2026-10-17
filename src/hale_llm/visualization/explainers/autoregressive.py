@@ -45,6 +45,7 @@ def last_layer_attention(model, x: torch.Tensor) -> list[float] | None:
 
 
 class AutoregressiveExplainer(Explainer):
+    """Film of next-token generation: one forward pass per token, with attention arcs."""
     variant = "autoregressive"
     title = "Autoregressive LM"
     subtitle = "p(x) = Π p(xᵢ | x<ᵢ)  ·  causal attention  ·  one forward pass per new token"
@@ -72,6 +73,7 @@ class AutoregressiveExplainer(Explainer):
 
     # ------------------------------------------------------------------ film
     def render(self, run: ToyRun, trace: ARTrace, writer: GifWriter) -> None:
+        """Draw the film into ``writer``: intro, how training sees a sentence, generation in motion, outcome."""
         self.intro(run, writer)
         self._training(run, writer)
         self._generation(run, trace, writer)

@@ -24,6 +24,7 @@ class GifWriter:
         self.durations: list[int] = []
 
     def add(self, fig: Figure, duration_ms: int = 80) -> None:
+        """Rasterise ``fig`` as the next frame (shown ``duration_ms``) and close it."""
         buf = io.BytesIO()
         fig.savefig(buf, format="png", dpi=self.dpi, facecolor=fig.get_facecolor())
         plt.close(fig)
@@ -32,6 +33,7 @@ class GifWriter:
         self.durations.append(int(duration_ms))
 
     def stage(self, stage: Stage, duration_ms: int = 80) -> None:
+        """Add a :class:`Stage` frame."""
         self.add(stage.fig, duration_ms)
 
     def hold(self, extra_ms: int) -> None:
@@ -40,6 +42,7 @@ class GifWriter:
             self.durations[-1] += int(extra_ms)
 
     def save(self, path: str | Path) -> Path:
+        """Write the GIF on one shared palette and return its path (raises ``VisualizationError`` if empty)."""
         if not self.frames:
             raise VisualizationError("no frames to save")
         path = Path(path)
@@ -73,6 +76,7 @@ class GifWriter:
 
     @property
     def seconds(self) -> float:
+        """Total running time in seconds."""
         return sum(self.durations) / 1000
 
     def __len__(self) -> int:

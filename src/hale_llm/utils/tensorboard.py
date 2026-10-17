@@ -10,6 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 def make_writer(log_dir: str | None, enabled: bool = True, run_name: str | None = None) -> SummaryWriter | None:
+    """A ``SummaryWriter`` under ``log_dir[/run_name]``, or ``None`` when disabled or no directory is set."""
     if not enabled:
         logger.debug("tensorboard disabled")
         return None
@@ -27,6 +28,7 @@ def make_writer(log_dir: str | None, enabled: bool = True, run_name: str | None 
 
 
 def log_scalars(writer: SummaryWriter | None, step: int, scalars: dict[str, float]) -> None:
+    """Write every ``name -> value`` at ``step`` (no-op without a writer)."""
     if writer is None:
         return
     for name, value in scalars.items():
@@ -34,6 +36,7 @@ def log_scalars(writer: SummaryWriter | None, step: int, scalars: dict[str, floa
 
 
 def log_hparams(writer: SummaryWriter | None, hparams: dict[str, Any], metrics: dict[str, float] | None = None) -> None:
+    """Record hyper-parameters (non-scalar values stringified) with optional final metrics."""
     if writer is None:
         return
     clean = {}

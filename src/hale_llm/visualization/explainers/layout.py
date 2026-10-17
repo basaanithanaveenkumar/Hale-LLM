@@ -28,13 +28,16 @@ class Layout:
 
     @property
     def step(self) -> float:
+        """Horizontal distance between neighbouring tile centres."""
         return self.tile_w + self.gap
 
     @property
     def rows(self) -> int:
+        """Rows needed for ``n`` tiles."""
         return -(-self.n // self.per_row)
 
     def row_width(self) -> float:
+        """Width of one full row, including block gaps."""
         blocks = (self.per_row // self.block - 1) if self.block else 0
         return self.per_row * self.step - self.gap + blocks * self.block_gap
 

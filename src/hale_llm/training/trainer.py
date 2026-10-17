@@ -35,6 +35,18 @@ from hale_llm.utils.logging import setup_logging
 
 
 class Trainer:
+    """Train one variant: data, optimiser, schedule, checkpoints, evaluation, visualisation, logging.
+
+    Collaborators are injected (data module, checkpoint store, evaluator) so tests and the Ray
+    launcher can swap them; defaults are built from ``cfg``.
+
+    Args:
+        cfg: the run config.
+        tokenizer: optional pre-loaded tokenizer.
+        data_module: builds the loaders (default :class:`DataModule`).
+        checkpoints: checkpoint store (default local files).
+        evaluator: runs the metrics (default :class:`Evaluator`).
+    """
     def __init__(
         self,
         cfg: RunConfig,
@@ -85,6 +97,16 @@ class Trainer:
         return torch.device(get_device(device_str))
 
     def fit(self) -> tuple:
+        """Run the full training loop and return ``(model, tokenizer)``.
+
+        Lays out the experiment folder, resumes from the last checkpoint when ``train.resume``, steps
+        the optimiser with gradient clipping, evaluates every ``eval.every_n_epochs`` and checkpoints
+        every epoch.
+
+        Raises:
+            TrainingError: for an empty training loader.
+            NonFiniteLossError: if the loss becomes NaN or infinite.
+        """
         cfg = self.cfg
         apply_experiment_layout(cfg, create=True)
         setup_logging(level=cfg.logging.level, log_file=cfg.logging.log_file, force=True)

@@ -35,14 +35,17 @@ class ArithmeticTask:
 
     @staticmethod
     def prompt(a: int, b: int) -> str:
+        """Prompt string ``'a+b='``."""
         return f"{a}+{b}="
 
     @staticmethod
     def answer(a: int, b: int) -> str:
+        """Two-digit answer string, e.g. ``'07'``."""
         return f"{a + b:02d}"
 
     @property
     def n_sft(self) -> int:
+        """Number of facts in the supervised warm start (at least one)."""
         return max(1, int(round(len(self.pairs) * self.sft_fraction)))
 
     @property
@@ -62,6 +65,7 @@ class ArithmeticTask:
 
     @property
     def answers(self) -> dict[str, str]:
+        """``prompt -> answer`` for every fact (the verifier's table)."""
         return {self.prompt(a, b): self.answer(a, b) for a, b in self.pairs}
 
     @property

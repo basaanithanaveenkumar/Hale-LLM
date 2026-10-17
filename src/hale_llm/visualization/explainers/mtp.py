@@ -33,6 +33,7 @@ HEAD_ROWS = (27.5, 22.5, 17.5, 12.5)
 
 
 class MTPExplainer(Explainer):
+    """Film of self-speculative MTP decoding: draft with extra heads, verify with the main head."""
     variant = "mtp"
     title = "Multi-Token Prediction LM"
     subtitle = f"{HEADS} heads on one trunk predict the next {HEADS} characters  ·  heads draft ahead, head 0 verifies"
@@ -46,6 +47,7 @@ class MTPExplainer(Explainer):
 
     # ------------------------------------------------------------------ film
     def render(self, run: ToyRun, trace: MTPTrace, writer: GifWriter) -> None:
+        """Draw the film into ``writer``: intro, how training sees a sentence, generation in motion, outcome."""
         self.intro(run, writer)
         self._training(run, writer)
         self._generation(run, trace, writer)

@@ -12,6 +12,7 @@ from hale_llm.visualization.explainers.traces.loop_pass import LoopPass
 
 @dataclass
 class LoopedTrace:
+    """Generated ids with every loop pass and every generation step."""
     ids: torch.Tensor
     passes: list[LoopPass] = field(default_factory=list)
     steps: list[LoopGenStep] = field(default_factory=list)

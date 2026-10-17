@@ -1,3 +1,5 @@
+"""Generation visualisations: unmasking GIFs, block-diffusion GIFs and paper-style figures."""
+
 from hale_llm.visualization.block_diffusion import (
     render_block_diffusion_gif,
     visualize_block_diffusion,

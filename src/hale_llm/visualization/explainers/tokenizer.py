@@ -29,12 +29,14 @@ class CharTokenizer:
 
     @property
     def vocab_size(self) -> int:
+        """Specials plus printable characters."""
         return len(self.itos)
 
     def __len__(self) -> int:
         return self.vocab_size
 
     def encode(self, text: str) -> list[int]:
+        """Character ids of ``text`` (raises ``VisualizationError`` for characters outside the alphabet)."""
         unknown = sorted({c for c in text if c not in self.stoi})
         if unknown:
             raise VisualizationError(f"characters outside the vocabulary: {unknown}")
@@ -63,6 +65,7 @@ class CharTokenizer:
         return self.itos[int(token_id)]
 
     def decode(self, ids, skip_special_tokens: bool = True) -> str:
+        """Characters of ``ids``, skipping the special tokens by default."""
         ids = ids.tolist() if torch.is_tensor(ids) else list(ids)
         return "".join(
             self.itos[i] for i in ids if not (skip_special_tokens and i < len(self.specials))

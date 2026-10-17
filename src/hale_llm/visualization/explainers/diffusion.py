@@ -18,6 +18,7 @@ from hale_llm.visualization.explainers.toy import ToyRun
 
 
 class DiffusionExplainer(Explainer):
+    """Film of masked diffusion: the whole canvas denoised in parallel as ``t`` falls."""
     variant = "diffusion"
     title = "Masked Diffusion LM"
     subtitle = "training: mask each character w.p. t, learn to fill the masks  ·  sampling: t runs 1 → 0"
@@ -57,6 +58,7 @@ class DiffusionExplainer(Explainer):
         return out
 
     def render(self, run: ToyRun, trace: MaskedTrace, writer: GifWriter) -> None:
+        """Draw the film into ``writer``: intro, how training sees a sentence, generation in motion, outcome."""
         self.intro(run, writer)
         model = run.model
 

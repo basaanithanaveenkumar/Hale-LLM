@@ -34,4 +34,5 @@ class RLHistory:
 
     @property
     def final_accuracy(self) -> dict[str, float]:
+        """The last accuracy record (empty dict before any evaluation)."""
         return self.evals[-1] if self.evals else {}

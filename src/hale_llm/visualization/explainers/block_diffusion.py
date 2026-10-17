@@ -20,6 +20,7 @@ BLOCK = 8
 
 
 class BlockDiffusionExplainer(Explainer):
+    """Film of block diffusion: blocks committed left to right, denoised in parallel inside."""
     variant = "block_diffusion"
     title = "Block Diffusion LM"
     subtitle = "blocks of 8, left to right (like AR)  ·  masked diffusion inside each block (t: 1 → 0)"
@@ -85,6 +86,7 @@ class BlockDiffusionExplainer(Explainer):
         return out
 
     def render(self, run: ToyRun, trace: MaskedTrace, writer: GifWriter) -> None:
+        """Draw the film into ``writer``: intro, how training sees a sentence, generation in motion, outcome."""
         self.intro(run, writer)
         g = torch.Generator().manual_seed(3)
         times = (torch.rand(len(run.text) // BLOCK, generator=g) * 0.85 + 0.1).tolist()

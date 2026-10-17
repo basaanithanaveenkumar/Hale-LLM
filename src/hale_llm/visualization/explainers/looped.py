@@ -34,6 +34,7 @@ N_LOOPS = 6
 
 
 class LoopedExplainer(Explainer):
+    """Film of the looped transformer: one weight-tied block applied several times per token."""
     variant = "looped"
     title = "Looped Transformer LM"
     subtitle = f"one weight-tied block applied up to {N_LOOPS}×  ·  ACT: every character decides when to stop"
@@ -43,6 +44,7 @@ class LoopedExplainer(Explainer):
                     "steps": 500}
 
     def trace(self, run: ToyRun, seed: int = 0) -> LoopedTrace:
+        """Generate with per-pass predictions recorded (mirrors the looped sampler)."""
         out = LoopedTrace(ids=self.prompt(run))
         self._slow_motion(run, out)
         torch.manual_seed(seed)
@@ -89,6 +91,7 @@ class LoopedExplainer(Explainer):
 
     # ------------------------------------------------------------------ film
     def render(self, run: ToyRun, trace: LoopedTrace, writer: GifWriter) -> None:
+        """Draw the film into ``writer``: intro, how training sees a sentence, generation in motion, outcome."""
         self.intro(run, writer)
         self._loop(run, writer)
         self._slow_motion_scene(run, trace, writer)

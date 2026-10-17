@@ -68,6 +68,7 @@ class Stage:
         family: str = "DejaVu Sans",
         **kw,
     ):
+        """Draw ``s`` at ``(x, y)`` in stage units (alpha clamped to [0, 1])."""
         return self.ax.text(
             x,
             y,
@@ -96,6 +97,7 @@ class Stage:
         ls: str | tuple = "-",
         z: float = 1,
     ):
+        """Rounded rectangle from ``(x0, y0)`` to ``(x1, y1)``."""
         self.ax.add_patch(
             FancyBboxPatch(
                 (x0, y0),
@@ -239,6 +241,7 @@ class Stage:
         alpha: float = 1.0,
         head: float = 10,
     ) -> None:
+        """Straight or curved arrow from ``p`` to ``q`` (skipped when invisible)."""
         if alpha <= 0.01:
             return
         self.ax.add_patch(
@@ -266,6 +269,7 @@ class Stage:
         back: str = FAINT,
         alpha: float = 1.0,
     ) -> None:
+        """Horizontal bar filled to ``frac`` over a faint background track."""
         self.box(x, y, x + w, y + h, face=back, edge="none", radius=min(h / 2, 0.5), alpha=alpha)
         if frac > 0.003:
             self.box(
@@ -299,6 +303,7 @@ class Stage:
             )
 
     def mark(self, x: float, y: float, ok: bool, scale: float = 1.0, alpha: float = 1.0) -> None:
+        """A ✓ or ✗ at ``(x, y)``."""
         t = self.text(
             x,
             y,
@@ -314,6 +319,7 @@ class Stage:
     def dot(
         self, x: float, y: float, r: float = 0.6, color: str = GOLD, alpha: float = 1.0
     ) -> None:
+        """A glowing dot of radius ``r``."""
         self.ax.add_patch(
             Circle((x, y), r * 2.4, facecolor=color, edgecolor="none", alpha=0.18 * alpha, zorder=5)
         )
@@ -331,6 +337,7 @@ class Stage:
         ls: str = "-",
         z: float = 2,
     ) -> None:
+        """A polyline through ``xs``/``ys``."""
         self.ax.plot(
             xs,
             ys,

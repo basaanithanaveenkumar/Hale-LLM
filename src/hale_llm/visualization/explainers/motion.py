@@ -25,10 +25,12 @@ def pop(t: float, amount: float = 0.3) -> float:
 
 
 def lerp(a: float, b: float, t: float) -> float:
+    """Linear interpolation from ``a`` to ``b`` at ``t``."""
     return a + (b - a) * t
 
 
 def lerp2(p: tuple[float, float], q: tuple[float, float], t: float) -> tuple[float, float]:
+    """Linear interpolation between two points."""
     return lerp(p[0], q[0], t), lerp(p[1], q[1], t)
 
 

@@ -148,6 +148,7 @@ class PolicyEvolutionFilm(RLFilm):
         return stage
 
     def frames(self) -> Iterator[tuple[Stage, int]]:
+        """Yield every ``(stage, duration_ms)`` frame of the film."""
         yield self._draw(self.steps[0], self.bars[0]), 1400
         for k in range(1, len(self.steps)):
             a, b = self.bars[k - 1], self.bars[k]

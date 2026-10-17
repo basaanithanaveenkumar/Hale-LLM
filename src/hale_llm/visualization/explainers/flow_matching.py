@@ -23,6 +23,7 @@ def _kappa(t: float) -> float:
 
 
 class FlowMatchingExplainer(Explainer):
+    """Film of discrete flow matching: tokens become real as ``t`` runs from 0 to 1."""
     variant = "flow_matching"
     title = "Discrete Flow Matching LM"
     subtitle = "a path from all masks (t = 0) to text (t = 1)  ·  sampling = Euler steps along it"
@@ -58,6 +59,7 @@ class FlowMatchingExplainer(Explainer):
         return out
 
     def render(self, run: ToyRun, trace: MaskedTrace, writer: GifWriter) -> None:
+        """Draw the film into ``writer``: intro, how training sees a sentence, generation in motion, outcome."""
         self.intro(run, writer)
         model = run.model
 

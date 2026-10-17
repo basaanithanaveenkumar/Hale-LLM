@@ -20,6 +20,11 @@ def run_visualization(
     train: bool = False,
     prompt: str | None = None,
 ) -> str:
+    """Write a generation GIF of ``model`` with its variant's sampler and return the path.
+
+    ``train=True`` uses the cheaper ``viz`` step / length settings; the prompt defaults to a
+    dataset passage or ``sample.prompt``.
+    """
     sampler = get_sampler(cfg.variant)
     if prompt is None:
         from hale_llm.dataloader.dataset import dataset_prompt

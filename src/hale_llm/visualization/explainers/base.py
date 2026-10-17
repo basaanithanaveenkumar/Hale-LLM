@@ -80,10 +80,12 @@ class Explainer(ABC):
         return train_toy(self.variant, self.texts, seed=seed, **self.train_kwargs)
 
     def prompt(self, run: ToyRun) -> torch.Tensor:
+        """The first :attr:`prompt_len` tokens of the training sentence, ``(1, prompt_len)``."""
         return run.ids[:, : self.prompt_len]
 
     @property
     def max_new_tokens(self) -> int:
+        """Tokens to generate: the sentence length minus the prompt."""
         return len(self.texts[0]) - self.prompt_len
 
     @abstractmethod
@@ -113,6 +115,7 @@ class Explainer(ABC):
 
     # ------------------------------------------------------------------ shared scenes
     def stage(self, phase: str, caption: str = "", color: str = TEAL) -> Stage:
+        """A new frame with this explainer's title and subtitle and the given phase pill."""
         return Stage(self.title, self.subtitle, phase, caption, phase_color=color)
 
     def intro(self, run: ToyRun, writer: GifWriter) -> None:

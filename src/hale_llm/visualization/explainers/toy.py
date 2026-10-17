@@ -34,6 +34,7 @@ class ToyRun:
 
     @property
     def text(self) -> str:
+        """The first training sentence."""
         return self.texts[0]
 
     @property
