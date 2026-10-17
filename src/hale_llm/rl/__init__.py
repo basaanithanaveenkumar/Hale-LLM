@@ -16,6 +16,13 @@ from importlib import import_module
 from typing import Any
 
 _EXPORTS = {
+    "GRPOSection": "grpo_section",
+    "RLConfigSection": "rl_config_section",
+    "RewardSection": "reward_section",
+    "RolloutSection": "rollout_section",
+    "SFTSection": "sft_section",
+    "TaskSection": "task_section",
+    "TrainSection": "train_section",
     "ArithmeticTask": "tasks.arithmetic_task",
     "AutoregressiveLogProb": "autoregressive_log_prob",
     "ExactMatchReward": "exact_match_reward",

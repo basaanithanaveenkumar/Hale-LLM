@@ -3,69 +3,22 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
+from hale_llm.rl.grpo_section import GRPOSection
 from hale_llm.rl.online_rl_error import OnlineRLError
+from hale_llm.rl.reward_section import RewardSection
+from hale_llm.rl.rl_config_section import RLConfigSection
+from hale_llm.rl.rollout_section import RolloutSection
+from hale_llm.rl.sft_section import SFTSection
+from hale_llm.rl.task_section import TaskSection
+from hale_llm.rl.train_section import TrainSection
 
 
-class _Section(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-
-class TaskSection(_Section):
-    """The toy environment: ``a+b=`` prompts with a two-digit answer."""
-
-    name: Literal["arithmetic"] = "arithmetic"
-    max_operand: int = Field(9, ge=1, le=9)
-    sft_fraction: float = Field(0.4, gt=0.0, le=1.0)
-
-
-class SFTSection(_Section):
-    """Supervised warm start on a fraction of the facts (gives the policy a format and a prior)."""
-
-    steps: int = Field(60, ge=0)
-    lr: float = Field(3e-3, gt=0.0)
-
-
-class RolloutSection(_Section):
-    """How the policy samples its own training data."""
-
-    group_size: int = Field(8, ge=2)
-    prompts_per_step: int = Field(16, ge=1)
-    temperature: float = Field(1.5, gt=0.0)
-    sampling_steps: int = Field(2, ge=1)
-
-
-class GRPOSection(_Section):
-    """Group Relative Policy Optimisation hyper-parameters."""
-
-    lr: float = Field(5e-4, gt=0.0)
-    inner_epochs: int = Field(2, ge=1)
-    clip_eps: float = Field(0.2, gt=0.0, lt=1.0)
-    kl_coef: float = Field(0.02, ge=0.0)
-    max_grad_norm: float = Field(1.0, gt=0.0)
-    normalize_std: bool = True
-    prompt_mask_prob: float = Field(0.15, ge=0.0, lt=1.0)
-
-
-class RewardSection(_Section):
-    """Which reward scores a completion (a key of :data:`REWARDS`)."""
-
-    type: str = "exact_match"
-
-
-class TrainSection(_Section):
-    """Loop length and what is recorded for plots and animations."""
-
-    steps: int = Field(1000, ge=1)
-    eval_every: int = Field(50, ge=1)
-    track_prompts: int = Field(3, ge=0)
-
-
-class OnlineRLConfig(_Section):
+class OnlineRLConfig(RLConfigSection):
     """Everything an :class:`OnlineRLExperiment` needs.
 
     Example:
