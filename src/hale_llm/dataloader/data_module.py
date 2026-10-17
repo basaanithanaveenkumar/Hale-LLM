@@ -14,12 +14,26 @@ from hale_llm.exceptions import DataPipelineError
 
 
 class DataModule:
+    """Builds the train/validation loaders and visualisation prompts of one run.
+
+    The trainer depends on this class, not on Hub or dataset details; overfit runs reuse the
+    training loader for validation.
+
+    Args:
+        cfg: the run config.
+        tokenizer: optional pre-loaded tokenizer (default: ``data.tokenizer_name``).
+    """
     def __init__(self, cfg: RunConfig, tokenizer=None) -> None:
         self.cfg = cfg
         self.tokenizer = tokenizer or setup_tokenizer(cfg.data.tokenizer_name)
         self._viz_passages: list[str] | None = None
 
     def viz_prompt(self, seed: int = 0) -> str:
+        """Prompt for a training-time GIF: a dataset passage prefix, or ``sample.prompt``.
+
+        Args:
+            seed: picks the passage, so successive GIFs use different prompts.
+        """
         if self.cfg.viz.prompt_source != "dataset":
             return self.cfg.sample.prompt
         if self._viz_passages is None:
@@ -27,6 +41,11 @@ class DataModule:
         return dataset_prompt(self.cfg, seed=seed, passages=self._viz_passages)
 
     def train_loader(self) -> DataLoader:
+        """Shuffled, last-batch-dropped training loader for the configured source.
+
+        Raises:
+            DataPipelineError: for ``source: overfit`` without ``overfit_text``.
+        """
         cfg = self.cfg
         if uses_overfit(cfg):
             if not cfg.data.overfit_text:
@@ -44,6 +63,7 @@ class DataModule:
         return make_dataloader(cfg, split="train")
 
     def val_loader(self, train_loader: DataLoader | None = None) -> DataLoader:
+        """Validation loader; in overfit mode the training loader (``train_loader`` if given)."""
         if uses_overfit(self.cfg):
             if train_loader is None:
                 return self.train_loader()

@@ -1,3 +1,5 @@
+"""The sections of :class:`~hale_llm.config.run.RunConfig`, one pydantic model per YAML block."""
+
 from hale_llm.config.sections.data import DataConfig
 from hale_llm.config.sections.eval import EvalConfig
 from hale_llm.config.sections.experiment import ExperimentConfig

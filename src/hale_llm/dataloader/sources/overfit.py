@@ -1,3 +1,5 @@
+"""Single-sentence overfit source for sanity runs (a model must memorise one text)."""
+
 from __future__ import annotations
 
 import torch
@@ -8,10 +10,12 @@ from hale_llm.dataloader.collate import get_collate
 
 
 def uses_overfit(cfg) -> bool:
+    """True when the run trains on ``data.overfit_text`` instead of a dataset."""
     return cfg.data.source == "overfit" or bool(cfg.data.overfit_text)
 
 
 def overfit_ids(tokenizer, text: str, max_length: int, n_copies: int) -> torch.Tensor:
+    """``(n_copies, max_length)`` copies of ``text`` tokenised and padded to ``max_length``."""
     enc = tokenizer(
         text,
         truncation=True,
@@ -33,6 +37,10 @@ def make_overfit_loader(
     n_copies: int,
     **collate_kwargs,
 ) -> DataLoader:
+    """Shuffled DataLoader over ``n_copies`` copies of ``text``, collated for ``variant``.
+
+    The batch size is capped at ``n_copies`` so ``drop_last`` never empties the loader.
+    """
     ids = overfit_ids(tokenizer, text, max_length, n_copies)
     ds = TensorDataset(ids)
     collate = get_collate(variant)

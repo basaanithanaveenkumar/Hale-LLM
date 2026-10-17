@@ -1,3 +1,5 @@
+"""``data:`` section: dataset source, tokenizer and windowing."""
+
 from typing import Literal
 
 from hale_core.config.sections.webdataset import WebDatasetConfig
@@ -7,6 +9,12 @@ from hale_llm.config.sections.common import StrictModel
 
 
 class DataConfig(StrictModel):
+    """Where training text comes from and how it is cut into fixed-length windows.
+
+    ``source: huggingface`` streams ``dataset``/``subset`` from the Hub; ``source: overfit`` repeats
+    ``overfit_text`` ``n_overfit_copies`` times (sanity runs). Text is split into words and packed
+    into ``model.max_length``-token windows that start every ``stride_words`` words.
+    """
     source: Literal["huggingface", "overfit"] = "huggingface"
     dataset: str = "Salesforce/wikitext"
     subset: str | None = "wikitext-2-raw-v1"

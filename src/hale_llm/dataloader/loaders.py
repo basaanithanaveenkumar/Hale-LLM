@@ -1,3 +1,5 @@
+"""Hugging Face text → tokenised windows → (optional) WebDataset shards → a variant's DataLoader."""
+
 from __future__ import annotations
 
 import hashlib
@@ -42,6 +44,20 @@ def webdataset_name(cfg, hf_split: str, fingerprint: str) -> str:
 
 
 def make_dataloader(cfg, split: str = "train", **collate_kwargs) -> DataLoader:
+    """DataLoader of ``split`` whose batches are already collated for ``cfg.variant``.
+
+    With ``data.webdataset.enabled`` the windows are written to tar shards once (keyed by
+    :func:`dataset_fingerprint`) and streamed afterwards. Under ``torch.distributed`` each rank reads
+    its own shard of map-style data through a :class:`DistributedSampler`.
+
+    Args:
+        cfg: the run config.
+        split: ``"train"`` (shuffled) or anything else for the validation split.
+        **collate_kwargs: forwarded to the registered collate function.
+
+    Returns:
+        A DataLoader with ``drop_last=True``.
+    """
     tok = setup_tokenizer(cfg.data.tokenizer_name)
     hf_split = cfg.data.train_split if split == "train" else cfg.data.val_split
     training = split == "train"

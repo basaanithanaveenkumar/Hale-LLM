@@ -1,3 +1,5 @@
+"""``hale-llm-sample``: generate one completion from a trained checkpoint."""
+
 from __future__ import annotations
 
 import argparse
@@ -12,6 +14,10 @@ from hale_llm.utils.logging import setup_logging
 
 
 def main() -> None:
+    """Parse arguments, load the session and print the generated text to stdout.
+
+    ``--num-loops`` overrides ``sample.num_loops`` for looped backbones (test-time compute).
+    """
     p = argparse.ArgumentParser(prog="hale-llm-sample")
     p.add_argument("--config", required=True)
     p.add_argument("--checkpoint", default=None)

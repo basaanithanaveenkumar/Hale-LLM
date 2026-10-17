@@ -8,6 +8,12 @@ from hale_llm.exceptions import DataPipelineError
 
 
 def encode_words(tokenizer, words: list[str]) -> tuple[list[int], list[int]]:
+    """Tokenise ``words`` (space-prefixed after the first) and record where each word starts.
+
+    Returns:
+        ``(ids, starts)``: the flat token ids and the index in ``ids`` of each word's first token.
+        Words that tokenise to nothing get the unknown (or EOS) id so positions stay aligned.
+    """
     ids: list[int] = []
     starts: list[int] = []
     unk = getattr(tokenizer, "unk_token_id", None) or getattr(tokenizer, "eos_token_id", 0) or 0
@@ -27,6 +33,20 @@ def sliding_windows(
     max_length: int,
     stride_words: int = 10,
 ) -> torch.Tensor:
+    """Pack ``text`` into ``(N, max_length)`` windows starting every ``stride_words`` words.
+
+    Windows always start on a word boundary; the last one is right-padded with ``pad_token_id``.
+    Complexity is O(T) in the number of tokens.
+
+    Args:
+        tokenizer: Hugging Face tokenizer.
+        text: the corpus.
+        max_length: tokens per window.
+        stride_words: words between consecutive window starts.
+
+    Raises:
+        DataPipelineError: if ``stride_words < 1``.
+    """
     if stride_words < 1:
         raise DataPipelineError(f"stride_words must be >= 1, got {stride_words}")
     words = text.split()

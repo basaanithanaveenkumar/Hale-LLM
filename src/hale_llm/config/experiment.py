@@ -13,15 +13,23 @@ from hale_llm.exceptions import ExperimentNotFoundError
 
 
 def variant_root(cfg: RunConfig) -> Path:
+    """Folder holding every run of ``cfg.variant`` (``<experiment.root>/<variant>``)."""
     return Path(cfg.experiment.root) / cfg.variant
 
 
 def default_run_name(cfg: RunConfig, when: datetime | None = None) -> str:
+    """Timestamped run name ``<variant>_<YYYYmmdd_HHMMSS>``.
+
+    Args:
+        cfg: the run config.
+        when: timestamp to use (default: now); tests pass a fixed one.
+    """
     stamp = (when or datetime.now()).strftime("%Y%m%d_%H%M%S")
     return f"{cfg.variant}_{stamp}"
 
 
 def latest_run_dir(cfg: RunConfig) -> Path | None:
+    """Resolved target of ``<variant>/latest``, or ``None`` when no run exists yet."""
     link = variant_root(cfg) / "latest"
     if link.exists():
         return link.resolve()

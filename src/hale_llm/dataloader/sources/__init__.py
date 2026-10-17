@@ -1,3 +1,5 @@
+"""Text sources: Hugging Face datasets and the single-sentence overfit source."""
+
 from hale_llm.dataloader.sources.huggingface import HuggingFaceTextDataset, load_hf_split
 from hale_llm.dataloader.sources.overfit import make_overfit_loader, overfit_ids, uses_overfit
 

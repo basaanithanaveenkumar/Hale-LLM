@@ -1,3 +1,5 @@
+"""``hale-llm-eval``: evaluate a checkpoint on the validation split and print its metrics."""
+
 from __future__ import annotations
 
 import argparse
@@ -16,6 +18,13 @@ from hale_llm.utils.tensorboard import log_scalars, make_writer
 
 
 def main() -> None:
+    """Parse arguments, load the config and checkpoint, run the registered metrics, print the table.
+
+    Metric values go to stdout as ``name: value`` lines (pipeable) and to TensorBoard when enabled.
+
+    Raises:
+        Exception: any failure is logged with its traceback and re-raised (non-zero exit).
+    """
     p = argparse.ArgumentParser(prog="hale-llm-eval")
     p.add_argument("--config", required=True)
     p.add_argument("--checkpoint", default=None)

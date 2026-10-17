@@ -1,3 +1,5 @@
+"""``train:`` section: optimisation, schedule, checkpointing and parallelism."""
+
 from typing import Literal
 
 from hale_core.config.sections.ray import RayConfig
@@ -7,6 +9,10 @@ from hale_llm.config.sections.common import StrictModel
 
 
 class TrainConfig(StrictModel):
+    """Optimiser, schedule (``steps`` or ``epochs``), loss variant, checkpointing and parallelism.
+
+    ``epochs`` wins over ``steps`` when both are set (see :func:`~hale_llm.training.schedule.resolve_schedule`).
+    """
     steps: int | None = 300
     epochs: int | None = None
     lr: float = 1e-3

@@ -1,7 +1,10 @@
+"""``sample:`` section: generation defaults."""
+
 from hale_llm.config.sections.common import StrictModel
 
 
 class SampleConfig(StrictModel):
+    """Default prompt, length, temperature and denoising steps for sampling and visualisation."""
     max_new_tokens: int = 32
     temperature: float = 1.0
     sampling_steps: int = 32

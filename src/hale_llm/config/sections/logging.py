@@ -1,9 +1,12 @@
+"""``logging:`` section: console level, log file, TensorBoard and Weights & Biases."""
+
 from typing import Literal
 
 from hale_llm.config.sections.common import StrictModel
 
 
 class LoggingConfig(StrictModel):
+    """Console log level, rotating log file, and the optional TensorBoard / W&B sinks."""
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_file: str | None = "logs/hale_llm.log"
     

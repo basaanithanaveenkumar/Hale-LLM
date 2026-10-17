@@ -11,6 +11,10 @@ from hale_llm.utils.logging import setup_logging
 
 
 def main() -> None:
+    """Render the explainer GIF of each requested paradigm; print one output path per line.
+
+    Each paradigm trains its toy model, traces generation and writes ``<out>/<variant>.gif``.
+    """
     from hale_llm.visualization.explainers import ORDER, build_explainer_gifs
 
     p = argparse.ArgumentParser(prog="hale-llm-explain", description=__doc__)

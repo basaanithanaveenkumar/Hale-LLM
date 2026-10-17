@@ -9,11 +9,16 @@ from hale_llm.dataloader.sources.overfit import uses_overfit
 
 
 def is_heading(text: str) -> bool:
+    """True for WikiText section headings (``= Title =``), which make poor prompts."""
     stripped = text.strip()
     return stripped.startswith("=") and stripped.endswith("=")
 
 
 def collect_dataset_passages(cfg, *, split: str | None = None, min_words: int = 8) -> list[str]:
+    """Non-heading passages of at least ``min_words`` words from ``split`` (default: validation).
+
+    In overfit mode the single overfit text is the only passage.
+    """
     if uses_overfit(cfg):
         text = (cfg.data.overfit_text or "").strip()
         return [text] if text else []
@@ -33,6 +38,7 @@ def collect_dataset_passages(cfg, *, split: str | None = None, min_words: int = 
 
 
 def passage_prompt(text: str, n_words: int) -> str:
+    """The first ``n_words`` words of ``text`` (at least one)."""
     words = text.split()
     if not words:
         return text
@@ -40,6 +46,10 @@ def passage_prompt(text: str, n_words: int) -> str:
 
 
 def dataset_prompt(cfg, *, seed: int = 0, passages: list[str] | None = None) -> str:
+    """A ``viz.prompt_words``-word prompt from passage ``seed % len(passages)``.
+
+    Falls back to ``sample.prompt`` when ``viz.prompt_source`` is ``config`` or no passage exists.
+    """
     n_words = int(cfg.viz.prompt_words)
     if getattr(cfg.viz, "prompt_source", "dataset") != "dataset":
         return cfg.sample.prompt

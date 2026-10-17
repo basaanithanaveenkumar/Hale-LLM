@@ -1,3 +1,5 @@
+"""Data pipeline: tokenizer, word-stride windows, per-variant collate functions and loaders."""
+
 from hale_llm.dataloader.collate import get_collate, register_collate
 from hale_llm.dataloader.data_module import DataModule
 from hale_llm.dataloader.loaders import make_dataloader

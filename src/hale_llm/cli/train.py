@@ -14,6 +14,10 @@ from hale_llm.utils.logging import setup_logging
 
 
 def main() -> None:
+    """Parse arguments, lay out the experiment folder and train the configured variant.
+
+    ``--experiment`` resumes an existing run folder; otherwise a new timestamped one is created.
+    """
     p = argparse.ArgumentParser(prog="hale-llm-train")
     p.add_argument("--config", required=True, help="YAML under configs/")
     p.add_argument("--experiment", default=None, help="Reuse this run folder under data/experiments/<variant>/")

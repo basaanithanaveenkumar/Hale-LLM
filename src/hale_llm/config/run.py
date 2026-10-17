@@ -16,6 +16,12 @@ from hale_llm.config.sections.common import StrictModel
 
 
 class RunConfig(StrictModel):
+    """The complete, validated configuration of one hale_llm run.
+
+    Unknown keys are rejected at every level (``extra="forbid"``), so a typo in YAML fails at load
+    time instead of silently using a default. ``variant`` selects the registered model, loss,
+    sampler, collate function and metrics; ``device=None`` picks CUDA, then MPS, then CPU.
+    """
     variant: str
     model: ModelConfig = Field(default_factory=ModelConfig)
     train: TrainConfig = Field(default_factory=TrainConfig)

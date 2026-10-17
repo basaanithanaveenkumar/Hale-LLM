@@ -15,6 +15,7 @@ from hale_llm.visualization.run import run_visualization
 
 
 def main() -> None:
+    """Parse arguments, load the session and write the generation GIF of the configured prompt."""
     p = argparse.ArgumentParser(prog="hale-llm-viz")
     p.add_argument("--config", required=True)
     p.add_argument("--checkpoint", default=None)

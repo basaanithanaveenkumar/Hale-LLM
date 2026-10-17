@@ -1,3 +1,5 @@
+"""Hugging Face text datasets packed into fixed-length token windows."""
+
 from __future__ import annotations
 
 import torch
@@ -9,6 +11,12 @@ from hale_llm.dataloader.windows import sliding_windows
 
 
 def load_hf_split(cfg, split: str):
+    """Load ``split`` of the configured dataset, truncated to ``train_size``/``val_size`` rows.
+
+    Args:
+        cfg: the run config (``data`` section).
+        split: Hugging Face split name.
+    """
     data = cfg.data
     name = data.subset if data.subset else None
     kwargs: dict = {"split": split}
@@ -33,6 +41,7 @@ def load_hf_split(cfg, split: str):
 
 
 def corpus_from_split(raw, text_field: str = "text") -> str:
+    """Join the non-empty ``text_field`` values of ``raw`` into one newline-separated corpus."""
     parts = []
     for row in raw:
         text = (row.get(text_field) or "").strip()
@@ -42,6 +51,16 @@ def corpus_from_split(raw, text_field: str = "text") -> str:
 
 
 class HuggingFaceTextDataset(Dataset):
+    """Map-style dataset of ``(max_length,)`` token windows over one Hugging Face split.
+
+    The whole split is tokenised once at construction (word-stride windows, see
+    :func:`~hale_llm.dataloader.windows.sliding_windows`); items are long tensors.
+
+    Args:
+        tokenizer: Hugging Face tokenizer.
+        cfg: the run config.
+        split: Hugging Face split name.
+    """
     def __init__(self, tokenizer, cfg, split: str):
         self.tokenizer = tokenizer
         self.max_length = cfg.model.max_length

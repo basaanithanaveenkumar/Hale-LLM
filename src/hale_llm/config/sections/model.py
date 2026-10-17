@@ -1,3 +1,5 @@
+"""``model:`` section: backbone architecture and per-variant hyper-parameters."""
+
 from typing import Literal
 
 from hale_core.config.sections.loop import LoopConfig
@@ -7,6 +9,13 @@ from hale_llm.config.sections.common import StrictModel
 
 
 class ModelConfig(StrictModel):
+    """Architecture of the shared transformer backbone and the variant-specific knobs.
+
+    ``arch`` picks the HaleBlocks backbone (``default``/``transformer`` GPT stack, ``lgt``
+    local-global, ``dit`` time-conditioned, ``looped`` weight-tied). ``attn_type`` must match the
+    variant (``causal`` for AR/MTP/looped, ``bidirectional`` for diffusion and flow matching,
+    ``block_causal`` for block variants); models validate the combination at construction.
+    """
     d_model: int = 128
     n_heads: int = 4
     n_layers: int = 4

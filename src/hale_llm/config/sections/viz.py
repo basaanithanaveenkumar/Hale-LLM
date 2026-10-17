@@ -1,9 +1,12 @@
+"""``viz:`` section: periodic generation GIFs during training."""
+
 from typing import Literal
 
 from hale_llm.config.sections.common import StrictModel
 
 
 class VizConfig(StrictModel):
+    """When to render generation GIFs during training and where their prompts come from."""
     enabled: bool = False
     every_n_steps: int | None = 500
     every_n_epochs: int | None = None

@@ -1,3 +1,5 @@
+"""Shared base model of every config section."""
+
 from pydantic import BaseModel, ConfigDict
 
 
