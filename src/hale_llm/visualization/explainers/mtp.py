@@ -19,7 +19,6 @@ from hale_llm.visualization.explainers.canvas import (
     ORANGE,
     PURPLE,
     RED,
-    TEAL,
     GifWriter,
     Layout,
     Stage,
