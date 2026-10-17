@@ -27,7 +27,7 @@ from hale_llm.training.distributed import (
     setup_distributed,
     wrap_model_parallel,
 )
-from hale_llm.training.schedule import TrainSchedule
+from hale_llm.training.schedule import TrainSchedule, resolve_schedule  # noqa: F401 - re-export
 from hale_llm.utils.device import get_device
 from hale_llm.utils.experiment_logger import ExperimentLogger, make_experiment_logger
 from hale_llm.utils.logging import setup_logging
