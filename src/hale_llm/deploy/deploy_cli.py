@@ -19,7 +19,9 @@ class HaleLLMDeployCLI(DeployCLI):
 
     @staticmethod
     def cmd_list(args) -> int:
-        """Root registries, plus the ``hale_llm`` scope (child scopes are not walked by the root)."""
+        """Root registries, plus the ``hale_llm`` scope (child scopes are not walked by the
+        root).
+        """
         from hale_llm.deploy.registry import LLM_ADAPTERS
 
         DeployCLI.cmd_list(args)

@@ -1,2 +1,2 @@
 from hale_core.nn.backbones import *  # noqa: F403
-from hale_core.nn.backbones import __all__
+from hale_core.nn.backbones import __all__ as __all__

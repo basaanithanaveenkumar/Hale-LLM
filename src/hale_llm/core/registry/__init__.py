@@ -1,2 +1,2 @@
 from hale_core.registry import *  # noqa: F403
-from hale_core.registry import __all__
+from hale_core.registry import __all__ as __all__

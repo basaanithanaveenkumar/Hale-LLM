@@ -1,4 +1,6 @@
-"""Block-diffusion training loss: one noise level per block, clean context through the other stream."""
+"""Block-diffusion training loss: one noise level per block, clean context through the other
+stream.
+"""
 
 from __future__ import annotations
 

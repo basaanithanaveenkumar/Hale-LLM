@@ -287,3 +287,93 @@ flowchart TB
 |---|---|---|
 | AR | GPT, MLP, MHA | 47.7M |
 | Diffusion / block diffusion / flow matching | LGT, GeGLU, GQA n_kv = 2, time-conditioned | 63.2M |
+
+---
+
+## Component and runtime structure
+
+Class diagram of the extension points and the objects the main path touches. Every box that
+says "registry" is chosen by a string in YAML, so a new paradigm adds a registered class and
+never edits the trainer.
+
+```mermaid
+classDiagram
+  class RunConfig {
+    +model: ModelSection
+    +data: DataSection
+    +train: TrainSection
+    +variant: str
+  }
+  class Trainer {
+    +fit() tuple
+  }
+  class TrainSchedule {
+    +n_epochs: int
+    +total_steps: int
+    +from_config(cfg, steps_per_epoch)
+  }
+  class InferenceSession {
+    +generate(prompt) GenerationResult
+  }
+  class VariantRegistry {
+    <<registry>>
+    +register_variant(name)
+  }
+  class LossRegistry {
+    <<registry>>
+    +register_loss(name)
+  }
+  class SamplerRegistry {
+    <<registry>>
+    +register_sampler(name)
+  }
+  class MetricRegistry {
+    <<registry>>
+    +register_metric(name)
+  }
+  class KappaSchedule {
+    <<abstract>>
+    +kappa(t)
+    +rate(t)
+  }
+  class LinearKappa
+  class CosineKappa
+  class MaskingPath
+  class BlockFlowMatchingLM
+  Trainer --> RunConfig
+  Trainer --> TrainSchedule
+  Trainer ..> VariantRegistry : builds model
+  Trainer ..> LossRegistry : resolves loss
+  InferenceSession ..> SamplerRegistry : resolves sampler
+  Trainer ..> MetricRegistry : evaluates
+  KappaSchedule <|-- LinearKappa
+  KappaSchedule <|-- CosineKappa
+  MaskingPath o-- KappaSchedule
+  BlockFlowMatchingLM o-- MaskingPath
+  VariantRegistry <.. BlockFlowMatchingLM : registered
+```
+
+Main path from a YAML file to a trained checkpoint and a sample:
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant CLI as hale-llm-train
+  participant Cfg as load_config
+  participant Reg as Variant registry
+  participant Tr as Trainer
+  participant Ses as InferenceSession
+  User->>CLI: --config configs/block_diffusion/small.yaml
+  CLI->>Cfg: resolve _base_, apply overrides
+  Cfg-->>CLI: validated RunConfig
+  CLI->>Tr: train(cfg)
+  Tr->>Reg: get(cfg.variant) and build model
+  Reg-->>Tr: model, collate fn
+  loop each step
+    Tr->>Tr: collate, loss, backward, optimizer step
+  end
+  Tr-->>CLI: checkpoint in experiment dir
+  User->>Ses: load_session(cfg, checkpoint)
+  Ses->>Reg: sampler for cfg.variant
+  Ses-->>User: generated text
+```

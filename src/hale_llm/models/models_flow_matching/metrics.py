@@ -24,10 +24,10 @@ class FlowMatchingMaskedAccuracy(Metric):
     def update(self, ctx: MetricContext) -> None:
         """Accumulate correct predictions on masked positions from one evaluation batch."""
         x1 = ctx.batch["input_ids"]
-        b, l = x1.shape
+        b, length = x1.shape
         t = torch.rand(b, device=x1.device) * (1.0 - ctx.model.eps)
-        keep_mask = (1.0 - t).clamp(0, 1)[:, None].expand(b, l)
-        is_masked = torch.rand(b, l, device=x1.device) < keep_mask
+        keep_mask = (1.0 - t).clamp(0, 1)[:, None].expand(b, length)
+        is_masked = torch.rand(b, length, device=x1.device) < keep_mask
         x_t = torch.where(is_masked, torch.full_like(x1, ctx.batch["mask_token_id"]), x1)
         logits = ctx.model({**ctx.batch, "x_t": x_t, "t": t})
         valid = is_masked

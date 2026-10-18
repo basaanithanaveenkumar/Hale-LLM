@@ -46,7 +46,10 @@ def setup_logging(
             rotation="10 MB",
             retention="7 days",
             encoding="utf-8",
-            format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
+            format=(
+                "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | "
+                "{name}:{function}:{line} - {message}"
+            ),
         )
         logger.debug("file logging enabled at {}", path.resolve())
     _CONFIGURED = True

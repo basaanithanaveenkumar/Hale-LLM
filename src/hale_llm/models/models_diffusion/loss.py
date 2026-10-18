@@ -23,8 +23,8 @@ def _corrupt(x0, t, mask_id, schedule: NoiseSchedule | None = None):
         ``(x_t, is_masked)``: the corrupted ids and the boolean mask of corrupted positions.
     """
     schedule = schedule or LogLinearSchedule()
-    b, l = x0.shape
-    mask_prob = schedule.mask_probability(t)[:, None].expand(b, l)
+    b, length = x0.shape
+    mask_prob = schedule.mask_probability(t)[:, None].expand(b, length)
     is_masked = torch.rand_like(x0, dtype=torch.float) < mask_prob
     x_t = torch.where(is_masked, torch.full_like(x0, mask_id), x0)
     return x_t, is_masked

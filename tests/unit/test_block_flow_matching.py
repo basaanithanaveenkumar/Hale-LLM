@@ -12,6 +12,7 @@ import hale_llm.models  # noqa: F401
 from hale_llm.config.schema import load_config
 from hale_llm.core.registry import get_loss, get_sampler, get_variant, instantiate_metrics
 from hale_llm.dataloader.collate import get_collate
+from hale_llm.exceptions import ModelConfigurationError
 from hale_llm.inference.session import session_from_model
 from hale_llm.metrics.base import MetricContext
 from hale_llm.models.models_block_flow_matching import MaskingPath, corrupt_blocks
@@ -171,3 +172,11 @@ def test_session_and_masked_accuracy(tiny_tokenizer) -> None:
             )
         )
     assert 0.0 <= metric.compute()["masked_accuracy"] <= 1.0
+
+
+def test_kappa_schedules_are_registered_and_unknown_names_list_known_ones():
+    from hale_llm.models.models_block_flow_matching.kappa_schedule import KAPPA_SCHEDULES
+
+    assert {"linear", "cosine"} <= set(KAPPA_SCHEDULES)
+    with pytest.raises(ModelConfigurationError, match="known: .*cosine"):
+        MaskingPath("sigmoid")

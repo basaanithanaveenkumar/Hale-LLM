@@ -10,7 +10,9 @@ from hale_llm.metrics.base import Metric, MetricContext
 
 @register_metric("masked_accuracy", variants=("block_diffusion",))
 class BlockDiffusionMaskedAccuracy(Metric):
-    """Greedy accuracy on positions masked by a random per-block corruption (``masked_accuracy``)."""
+    """Greedy accuracy on positions masked by a random per-block corruption
+    (``masked_accuracy``).
+    """
 
     def __init__(self) -> None:
         self.correct = 0.0

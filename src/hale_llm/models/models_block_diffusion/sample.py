@@ -1,4 +1,6 @@
-"""Block-diffusion sampler: autoregressive across blocks, absorbing-state diffusion within a block."""
+"""Block-diffusion sampler: autoregressive across blocks, absorbing-state diffusion within a
+block.
+"""
 
 from __future__ import annotations
 

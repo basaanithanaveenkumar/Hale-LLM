@@ -93,7 +93,9 @@ class OnlineRLExperiment:
         return REWARDS.get(self.cfg.reward.type)(self.task.answers)
 
     def trainer(self, policy: torch.nn.Module) -> OnlineRLTrainer:
-        """A GRPO :class:`OnlineRLTrainer` for ``policy`` with this config's reward and estimator."""
+        """A GRPO :class:`OnlineRLTrainer` for ``policy`` with this config's reward and
+        estimator.
+        """
         return OnlineRLTrainer(
             policy,
             self.tokenizer,

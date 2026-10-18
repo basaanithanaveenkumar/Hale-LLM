@@ -1,4 +1,6 @@
-"""Typed run configuration of hale_llm: the :class:`RunConfig` schema, YAML loading and run folders."""
+"""Typed run configuration of hale_llm: the :class:`RunConfig` schema, YAML loading and run
+folders.
+"""
 
 from hale_llm.config.experiment import apply_experiment_layout
 from hale_llm.config.load import load_config

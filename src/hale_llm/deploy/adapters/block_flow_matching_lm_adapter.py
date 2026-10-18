@@ -29,7 +29,9 @@ class BlockFlowMatchingLMAdapter(BlockDiffusionLMAdapter):
         }
 
     def calibration_inputs(self, token_ids: torch.Tensor) -> dict[str, torch.Tensor]:
-        """Real text on the block flow path: each token is real with probability ``kappa(t) = t``."""
+        """Real text on the block flow path: each token is real with probability ``kappa(t) =
+        t``.
+        """
         sample = super().calibration_inputs(token_ids)
         real = torch.rand(token_ids.shape) < sample["t"]  # kappa(t) = t: real with probability t
         return {

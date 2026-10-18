@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datasets import load_dataset
 from loguru import logger
 from torch.utils.data import Dataset
 
@@ -16,6 +15,8 @@ def load_hf_split(cfg, split: str):
         cfg: the run config (``data`` section).
         split: Hugging Face split name.
     """
+    from datasets import load_dataset  # heavy: imported on first use, not at package import
+
     data = cfg.data
     name = data.subset if data.subset else None
     kwargs: dict = {"split": split}

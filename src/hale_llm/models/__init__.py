@@ -10,3 +10,5 @@ from hale_llm.models import models_diffusion as _diff  # noqa: F401
 from hale_llm.models import models_flow_matching as _fm  # noqa: F401
 from hale_llm.models import models_looped as _looped  # noqa: F401
 from hale_llm.models import models_mtp as _mtp  # noqa: F401
+
+__all__: list[str] = []  # importing this package is the public API: it registers every variant

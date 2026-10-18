@@ -82,9 +82,15 @@ Shared core (`core/`, `dataloader/`, `training/`, `inference/`, `metrics/`) neve
 
 ## Quick start
 
+Install (Python 3.12+; `hale-blocks` is pulled from Git via `[tool.uv.sources]`):
+
 ```bash
-uv sync
-uv sync --extra dev
+uv sync                          # core: training, sampling, eval, visualization
+uv sync --extra dev              # + pytest, ruff, mypy
+uv sync --extra distributed      # + Ray Train and WebDataset (or `--extra ray` / `--extra webdataset`)
+uv sync --extra deploy           # + ONNX / ONNX Runtime export; vendor extras: deploy-nvidia,
+                                 #   deploy-apple, deploy-amd, deploy-qualcomm
+uv sync --extra flash            # + flash-attn (Linux only)
 uv run pytest tests/unit -q
 ```
 

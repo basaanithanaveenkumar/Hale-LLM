@@ -1,4 +1,6 @@
-"""Deployment adapters of every variant: registry scope, signatures, forwards, calibration, errors."""
+"""Deployment adapters of every variant: registry scope, signatures, forwards, calibration,
+errors.
+"""
 
 from __future__ import annotations
 

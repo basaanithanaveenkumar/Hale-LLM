@@ -20,7 +20,9 @@ class FlowMatchingLMAdapter(MaskedDiffusionLMAdapter):
     variant = "flow_matching"
 
     def calibration_inputs(self, token_ids: torch.Tensor) -> dict[str, torch.Tensor]:
-        """Real text on the linear flow path: one ``t`` per row, tokens real with probability ``t``."""
+        """Real text on the linear flow path: one ``t`` per row, tokens real with probability
+        ``t``.
+        """
         mask_id = self.vocab_size - 1
         t = torch.rand(token_ids.size(0)).clamp(0.05, 0.95)
         real = torch.rand(token_ids.shape) < t[:, None]  # linear kappa(t) = t

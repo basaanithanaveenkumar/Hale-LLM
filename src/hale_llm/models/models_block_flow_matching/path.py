@@ -12,15 +12,19 @@ the conditioning the sampler meets when it integrates block ``b`` given clean bl
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import Literal
 
 import torch
 
 from hale_llm.exceptions import ModelConfigurationError
+from hale_llm.models.models_block_flow_matching import (  # noqa: F401 - registers the schedules
+    cosine_kappa,
+    linear_kappa,
+)
+from hale_llm.models.models_block_flow_matching.kappa_schedule import KAPPA_SCHEDULES
 
-Schedule = Literal["linear", "cosine"]
+Schedule = Literal["linear", "cosine"]  # built-ins; any KAPPA_SCHEDULES key is accepted
 
 
 @dataclass(frozen=True)
@@ -37,23 +41,21 @@ class MaskingPath:
     eps: float = 1e-3
 
     def __post_init__(self) -> None:
-        if self.schedule not in ("linear", "cosine"):
-            raise ModelConfigurationError(f"unknown masking schedule {self.schedule!r}")
+        if self.schedule not in KAPPA_SCHEDULES:
+            raise ModelConfigurationError(
+                f"unknown masking schedule {self.schedule!r}; known: {sorted(KAPPA_SCHEDULES)}"
+            )
+        # frozen dataclass: the strategy instance is cached via object.__setattr__
+        object.__setattr__(self, "_strategy", KAPPA_SCHEDULES.get(self.schedule)())
 
     def kappa(self, t: torch.Tensor | float) -> torch.Tensor | float:
         """Probability that a token is already data at time ``t``."""
-        if self.schedule == "linear":
-            return t
-        if torch.is_tensor(t):
-            return 1.0 - torch.cos(0.5 * math.pi * t)
-        return 1.0 - math.cos(0.5 * math.pi * t)
+        return self._strategy.kappa(t)
 
     def rate(self, t: torch.Tensor) -> torch.Tensor:
         """``kappa'(t) / (1 - kappa(t))``: the unmasking rate and the loss weight at ``t``."""
         t = t.clamp(max=1.0 - self.eps)
-        if self.schedule == "linear":
-            return 1.0 / (1.0 - t)
-        return 0.5 * math.pi * torch.tan(0.5 * math.pi * t)
+        return self._strategy.rate(t)
 
     def unmask_probability(self, t_cur: float, t_next: float) -> float:
         """Exact probability that a token masked at ``t_cur`` is data at ``t_next``."""
