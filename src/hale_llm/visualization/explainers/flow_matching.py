@@ -87,7 +87,8 @@ class FlowMatchingExplainer(Explainer):
             clock=Clock(_kappa, "κ(t) = share of real characters"),
             sweep=(0.0, 1.0, 0.45),
             train_t=0.45,
-            sweep_caption="probability path: at time t each character is real with probability κ(t) = t",
+            sweep_caption="probability path: at time t each character is real with probability "
+            "κ(t) = t",
             train_caption="training picks a t on the path and learns to fill the masks",
             loss_note="loss = cross-entropy on masked positions × κ′/(1 − κ)",
         )

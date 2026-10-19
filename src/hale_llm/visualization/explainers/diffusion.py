@@ -86,7 +86,8 @@ class DiffusionExplainer(Explainer):
             clock=Clock(lambda t: t, "share of characters masked = t"),
             sweep=(0.0, 0.5),
             train_t=0.5,
-            sweep_caption="forward process: raise the noise t, each character is masked with probability t",
+            sweep_caption="forward process: raise the noise t, each character is masked with "
+            "probability t",
             train_caption="the denoiser guesses every masked character at once",
             loss_note="loss = cross-entropy on masked positions × 1/t",
         )

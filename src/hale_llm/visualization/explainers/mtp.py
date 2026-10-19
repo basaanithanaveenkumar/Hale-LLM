@@ -37,7 +37,10 @@ class MTPExplainer(Explainer):
 
     variant = "mtp"
     title = "Multi-Token Prediction LM"
-    subtitle = f"{HEADS} heads on one trunk predict the next {HEADS} characters  ·  heads draft ahead, head 0 verifies"
+    subtitle = (
+        f"{HEADS} heads on one trunk predict the next {HEADS} characters  ·  heads draft "
+        "ahead, head 0 verifies"
+    )
     train_kwargs = {"model": {"n_mtp_heads": HEADS}, "steps": 300}
 
     def trace(self, run: ToyRun, seed: int = 0) -> MTPTrace:
@@ -171,7 +174,8 @@ class MTPExplainer(Explainer):
         s.text(
             50,
             8.5,
-            "further ahead = harder: head 0 is exact, the far heads must guess at the branch points",
+            "further ahead = harder: head 0 is exact, the far heads must guess at the branch "
+            "points",
             size=11.5,
             color=MUTED,
         )
@@ -217,7 +221,8 @@ class MTPExplainer(Explainer):
         tpf = emitted / forwards if forwards else 0.0
         s.counter(str(forwards), sub=f"{tpf:.2f} characters / pass" if forwards else "")
         s.footer(
-            "purple = draft from heads 1-3   ·   green ✓ = head 0 agrees   ·   red ✗ = replaced by head 0"
+            "purple = draft from heads 1-3   ·   green ✓ = head 0 agrees   ·   red ✗ = replaced "
+            "by head 0"
         )
         s.progress(emitted / self.max_new_tokens, PURPLE)
         return s
@@ -240,7 +245,8 @@ class MTPExplainer(Explainer):
                 cap = (
                     f"forward {k + 1}: check {len(drafts)} drafts and draft again, all in one pass"
                     if drafts
-                    else "forward 1: head 0 picks the next character, heads 1-3 draft the ones after"
+                    else "forward 1: head 0 picks the next character, heads 1-3 draft the ones "
+                    "after"
                 )
                 writer.stage(
                     self._frame(
@@ -275,7 +281,8 @@ class MTPExplainer(Explainer):
                     cap = (
                         f"verify: head 0 agrees with draft {j + 1}"
                         if ok
-                        else f"verify: head 0 disagrees at draft {j + 1}  →  keep its own choice, drop the rest"
+                        else f"verify: head 0 disagrees at draft {j + 1}  →  keep its own choice, "
+                        "drop the rest"
                     )
                     writer.stage(
                         self._frame(

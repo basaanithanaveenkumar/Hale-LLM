@@ -35,7 +35,10 @@ class BlockFlowMatchingExplainer(Explainer):
 
     variant = "block_flow_matching"
     title = "Block Flow Matching LM"
-    subtitle = "blocks of 8, left to right  ·  inside each block a cosine flow from masks to text (t: 0 → 1)"
+    subtitle = (
+        "blocks of 8, left to right  ·  inside each block a cosine flow from masks to text "
+        "(t: 0 → 1)"
+    )
     train_kwargs = {
         "model": {
             "attn_type": "block_causal",
@@ -164,7 +167,8 @@ class BlockFlowMatchingExplainer(Explainer):
             caption=lambda st: (
                 f"block {st.block}: t = 1, the last ? take their most likely value"
                 if st.final_fill
-                else f"block {st.block} · Euler t {st.t_from:.2f} → {st.t_to:.2f} · each ? jumps w.p. "
+                else f"block {st.block} · Euler t {st.t_from:.2f} → {st.t_to:.2f} · each ? jumps "
+                "w.p. "
                 f"{st.p_reveal:.0%}"
             ),
         )

@@ -13,11 +13,11 @@ from hale_llm.models.models_flow_matching.vector_field import mask_prob
 def flow_matching_loss(model, batch: dict) -> torch.Tensor:
     """Masked-token NLL weighted by ``1 / mask_prob(t)`` on the linear path at a random ``t``."""
     x1 = batch["input_ids"]
-    b, l = x1.shape
+    batch_size, seq_len = x1.shape
     device = x1.device
-    t = torch.rand(b, device=device) * (1.0 - model.eps)
-    keep_mask = mask_prob(t).clamp(0, 1)[:, None].expand(b, l)
-    is_masked = torch.rand(b, l, device=device) < keep_mask
+    t = torch.rand(batch_size, device=device) * (1.0 - model.eps)
+    keep_mask = mask_prob(t).clamp(0, 1)[:, None].expand(batch_size, seq_len)
+    is_masked = torch.rand(batch_size, seq_len, device=device) < keep_mask
     x_t = torch.where(is_masked, torch.full_like(x1, batch["mask_token_id"]), x1)
     logits = model({**batch, "x_t": x_t, "t": t})
     loss_pos = is_masked

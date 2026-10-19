@@ -9,18 +9,26 @@ from loguru import logger
 
 #: Varied prose (narrative, technical, dialogue, lists) so activation ranges are realistic.
 PARAGRAPHS = (
-    "The river ran high that spring, and the old ferryman counted the days until the water fell back "
-    "between its banks. Travellers waited on both shores, trading news and bread while the current roared.",
-    "A transformer layer applies self-attention followed by a position-wise feed-forward network; residual "
+    "The river ran high that spring, and the old ferryman counted the days until the water fell "
+    "back "
+    "between its banks. Travellers waited on both shores, trading news and bread while the "
+    "current roared.",
+    "A transformer layer applies self-attention followed by a position-wise feed-forward network; "
+    "residual "
     "connections and normalization keep the activations well scaled across dozens of layers.",
-    '"Are you sure the bridge will hold?" she asked. "It held last winter," he said, "and the winter '
+    '"Are you sure the bridge will "
+     "hold?" she asked. "It held last winter," he said, "and the winter '
     'before that. Bridges remember how to stand if you let them."',
-    "Ingredients: two cups of flour, one teaspoon of salt, three eggs, a cup of milk. Whisk until smooth, "
+    "Ingredients: two cups of flour, one teaspoon of salt, three eggs, a cup of milk. Whisk until "
+    "smooth, "
     "rest for thirty minutes, then cook in a hot pan for one minute on each side.",
-    "In 1969 the first humans walked on the Moon. The mission lasted eight days and returned 21.5 kilograms "
+    "In 1969 the first humans walked on the Moon. The mission lasted eight days and returned 21.5 "
+    "kilograms "
     "of lunar samples, which scientists still study to understand the early solar system.",
-    "Quantization maps floating-point values to a small set of integers. Calibration chooses the scale of "
-    "that mapping so the most frequent values keep their precision while rare outliers are clipped.",
+    "Quantization maps floating-point values to a small set of integers. Calibration chooses the "
+    "scale of "
+    "that mapping so the most frequent values keep their precision while rare outliers are "
+    "clipped.",
 )
 
 

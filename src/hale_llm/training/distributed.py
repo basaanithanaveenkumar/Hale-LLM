@@ -216,7 +216,7 @@ def wrap_model_parallel(
         # Fully Sharded Data Parallel: memory-efficient multi-GPU
         try:
             from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-            from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
+            from torch.distributed.fsdp import ShardingStrategy
             from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
         except ImportError:
             logger.error("FSDP requires PyTorch >= 1.12; falling back to DDP")

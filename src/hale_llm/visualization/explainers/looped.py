@@ -38,7 +38,10 @@ class LoopedExplainer(Explainer):
 
     variant = "looped"
     title = "Looped Transformer LM"
-    subtitle = f"one weight-tied block applied up to {N_LOOPS}×  ·  ACT: every character decides when to stop"
+    subtitle = (
+        f"one weight-tied block applied up to {N_LOOPS}×  ·  ACT: every character decides "
+        "when to stop"
+    )
     train_kwargs = {
         "model": {
             "arch": "looped",
