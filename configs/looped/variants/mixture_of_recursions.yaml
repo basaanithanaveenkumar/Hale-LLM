@@ -1,0 +1,11 @@
+# Looped LM variant `mixture_of_recursions` (hale_core.nn.stacks.LOOP_PRESETS["mixture_of_recursions"]).
+# A router gives every token its own depth: easy tokens leave the loop after one pass, hard ones
+# keep recursing; first and last layers stay unshared.
+# Bae et al., Mixture-of-Recursions, 2025, arXiv:2507.10524
+# Preset options: n_loops=4, prelude_layers=1, coda_layers=1, input_injection=none, halting=mor, mor_balance_weight=0.01
+#   hale-llm-train --config configs/looped/variants/mixture_of_recursions.yaml
+inherits: ../nano.yaml
+model:
+  loop:
+    _delete_: true       # replace nano.yaml's loop section instead of merging into it
+    preset: mixture_of_recursions

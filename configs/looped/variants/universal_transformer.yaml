@@ -1,0 +1,11 @@
+# Looped LM variant `universal_transformer` (hale_core.nn.stacks.LOOP_PRESETS["universal_transformer"]).
+# One block applied T times; a depth embedding tells each pass which step it is; the state is
+# fed back with no input re-injection.
+# Dehghani et al., Universal Transformers, ICLR 2019, arXiv:1807.03819
+# Preset options: n_loops=6, depth_embedding=sinusoidal, input_injection=none
+#   hale-llm-train --config configs/looped/variants/universal_transformer.yaml
+inherits: ../nano.yaml
+model:
+  loop:
+    _delete_: true       # replace nano.yaml's loop section instead of merging into it
+    preset: universal_transformer

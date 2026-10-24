@@ -1,0 +1,12 @@
+# Looped LM variant `sequence_sharing` (hale_core.nn.stacks.LOOP_PRESETS["sequence_sharing"]).
+# With n core layers, run layer 1 for the first T/n passes, then layer 2, ... (AA BB) instead of
+# cycling through them (AB AB).
+# Takase & Kiyono, Lessons on Parameter Sharing across Layers in Transformers, 2021,
+#   arXiv:2104.06022
+# Preset options: n_loops=4, input_injection=none, sharing=sequence
+#   hale-llm-train --config configs/looped/variants/sequence_sharing.yaml
+inherits: ../nano.yaml
+model:
+  loop:
+    _delete_: true       # replace nano.yaml's loop section instead of merging into it
+    preset: sequence_sharing

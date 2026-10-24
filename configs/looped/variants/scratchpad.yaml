@@ -1,0 +1,11 @@
+# Looped LM variant `scratchpad` (hale_core.nn.stacks.LOOP_PRESETS["scratchpad"]).
+# Learned memory slots ride along every pass as extra tokens - explicit working memory that is
+# dropped from the output.
+# Memory / register tokens: Burtsev et al., Memory Transformer, 2020, arXiv:2006.11527
+# Preset options: n_loops=6, input_injection=none, scratch_tokens=4
+#   hale-llm-train --config configs/looped/variants/scratchpad.yaml
+inherits: ../nano.yaml
+model:
+  loop:
+    _delete_: true       # replace nano.yaml's loop section instead of merging into it
+    preset: scratchpad

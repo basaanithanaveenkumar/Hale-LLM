@@ -1,0 +1,11 @@
+# Looped LM variant `cycle_rev_sharing` (hale_core.nn.stacks.LOOP_PRESETS["cycle_rev_sharing"]).
+# Cycle through the n core layers, reversing the order on every other pass (AB BA AB BA), so
+# each layer sees the others' outputs in both orders.
+# Takase & Kiyono 2021, arXiv:2104.06022 (CYCLE (REV))
+# Preset options: n_loops=4, input_injection=none, sharing=cycle_rev
+#   hale-llm-train --config configs/looped/variants/cycle_rev_sharing.yaml
+inherits: ../nano.yaml
+model:
+  loop:
+    _delete_: true       # replace nano.yaml's loop section instead of merging into it
+    preset: cycle_rev_sharing

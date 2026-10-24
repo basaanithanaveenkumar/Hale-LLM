@@ -1,0 +1,12 @@
+# Looped LM variant `deq_fixed_point` (hale_core.nn.stacks.LOOP_PRESETS["deq_fixed_point"]).
+# Iterate the same map until it stops changing (h* = f(h*)); backprop only through the last pass
+# (a one-step 'phantom' gradient) for O(1) memory. Post-norms keep the map contractive so the
+# fixed point exists (without them the residual plateaus around 0.7 per pass).
+# Bai, Kolter & Koltun, Deep Equilibrium Models, NeurIPS 2019, arXiv:1909.01377
+# Preset options: n_loops=16, depth_embedding=none, input_injection=concat, bptt_loops=1, sandwich_norm=True, exit_tolerance=0.01
+#   hale-llm-train --config configs/looped/variants/deq_fixed_point.yaml
+inherits: ../nano.yaml
+model:
+  loop:
+    _delete_: true       # replace nano.yaml's loop section instead of merging into it
+    preset: deq_fixed_point

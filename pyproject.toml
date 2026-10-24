@@ -58,6 +58,7 @@ hale-llm-sample = "hale_llm.cli.sample:main"
 hale-llm-eval = "hale_llm.cli.eval:main"
 hale-llm-viz = "hale_llm.cli.visualize:main"
 hale-llm-explain = "hale_llm.cli.explain:main"
+hale-llm-loop-films = "hale_llm.cli.loop_films:main"
 hale-llm-deploy = "hale_llm.deploy.deploy_cli:main"
 
 [tool.uv.sources]

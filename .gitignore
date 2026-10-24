@@ -10,6 +10,8 @@ best_checkpoints/
 !assets/explainers/*.gif
 !assets/rl/
 !assets/rl/*.gif
+!assets/looped/
+!assets/looped/*.gif
 .DS_Store
 *.egg-info/
 dist/

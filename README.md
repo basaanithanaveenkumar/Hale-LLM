@@ -121,6 +121,7 @@ tensorboard --logdir data/experiments
 | [`configs/flow_matching/small.yaml`](configs/flow_matching/small.yaml) | Discrete flow matching |
 | [`configs/block_flow_matching/small.yaml`](configs/block_flow_matching/small.yaml) | AR across blocks, discrete flow matching inside the block ([docs](docs/block_flow_matching.md)) |
 | [`configs/looped/small.yaml`](configs/looped/small.yaml) | Looped transformer: one weight-tied block iterated T times (ACT, recurrent depth, test-time loops) |
+| [`configs/looped/variants/`](configs/looped/variants/) | Ten looped variants as presets: Universal Transformer (+ACT), recurrent depth, DEQ fixed point, scratchpad, Mixture-of-Recursions, relaxed recursion, sharing schedules. Beginner notebooks in [`notebooks/looped/`](notebooks/looped/) and animations in [`assets/looped/`](assets/looped/). |
 | [`configs/mtp/small.yaml`](configs/mtp/small.yaml) | Multi-token heads (stub) |
 
 Default small model: `d_model=384`, 16 layers, 8 heads, `d_ff=1536`, `max_length=128`, GPT-2 tokenizer, WikiText-2 with a **10-word sliding stride**. Diffusion, block diffusion, and flow matching use **LGT** (`arch: lgt`, local-global transformer). Autoregressive stays on `transformer`.

@@ -141,6 +141,112 @@ are carried and rewritten across loops as explicit working memory.
 
 See [`configs/looped/diffusion_nano.yaml`](../configs/looped/diffusion_nano.yaml).
 
+## Presets: ten published variants
+
+Every recipe below is a named preset in HaleBlocks (`hale_core.nn.stacks.LOOP_PRESETS`). It is selected
+with one YAML line, and explicit fields override it:
+
+```yaml
+model:
+  arch: looped
+  loop: {preset: mixture_of_recursions, n_loops: 6}
+```
+
+There is one config per preset in [`configs/looped/variants/`](../configs/looped/variants/). Each inherits
+`nano.yaml` and replaces its loop section (`_delete_: true`).
+
+| preset | idea | key options | reference |
+|---|---|---|---|
+| `universal_transformer` | one block applied `T` times, with a depth embedding | `n_loops 6`, no injection | Dehghani et al. 2019 |
+| `universal_transformer_act` | + Adaptive Computation Time: each token halts on its own | `halting: act`, `ponder_weight 0.001` | + Graves 2016 |
+| `input_injection` | re-add the embedded input before every pass | `input_injection: add` | Yang et al. 2024 |
+| `recurrent_depth` | prelude → core × `T` → coda, random `T`, truncated BPTT: a test-time compute knob | `min_loops 2`, `bptt_loops 4`, `concat`, no depth embedding | Geiping et al. 2025 |
+| `deq_fixed_point` | loop until `h` stops changing, one-step (phantom) gradient | `exit_tolerance 0.01`, `bptt_loops 1`, sandwich norm | Bai et al. 2019 |
+| `scratchpad` | learned memory slots ride along every pass | `scratch_tokens 4` | memory tokens |
+| `mixture_of_recursions` | a causal router grants each token its own depth | `halting: mor`, prelude/coda 1 | Bae et al. 2025 |
+| `relaxed_recursive` | shared `W` plus a per-pass LoRA delta `B_t A_t` | `lora_rank 4` | Bae et al. 2024 |
+| `sequence_sharing` | multi-layer core used `AA..BB` instead of `AB AB` | `sharing: sequence` | Takase & Kiyono 2021 |
+| `cycle_rev_sharing` | multi-layer core used `AB BA AB BA` | `sharing: cycle_rev` | Takase & Kiyono 2021 |
+
+### New `LoopSpec` options
+
+| option | values | what it does |
+|---|---|---|
+| `halting` | `none` \| `act` \| `mor` | `mor`: `RecursionRouter` picks each token's depth from its loop input (token-choice, so causal). Its gated updates train the router, and `mor_balance_weight · balance` is added by the trainer as an auxiliary loss. |
+| `lora_rank` | `0`, `r` | every core `nn.Linear` becomes a `LoopLoRALinear`: `W + B_t A_t`, with `B_t = 0` at init. Passes beyond training reuse the last delta. |
+| `sharing` | `cycle` \| `cycle_rev` \| `sequence` | the order of a multi-layer core over the passes (`LoopedStack.pass_layers`) |
+| `preset` | a `LOOP_PRESETS` name | fills in the recipe; explicit fields win |
+
+`LoopedStack.record_passes()` is a context manager that collects the state after every pass, which is what the
+notebooks and animations use to look inside the loop.
+
+### What we measured while building them
+
+These come from tiny models on CPU: character LMs on the library's own docstrings, or the four-sentence toy
+corpus. Treat them as behaviour checks, not benchmarks.
+
+- **Input injection.** Naive `add` piles copies of the input into the residual stream: one looped block
+  scored 4.11 held-out bits/char, worse than the same block used once (3.33). With `none` it scored 3.14;
+  with `concat` it scored 2.93, beating 4 stacked blocks (3.00) with about a third of the parameters.
+- **Depth embedding vs test-time scaling.** With a sinusoidal step embedding, `recurrent_depth` degrades as
+  soon as it loops past its trained range (2.68 → 3.05 bits/char at 12 passes). Without one, it stays flat
+  up to 24 passes, so the preset drops it.
+- **Fixed points need contraction.** Without post-norms the DEQ loop's per-pass change plateaus near 0.7.
+  With `sandwich_norm` it shrinks geometrically to below 0.01, so the preset enables it.
+- **ACT's `τ` sets the budget.** At `τ = 0.01` nearly every token halts after 2 passes. At `τ = 0.001` the
+  depths spread over 2–8 per character.
+
+### All presets on the same text
+
+A character LM was trained for each preset on the library's docstrings (1200 steps, width 64, seed 0,
+CPU), in two identical runs; the run is `notebooks/looped/02`. Scores are held-out bits per character,
+lower is better. CPU kernels are not bit-deterministic, and the spread between runs is shown.
+
+| | params | run 1 | run 2 |
+|---|---|---|---|
+| `recurrent_depth` | 119k | **2.87** | **2.85** |
+| stacked 4 layers | 144k | 3.08 | 2.89 |
+| `sequence_sharing` | 77k | 2.92 | 2.92 |
+| `mixture_of_recursions` | 111k | 2.95 | 2.95 |
+| `cycle_rev_sharing` | 77k | 3.10 | 3.10 |
+| `universal_transformer_act` / `universal_transformer` | 44k | 3.37 / 3.38 | 3.38 / 3.40 |
+| `deq_fixed_point` / `scratchpad` / `relaxed_recursive` | 44-52k | 3.40 / 3.45 / 3.46 | 3.41 / 3.46 / 3.49 |
+| stacked 1 layer | 44k | 3.75 | 3.74 |
+| `input_injection` (plain `add`) | 44k | 4.13 | 4.14 |
+
+Robust in both runs:
+
+- Every looped variant except plain `add` injection beats the single stacked layer with equal parameters.
+- `recurrent_depth` is best.
+- `sequence` sharing beats `cycle_rev` by ~0.18 bits.
+
+`sequence_sharing` and `mixture_of_recursions` tie with 4 stacked layers within run-to-run noise.
+
+### Animations and notebooks
+
+`hale-llm-loop-films` (`hale_llm.visualization.looped_films`) renders one GIF per concept into
+[`assets/looped/`](../assets/looped/). The behavioural films are drawn from toy models trained by `LoopLab`.
+
+| film | |
+|---|---|
+| ![](../assets/looped/unrolling.gif) | stacked vs looped: same compute, 1/6 of the parameters |
+| ![](../assets/looped/inside_a_pass.gif) | logit lens: next-character guesses sharpen pass by pass |
+| ![](../assets/looped/act_halting.gif) | ACT: per-token halting |
+| ![](../assets/looped/mixture_of_recursions.gif) | Mixture-of-Recursions: routed depths, tokens exiting |
+| ![](../assets/looped/fixed_point.gif) | fixed point: a state spiralling into `h*`, with vs without post-norms |
+| ![](../assets/looped/recurrent_depth.gif) | random-`T` training and test-time loop scaling |
+| ![](../assets/looped/relaxed_recursion.gif) | relaxed recursion: `W + ΔW_t` per pass |
+| ![](../assets/looped/sharing_patterns.gif) | cycle / cycle_rev / sequence schedules |
+| ![](../assets/looped/scratchpad.gif) | scratchpad slots under a causal mask |
+
+Notebooks:
+
+- [`notebooks/looped/01_looped_transformers_step_by_step.ipynb`](../notebooks/looped/01_looped_transformers_step_by_step.ipynb)
+  is a beginner walkthrough. It builds the model from scratch, proves it equals `LoopedBackbone`, and covers
+  weight tying, the depth embedding, injection, BPTT, the logit lens and test-time compute.
+- [`notebooks/looped/02_looped_transformer_variants.ipynb`](../notebooks/looped/02_looped_transformer_variants.ipynb)
+  covers every preset hands-on, then compares them all on the same text.
+
 ## Training and evaluation
 
 | Where | What |

@@ -19,7 +19,7 @@ model:
     depth_embedding: sinusoidal
     input_injection: add
     sandwich_norm: false
-    halting: none
+    halting: none          # none | act | mor
     act_threshold: 0.99
     act_init_bias: 1.0
     ponder_weight: 0.01
@@ -27,6 +27,10 @@ model:
     bptt_loops: null
     exit_tolerance: null
     scratch_tokens: 0
+    sharing: cycle         # cycle | cycle_rev | sequence (multi-layer cores)
+    lora_rank: 0           # > 0: relaxed recursion, per-pass LoRA deltas
+    mor_balance_weight: 0.01   # halting: mor - router load-balancing loss weight
+    preset: null           # a named recipe (hale_core.nn.stacks.LOOP_PRESETS), e.g. recurrent_depth
 train:
   epochs: 2000
   steps: null

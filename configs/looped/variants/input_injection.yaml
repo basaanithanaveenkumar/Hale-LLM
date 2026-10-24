@@ -1,0 +1,12 @@
+# Looped LM variant `input_injection` (hale_core.nn.stacks.LOOP_PRESETS["input_injection"]).
+# The embedded input is added back before every pass, so long loops never forget the question -
+# the looped-transformer recipe for learning algorithms.
+# Yang et al., Looped Transformers are Better at Learning Learning Algorithms, ICLR 2024,
+#   arXiv:2311.12424
+# Preset options: n_loops=6, depth_embedding=none, input_injection=add
+#   hale-llm-train --config configs/looped/variants/input_injection.yaml
+inherits: ../nano.yaml
+model:
+  loop:
+    _delete_: true       # replace nano.yaml's loop section instead of merging into it
+    preset: input_injection

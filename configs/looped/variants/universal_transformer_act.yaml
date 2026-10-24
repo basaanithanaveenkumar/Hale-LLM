@@ -1,0 +1,11 @@
+# Looped LM variant `universal_transformer_act` (hale_core.nn.stacks.LOOP_PRESETS["universal_transformer_act"]).
+# Universal Transformer + Adaptive Computation Time: every token halts after its own number of
+# passes and pays a ponder cost for each one.
+# Dehghani et al. 2019; Graves, Adaptive Computation Time, arXiv:1603.08983
+# Preset options: n_loops=8, input_injection=none, halting=act, act_init_bias=-1.0, ponder_weight=0.001
+#   hale-llm-train --config configs/looped/variants/universal_transformer_act.yaml
+inherits: ../nano.yaml
+model:
+  loop:
+    _delete_: true       # replace nano.yaml's loop section instead of merging into it
+    preset: universal_transformer_act
