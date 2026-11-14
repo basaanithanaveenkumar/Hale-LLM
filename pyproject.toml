@@ -46,7 +46,9 @@ deploy-nvidia = [
     "hale-llm[deploy]",
     "tensorrt>=10.0; sys_platform == 'linux'",
     "nvidia-modelopt[onnx,torch]>=0.40; sys_platform == 'linux'",
-    "tensorrt-llm>=1.2; sys_platform == 'linux'",
+    # tensorrt-llm is not listed: it pins transformers==4.57.3, which conflicts with the core
+    # transformers>=5.13.1 requirement and makes the uv lock unsolvable. Install it in a
+    # separate environment when building TensorRT-LLM engines.
 ]
 deploy-apple = ["hale-llm[deploy]", "mlx>=0.29; sys_platform == 'darwin'", "mlx-lm>=0.28; sys_platform == 'darwin'"]
 deploy-amd = ["hale-llm[deploy]", "amd-quark>=0.10"]
@@ -61,7 +63,9 @@ hale-llm-explain = "hale_llm.cli.explain:main"
 hale-llm-deploy = "hale_llm.deploy.deploy_cli:main"
 
 [tool.uv.sources]
-hale-blocks = { git = "https://github.com/basaanithanaveenkumar/HaleBlocks.git" }
+# Pinned to the branch that ships the looped stack (loop_aux_loss, LoopSpec, ...), hale_core.data
+# and hale_core.deploy. The repo's default branch (feat/llm-backbones-2026) lacks them.
+hale-blocks = { git = "https://github.com/basaanithanaveenkumar/HaleBlocks.git", branch = "refactor/production-spec" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hale_llm"]
