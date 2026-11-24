@@ -95,7 +95,6 @@ class Trainer:
             self.evaluator = Evaluator(cfg, device=self.device)
 
         vocab_size = len(self.tokenizer)
-        logger.debug("vocab_size={}", vocab_size)
 
         try:
             model_cls = get_variant(cfg.variant)
@@ -138,7 +137,6 @@ class Trainer:
                 cfg.train.batch_size,
                 cfg.train.loss_type,
             )
-            logger.debug("full config: {}", cfg.model_dump())
 
         self.opt = build_optimizer(
             cfg.train.optimizer_type,
@@ -246,8 +244,6 @@ class Trainer:
             model_to_load.load_state_dict(ckpt["model_state_dict"])
             if "optimizer_state_dict" in ckpt:
                 self.opt.load_state_dict(ckpt["optimizer_state_dict"])
-                if is_main_process(self.dist_config):
-                    logger.debug("restored optimizer state")
             else:
                 if is_main_process(self.dist_config):
                     logger.warning("checkpoint has no optimizer_state_dict; continuing with fresh optimizer")
@@ -302,13 +298,6 @@ class Trainer:
                 if self.global_step >= total_steps:
                     break
                 batch = move_batch_to_device(batch, self.device)
-                if self.global_step == 0:
-                    logger.debug(
-                        "batch keys={} shapes={}",
-                        list(batch),
-                        {k: tuple(v.shape) for k, v in batch.items() if torch.is_tensor(v)},
-                    )
-
                 loss = self.loss_fn(self.model, batch)
                 if not torch.isfinite(loss):
                     logger.error("non-finite loss at step {}: {}", self.global_step, loss.item())

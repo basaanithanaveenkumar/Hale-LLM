@@ -151,7 +151,6 @@ def cleanup_distributed(config: DistributedConfig) -> None:
     """Clean up distributed training resources."""
     if config.is_initialized and dist.is_initialized():
         dist.destroy_process_group()
-        logger.debug("destroyed distributed process group")
 
 
 def wrap_model_parallel(

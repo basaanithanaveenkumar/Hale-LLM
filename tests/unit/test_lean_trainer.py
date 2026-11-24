@@ -29,7 +29,8 @@ def _cfg(tmp_path, optimizer):
     cfg.train.lean.eval_every, cfg.train.lean.eval_batches = 30, 2
     cfg.train.checkpoint_path = str(tmp_path / "ckpt.pt")
     cfg.model.d_model, cfg.model.n_heads, cfg.model.n_layers = 64, 4, 2
-    cfg.model.d_ff, cfg.model.max_length = 128, 32
+    cfg.model.d_ff = 128
+    cfg.set_context_window(32)
     cfg.data.overfit_text, cfg.data.n_overfit_copies = "hello world hello world", 32
     cfg.device = "cpu"
     cfg.logging.tensorboard, cfg.logging.log_file, cfg.logging.level = False, None, "WARNING"

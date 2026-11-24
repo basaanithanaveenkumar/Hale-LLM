@@ -15,17 +15,19 @@ import torch.nn as nn
 from hale_llm.core.backbones import build_backbone
 from hale_llm.core.registry import register_variant
 from hale_llm.dataloader.collate import register_collate
+from hale_llm.dataloader.padding import pad_positions
 
 
 @register_collate("autoregressive")
 def collate_autoregressive(input_ids: torch.Tensor, tokenizer, **_):
     """Shifted next-token targets. Pad positions are ignored in the loss via labels=-100."""
     pad_id = tokenizer.pad_token_id
-    attn = (input_ids != pad_id).long()
+    pad = pad_positions(input_ids, pad_id)  # all False for packed windows (no pad token)
+    attn = (~pad).long()
     labels = input_ids.clone()
     labels[:, :-1] = input_ids[:, 1:]
     labels[:, -1] = -100
-    labels[input_ids == pad_id] = -100
+    labels[pad] = -100
     return {
         "input_ids": input_ids,
         "attention_mask": attn,

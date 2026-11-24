@@ -31,7 +31,7 @@ class FakeHFWindows(Dataset):
 @pytest.fixture
 def fake_hf(monkeypatch, tiny_tokenizer):
     monkeypatch.setattr(loaders, "HuggingFaceTextDataset", FakeHFWindows)
-    monkeypatch.setattr(loaders, "setup_tokenizer", lambda name: tiny_tokenizer)
+    monkeypatch.setattr(loaders, "build_tokenizer_for", lambda cfg: tiny_tokenizer)
     FakeHFWindows.built = 0
 
 
@@ -75,6 +75,6 @@ def test_dataset_is_only_built_when_shards_are_missing(fake_hf, tmp_path):
 
 def test_each_data_config_gets_its_own_shards(fake_hf, tmp_path):
     loaders.make_dataloader(_cfg(tmp_path, True), split="train")
-    loaders.make_dataloader(_cfg(tmp_path, True, stride_words=3), split="train")
+    loaders.make_dataloader(_cfg(tmp_path, True, train_size=5), split="train")
     assert FakeHFWindows.built == 2
     assert len(list((tmp_path / "shards").iterdir())) == 2

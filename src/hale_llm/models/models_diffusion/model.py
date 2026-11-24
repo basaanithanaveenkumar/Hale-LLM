@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from hale_llm.core.backbones import build_backbone
 from hale_llm.core.registry import register_loss, register_sampler, register_variant
 from hale_llm.dataloader.collate import register_collate
+from hale_llm.dataloader.padding import attention_mask_for
 from hale_llm.losses import model_token_nll
 
 
@@ -15,7 +16,7 @@ def collate_diffusion(input_ids: torch.Tensor, tokenizer, **_):
     pad_id = tokenizer.pad_token_id
     return {
         "input_ids": input_ids,
-        "attention_mask": (input_ids != pad_id).long(),
+        "attention_mask": attention_mask_for(input_ids, pad_id),
         "pad_token_id": pad_id,
         "mask_token_id": tokenizer.mask_token_id,
     }
@@ -23,6 +24,9 @@ def collate_diffusion(input_ids: torch.Tensor, tokenizer, **_):
 
 @register_variant("diffusion")
 class MaskedDiffusionLM(nn.Module):
+    #: Training replaces tokens with [MASK], so the tokenizer must have one.
+    uses_mask_token = True
+
     def __init__(self, vocab_size: int, cfg):
         super().__init__()
         self.backbone = build_backbone(vocab_size, cfg.model)

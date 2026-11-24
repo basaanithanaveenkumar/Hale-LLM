@@ -1,4 +1,4 @@
-"""Compatibility barrel for older imports (`dataset.sliding_windows`, `_is_heading`, …)."""
+"""Compatibility barrel for older imports (`_is_heading`, ...)."""
 
 from hale_llm.dataloader.loaders import make_dataloader
 from hale_llm.dataloader.prompts import (
@@ -9,12 +9,12 @@ from hale_llm.dataloader.prompts import (
 )
 from hale_llm.dataloader.sources.huggingface import HuggingFaceTextDataset
 from hale_llm.dataloader.sources.overfit import uses_overfit
-from hale_llm.dataloader.windows import sliding_windows
+from hale_llm.dataloader.context_windows import pack_context_windows
 
 _is_heading = is_heading
 
 __all__ = [
-    "sliding_windows",
+    "pack_context_windows",
     "HuggingFaceTextDataset",
     "uses_overfit",
     "collect_dataset_passages",

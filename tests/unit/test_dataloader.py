@@ -1,74 +1,73 @@
+"""Packing documents into non-overlapping context windows, with EOS as the document separator."""
+
+import pytest
 import torch
 
-from hale_llm.dataloader.dataset import sliding_windows
+from hale_llm.dataloader.context_windows import encode_documents, pack_context_windows
+from hale_llm.dataloader.padding import attention_mask_for, pad_positions
+from hale_llm.inference.stop import cut_at_stop
+
+EOS = 9
 
 
 class _WordTok:
-    pad_token_id = 0
-    unk_token_id = 1
-    eos_token_id = 2
+    """One token per word: the id is the word's length (so 'aa bbb' -> [2, 3]); EOS is 9."""
 
-    def encode(self, text, add_special_tokens=False):
-        words = text.split()
-        out = []
-        for w in words:
-            out.append(2 + (sum(ord(c) for c in w) % 50))
-        return out
+    eos_token_id = EOS
+
+    def __call__(self, text, add_special_tokens=False, truncation=False, padding=False, return_tensors=None):
+        return {"input_ids": [len(w) for w in text.split()]}
 
 
-def test_sliding_windows_stride_and_length():
-    tok = _WordTok()
-    text = " ".join(f"w{i}" for i in range(40))
-    windows = sliding_windows(tok, text, max_length=8, stride_words=10)
-    assert windows.ndim == 2
-    assert windows.size(1) == 8
-    assert windows.size(0) >= 4
-    assert int(windows[1, 0]) == tok.encode("w10")[0]
-    assert int(windows[0, 0]) == tok.encode("w0")[0]
+def test_eos_follows_every_document():
+    ids = encode_documents(_WordTok(), ["aa bbb", "c"])
+    assert ids == [2, 3, EOS, 1, EOS]
 
 
-def test_sliding_windows_short_text_pads():
-    tok = _WordTok()
-    windows = sliding_windows(tok, "hello world", max_length=8, stride_words=10)
-    assert windows.shape == (1, 8)
-    assert int(windows[0, -1]) == tok.pad_token_id
+def test_empty_documents_are_skipped():
+    assert encode_documents(_WordTok(), ["", "   ", "a"]) == [1, EOS]
 
 
-def test_sliding_windows_empty():
-    tok = _WordTok()
-    windows = sliding_windows(tok, "   ", max_length=4, stride_words=10)
-    assert windows.shape == (0, 4)
+def test_windows_do_not_overlap_and_cover_the_stream_in_order():
+    docs = ["a " * 5, "bb " * 5]  # 5 + EOS, 5 + EOS = 12 tokens
+    windows = pack_context_windows(_WordTok(), docs, context_window=4)
+    assert windows.shape == (3, 4)
+    assert windows.flatten().tolist() == [1, 1, 1, 1, 1, EOS, 2, 2, 2, 2, 2, EOS]
 
 
-def test_stride_words_must_be_positive():
-    tok = _WordTok()
-    try:
-        sliding_windows(tok, "a b c", max_length=4, stride_words=0)
-        assert False
-    except ValueError:
-        pass
+def test_leftover_tokens_are_dropped():
+    windows = pack_context_windows(_WordTok(), ["a a a a a a a"], context_window=4)  # 7 + EOS = 8
+    assert windows.shape == (2, 4)
+    windows = pack_context_windows(_WordTok(), ["a a a a a a"], context_window=4)  # 6 + EOS = 7
+    assert windows.shape == (1, 4)
 
 
-def test_uses_overfit_from_source_or_text():
-    from hale_llm.config.schema import RunConfig
-    from hale_llm.dataloader.dataset import uses_overfit
-
-    hf = RunConfig(variant="autoregressive", data={"source": "huggingface", "overfit_text": None})
-    assert not uses_overfit(hf)
-    text = RunConfig(variant="autoregressive", data={"overfit_text": "hello world"})
-    assert uses_overfit(text)
-    src = RunConfig(variant="autoregressive", data={"source": "overfit", "overfit_text": "hello"})
-    assert uses_overfit(src)
+def test_too_little_text_gives_zero_windows():
+    assert pack_context_windows(_WordTok(), ["a"], context_window=8).shape == (0, 8)
 
 
-def test_passage_prompt_takes_prefix():
-    from hale_llm.config.schema import RunConfig
-    from hale_llm.dataloader.dataset import _is_heading, dataset_prompt, passage_prompt
+def test_tokenizer_without_eos_is_rejected():
+    class NoEos(_WordTok):
+        eos_token_id = None
 
-    assert _is_heading("= Game =")
-    assert not _is_heading("The game was released in 1991.")
-    assert passage_prompt("one two three four five", 3) == "one two three"
-    cfg = RunConfig(variant="autoregressive", viz={"prompt_source": "dataset", "prompt_words": 2})
-    passages = ["alpha beta gamma", "delta epsilon zeta"]
-    assert dataset_prompt(cfg, seed=0, passages=passages) == "alpha beta"
-    assert dataset_prompt(cfg, seed=1, passages=passages) == "delta epsilon"
+    with pytest.raises(ValueError, match="EOS"):
+        encode_documents(NoEos(), ["a"])
+
+
+def test_context_window_must_be_at_least_two():
+    with pytest.raises(ValueError):
+        pack_context_windows(_WordTok(), ["a b"], context_window=1)
+
+
+def test_no_pad_id_means_nothing_is_padding():
+    ids = torch.tensor([[5, 0, 7]])
+    assert not pad_positions(ids, None).any()
+    assert attention_mask_for(ids, None).tolist() == [[1, 1, 1]]
+    assert attention_mask_for(ids, 0).tolist() == [[1, 0, 1]]
+
+
+def test_cut_at_stop_keeps_prompt_and_drops_everything_after_eos():
+    ids = torch.tensor([4, EOS, 5, 6, EOS, 7])  # prompt = first 2 tokens (contains an EOS)
+    assert cut_at_stop(ids, 2, EOS).tolist() == [4, EOS, 5, 6]
+    assert cut_at_stop(ids, 2, None).tolist() == ids.tolist()
+    assert cut_at_stop(torch.tensor([4, 5, 6]), 1, EOS).tolist() == [4, 5, 6]

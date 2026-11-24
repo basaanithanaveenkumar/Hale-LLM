@@ -1,6 +1,6 @@
 ---
 name: hale-llm-train
-description: Train, sample, evaluate and visualise HALE-LLM paradigms (autoregressive, masked diffusion, block diffusion, flow matching) on WikiText-2 with the ha-llm CLIs, manage experiment folders and resume. Use when asked to run or compare paradigms, tune configs, or produce unmasking GIFs.
+description: Train, sample, evaluate and visualise HALE-LLM paradigms (autoregressive, masked diffusion, block diffusion, flow matching) on TinyStories with the ha-llm CLIs, manage experiment folders and resume. Use when asked to run or compare paradigms, tune configs, or produce unmasking GIFs.
 ---
 
 # Running HALE-LLM
@@ -15,8 +15,8 @@ tensorboard --logdir data/experiments
 
 ## Configs
 
-`configs/base.yaml` (d_model 384, 16 layers, 8 heads, d_ff 1536, max_length 128, GPT-2
-tokenizer, WikiText-2 raw with a 10-word sliding stride, `device: mps`), plus one file per
+`configs/base.yaml` (d_model 384, 16 layers, 8 heads, d_ff 1536, context_window 128, GPT-2
+tokenizer, TinyStories (100k stories) packed into non-overlapping 128-token windows, `device: mps`), plus one file per
 paradigm:
 
 | Config | Backbone | Mask | Notes |
@@ -51,6 +51,6 @@ Resume with `--resume` (latest) or `--experiment NAME`.
 
 ## Comparing paradigms fairly
 
-Keep `model` size, data (`train_size`, `stride_words`), steps and `eval.metrics` equal.
+Keep `model` size, data (`train_size`, `context_window`), steps and `eval.metrics` equal.
 Perplexity for diffusion models is an ELBO bound, not an exact likelihood, so report
 it as such. `masked_accuracy` only applies to the masking paradigms.

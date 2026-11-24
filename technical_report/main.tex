@@ -177,7 +177,7 @@ Flow matching & LGT, GeGLU, time-cond. & GQA & bidirectional & 63.2M \\
 rejected) that inherits \texttt{base.yaml}. The \texttt{variant} key selects the registered model,
 collate, loss, sampler and variant-specific metrics. Data come from Hugging Face
 (WikiText-2 raw~\cite{merity2017wikitext} by default), tokenised with GPT-2 and cut into
-128-token windows with a 10-word sliding stride. Each run gets a timestamped directory
+non-overlapping 128-token windows (EOS between documents). Each run gets a timestamped directory
 containing the resolved and source configurations, checkpoints, logs, TensorBoard events and
 visualisation GIFs, and a \texttt{latest} symlink enables resuming. Four CLIs cover training,
 sampling, evaluation and visualisation. Evaluation reports loss, perplexity (an upper bound

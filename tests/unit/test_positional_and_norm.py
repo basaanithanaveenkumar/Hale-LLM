@@ -122,3 +122,15 @@ def test_unknown_config_names_fail_at_build_time():
 def test_lgt_ignores_the_switches_but_still_builds():
     backbone = build_backbone(50, _tiny_cfg(arch="lgt", attn_type="bidirectional", pos_encoding="learned"))
     assert not isinstance(backbone, GPTBackbone)
+
+
+def test_initial_loss_is_close_to_uniform_guessing():
+    import math
+
+    import torch.nn.functional as F
+
+    vocab = 1000
+    backbone = build_backbone(vocab, _tiny_cfg(attn_type="causal"))
+    tokens = torch.randint(0, vocab, (4, 16))
+    loss = F.cross_entropy(backbone(tokens).reshape(-1, vocab), tokens.reshape(-1)).item()
+    assert abs(loss - math.log(vocab)) < 1.0, loss  # huge embedding init gave ~sqrt(d_model)x too much

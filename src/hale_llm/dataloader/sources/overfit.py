@@ -5,35 +5,34 @@ from loguru import logger
 from torch.utils.data import DataLoader, TensorDataset
 
 from hale_llm.dataloader.collate import get_collate
+from hale_llm.dataloader.context_windows import encode_documents, pack_context_windows
 
 
 def uses_overfit(cfg) -> bool:
     return cfg.data.source == "overfit" or bool(cfg.data.overfit_text)
 
 
-def overfit_ids(tokenizer, text: str, max_length: int, n_copies: int) -> torch.Tensor:
-    enc = tokenizer(
-        text,
-        truncation=True,
-        padding="max_length",
-        max_length=max_length,
-        return_tensors="pt",
-        add_special_tokens=False,
-    )
-    row = enc["input_ids"].squeeze(0)
-    return row.unsqueeze(0).repeat(n_copies, 1)
+def overfit_ids(tokenizer, text: str, context_window: int, n_copies: int) -> torch.Tensor:
+    """One full context window made of ``text`` repeated (EOS after each copy), tiled ``n_copies`` times."""
+    one_copy = len(encode_documents(tokenizer, [text]))
+    if one_copy == 0:
+        raise ValueError("overfit_text is empty")
+    # Enough repetitions to fill at least one window.
+    repeats = -(-context_window // one_copy)
+    window = pack_context_windows(tokenizer, [text] * repeats, context_window)[0]
+    return window.unsqueeze(0).repeat(n_copies, 1)
 
 
 def make_overfit_loader(
     variant: str,
     tokenizer,
     text: str,
-    max_length: int,
+    context_window: int,
     batch_size: int,
     n_copies: int,
     **collate_kwargs,
 ) -> DataLoader:
-    ids = overfit_ids(tokenizer, text, max_length, n_copies)
+    ids = overfit_ids(tokenizer, text, context_window, n_copies)
     ds = TensorDataset(ids)
     collate = get_collate(variant)
 
@@ -45,7 +44,7 @@ def make_overfit_loader(
         "overfit loader text={!r} copies={} seq_len={} batch_size={}",
         text,
         n_copies,
-        max_length,
+        context_window,
         min(batch_size, n_copies),
     )
     return DataLoader(

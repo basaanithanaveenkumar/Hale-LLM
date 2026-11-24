@@ -7,6 +7,7 @@ import torch
 
 class TinyTokenizer:
     pad_token_id = 0
+    eos_token_id = 0  # same id as pad: the tiny tests never mix real EOS and padding
     eos_token = "<eos>"
     mask_token_id = 1
     vocab_size = 64

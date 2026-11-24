@@ -11,14 +11,12 @@ from hale_llm.config.run import RunConfig
 
 def load_config(path: str | Path) -> RunConfig:
     path = Path(path).resolve()
-    logger.debug("loading config from {}", path)
     if not path.exists():
         logger.error("config file not found: {}", path)
         raise FileNotFoundError(path)
     raw = yaml.safe_load(path.read_text()) or {}
     if "inherits" in raw:
         parent = (path.parent / raw["inherits"]).resolve()
-        logger.debug("inheriting from {}", parent)
         parent_raw = yaml.safe_load(parent.read_text()) or {}
         if "inherits" in parent_raw:
             grand = (parent.parent / parent_raw["inherits"]).resolve()

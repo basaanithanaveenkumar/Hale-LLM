@@ -9,7 +9,6 @@ model:
   attn_type: causal
   use_time_cond: false
   n_mtp_heads: 5
-  max_length: 128
 train:
   epochs: 2000
   steps: null

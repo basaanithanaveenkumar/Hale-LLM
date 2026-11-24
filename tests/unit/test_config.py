@@ -48,13 +48,13 @@ def test_yaml_inherit():
     assert cfg.train.batch_size == 32
     assert cfg.train.resume is False
     assert cfg.data.source == "huggingface"
-    assert cfg.data.dataset == "Salesforce/wikitext"
-    assert cfg.data.subset == "wikitext-2-raw-v1"
+    assert cfg.data.dataset == "roneneldan/TinyStories"
+    assert cfg.data.subset is None
     assert cfg.data.train_split == "train"
     assert cfg.data.val_split == "validation"
-    assert cfg.data.train_size is None
+    assert cfg.data.train_size == 100000
     assert cfg.data.overfit_text is None
-    assert cfg.data.stride_words == 10
+    assert cfg.data.context_window == 128
     assert cfg.device == "mps"
     assert "loss" in cfg.eval.metrics
     assert cfg.eval.every_n_epochs == 10

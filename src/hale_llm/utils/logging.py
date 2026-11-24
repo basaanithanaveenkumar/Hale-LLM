@@ -48,6 +48,5 @@ def setup_logging(
             encoding="utf-8",
             format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
         )
-        logger.debug("file logging enabled at {}", path.resolve())
     _CONFIGURED = True
     logger.info("logging initialized (console={})", level)

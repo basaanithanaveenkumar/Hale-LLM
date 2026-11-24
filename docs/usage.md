@@ -25,7 +25,7 @@ uv run hale-llm-infer --config configs/autoregressive/small.yaml --prompt-file p
 uv run hale-llm-chat --config configs/autoregressive/small.yaml --max-new-tokens 40
 ```
 
-The checkpoints are base language models trained on WikiText-2, not instruction-tuned, so a
+The checkpoints are base language models trained on TinyStories, not instruction-tuned, so a
 chat reply is a continuation of the conversation so far. Inside `hale-llm-chat`:
 `/help`, `/reset`, `/history`, `/temp V`, `/tokens N`, `/steps N`, `/quit`.
 

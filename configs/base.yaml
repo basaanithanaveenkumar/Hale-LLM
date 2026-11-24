@@ -4,7 +4,6 @@ model:
   n_layers: 16
   d_ff: 1536
   dropout: 0.1
-  max_length: 128
   attn_impl: mha
   n_kv_heads: null
   ffn_type: mlp
@@ -28,16 +27,16 @@ train:
   focal_alpha: 1.0
 data:
   source: huggingface
-  dataset: Salesforce/wikitext
-  subset: wikitext-2-raw-v1
+  dataset: roneneldan/TinyStories
+  subset: null
   train_split: train
   val_split: validation
   text_field: text
   cache_dir: null
   tokenizer_name: gpt2
-  train_size: null
-  val_size: null
-  stride_words: 10
+  context_window: 128   # tokens per training example = model context length
+  train_size: 100000
+  val_size: 1000
   overfit_text: null
   n_overfit_copies: 64
 sample:
@@ -56,7 +55,7 @@ eval:
   every_n_epochs: 10
   max_batches: null
 viz:
-  enabled: true
+  enabled: false
   every_n_steps: 50
   every_n_epochs: null
   sampling_steps: 8

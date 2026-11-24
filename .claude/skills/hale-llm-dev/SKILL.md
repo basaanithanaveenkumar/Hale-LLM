@@ -36,7 +36,7 @@ uv run pytest tests/unit -q --ignore=tests/unit/test_block_mask.py --ignore=test
 | `models/models_<paradigm>/` | `autoregressive`, `diffusion`, `block_diffusion`, `flow_matching`, `mtp` (stub): model, loss, sample, metrics |
 | `losses/` | token losses `ce`, `focal`, `label_smoothing`, `kl` |
 | `metrics/llm/` | loss, perplexity, bits/token, token accuracy, top-k |
-| `dataloader/` | GPT-2 tokenizer (+ `[MASK]`), sliding windows (`stride_words`), HF / overfit sources, per-variant collate registry |
+| `dataloader/` | GPT-2 tokenizer (+ `[MASK]`), non-overlapping context windows (`data.context_window`, EOS between documents), HF / overfit sources, per-variant collate registry |
 | `training/`, `evaluation/`, `inference/`, `visualization/` | trainer, evaluator, `load_session`/`generate`, unmasking GIFs |
 | `cli/` | `ha-llm-train`, `ha-llm-sample`, `ha-llm-eval`, `ha-llm-viz` |
 | `src/masked_diffusion/` | early standalone prototype (not used by `ha_llm`) |

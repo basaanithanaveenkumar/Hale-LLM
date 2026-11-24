@@ -63,7 +63,7 @@ Shared width/depth for every variant. `arch` chooses the **block stack**; `attn_
 | `n_layers` | int | `4` / `16` | Transformer / DiT / LGT depth. |
 | `d_ff` | int | `512` / `1536` | FFN inner size (per expert if MoE). Typical ~4× `d_model`. |
 | `dropout` | float | `0` / `0.1` | Attention and FFN dropout. |
-| `max_length` | int | `64` / `128` | Tokens per training window and position table. Sequence length must be divisible by `block_size` for block diffusion. |
+| `max_length` | int | filled from `data.context_window` | Derived: the backbone's context length. Set `data.context_window` instead; if both are set, the data value wins. Must be divisible by `block_size` for block diffusion. |
 
 ### Backbone (`arch`)
 
@@ -173,32 +173,42 @@ VRAM: MoE multiplies FFN parameters. Prefer `geglu` on a laptop; use `moe` when 
 | Key | Type | Default | How to use |
 |---|---|---|---|
 | `source` | `huggingface` \| `overfit` | `huggingface` | Hub corpus vs repeated overfit string. `overfit_text` set also enables overfit. |
-| `dataset` | string | `Salesforce/wikitext` | Hub id: `load_dataset(dataset, subset, split=...)`. |
-| `subset` | string \| `null` | `wikitext-2-raw-v1` | Config name. WikiText-103: `wikitext-103-raw-v1`. `null` if the dataset has no configs. |
+| `dataset` | string | `roneneldan/TinyStories` | Hub id: `load_dataset(dataset, subset, split=...)`. |
+| `subset` | string \| `null` | `null` | Config name. `null` if the dataset has no configs (TinyStories has none). WikiText-2: `Salesforce/wikitext` + `wikitext-2-raw-v1`. |
 | `train_split` | string | `train` | Split name on the Hub. |
 | `val_split` | string | `validation` | Some datasets use `test` or `valid`. |
 | `text_field` | string | `text` | Column with raw text. |
 | `cache_dir` | string \| `null` | `null` | Hugging Face cache. `null` → default `~/.cache/huggingface`. |
 | `tokenizer_name` | string | `gpt2` | `AutoTokenizer.from_pretrained`. Must match a Hub tokenizer. |
-| `train_size` | int \| `null` | `null` | Keep the first N Hub **rows** (not windows). `null` = all. Example: `2048` for a smoke run. |
-| `val_size` | int \| `null` | `null` | Same for validation. |
-| `stride_words` | int | `10` | Sliding window step in **words**. `1` = dense overlap (more windows, slower). Larger = fewer windows. |
+| `train_size` | int \| `null` | `100000` | Keep the first N Hub **rows** (not windows). `null` = all. TinyStories has 2.1M stories, so the default caps it; WikiText-2 is small enough for `null`. |
+| `val_size` | int \| `null` | `1000` | Same for validation. |
+| `context_window` | int | `128` | Tokens per training example **and the model's context length**. Rows are tokenised, an EOS token is appended after each, the stream is cut into back-to-back windows of this size (no overlap, no padding, remainder dropped). The log prints how many windows result. |
 | `overfit_text` | string \| `null` | `null` | If set (or `source: overfit`), skip the Hub and pack this string. |
 | `n_overfit_copies` | int | `64` | Repeated copies so `batch_size` and `drop_last` still work. |
-| `add_special_tokens` | bool | `false` | Reserved for tokenizer encode; sliding windows currently encode without specials. |
+| `add_special_tokens` | bool | `false` | Reserved for tokenizer encode; packed windows are encoded without special tokens (EOS is added between documents). |
 
 ### Recipes
 
-Full WikiText-2 (current default):
+TinyStories, 100k stories (current default):
 
 ```yaml
 data:
   source: huggingface
+  dataset: roneneldan/TinyStories
+  subset: null
+  train_size: 100000
+  val_size: 1000
+  context_window: 128
+```
+
+Full WikiText-2:
+
+```yaml
+data:
   dataset: Salesforce/wikitext
   subset: wikitext-2-raw-v1
   train_size: null
   val_size: null
-  stride_words: 10
 ```
 
 Subset for debugging:
@@ -207,7 +217,7 @@ Subset for debugging:
 data:
   train_size: 512
   val_size: 128
-  stride_words: 20
+  context_window: 64
 ```
 
 WikiText-103:
@@ -336,3 +346,30 @@ model:
 | `hale-llm-viz` | `--config` | `--experiment`, `--prompt`, `--output` |
 
 Sample / eval / viz attach to `latest` unless `--experiment` is set. They do not create a new run folder.
+
+### How text becomes training windows
+
+```mermaid
+flowchart LR
+  R["dataset rows<br/>(one document each)"] --> T["tokenise each row"]
+  T --> E["append EOS after each<br/>(the stop token)"]
+  E --> S["one long token stream"]
+  S --> C["cut into back-to-back<br/>context_window chunks"]
+  C --> W["N windows<br/>(remainder dropped)"]
+  W --> L["labels = window shifted by one<br/>(every position predicts the next token)"]
+```
+
+Why non-overlapping: one forward pass over a window already gives a next-token prediction at
+every position, so overlapping windows would only repeat tokens (more compute, no new data).
+Overlap (a stride smaller than the window) is useful for *evaluating* perplexity, not for training.
+
+**Stop token.** GPT-2's `<|endoftext|>` (id 50256) is the document separator and the stop token:
+autoregressive generation ends when it is produced, and every generator cuts its text at the first
+one. No start token is added. For reference, gpt-oss (`o200k_harmony` tokenizer) also does not
+prepend a start token when generating; `gpt_oss/generate.py` encodes the prompt as-is and stops on
+`<|endoftext|>` (id 199999). The tokenizer has no pad token: windows are always full, and reusing
+EOS as padding would make the model ignore the stop token.
+
+**Context length.** `data.context_window` is the only place to set it. gpt-oss similarly keeps the
+model's native context in its config (`initial_context_length: 4096`, used for RoPE scaling) and
+takes the runtime context from `--context-length`.

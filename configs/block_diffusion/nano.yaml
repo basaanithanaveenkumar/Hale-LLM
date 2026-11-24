@@ -13,7 +13,6 @@ model:
   ffn_type: geglu
   use_time_cond: true
   block_size: 16
-  max_length: 128
 train:
   epochs: 2000
   steps: null

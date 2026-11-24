@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from hale_llm.core.backbones import build_backbone
 from hale_llm.core.registry import register_loss, register_sampler, register_variant
 from hale_llm.dataloader.collate import register_collate
+from hale_llm.dataloader.padding import attention_mask_for
 from hale_llm.losses import model_token_nll
 
 
@@ -21,7 +22,7 @@ def collate_mtp(input_ids: torch.Tensor, tokenizer, **_):
     pad_id = tokenizer.pad_token_id
     return {
         "input_ids": input_ids,
-        "attention_mask": (input_ids != pad_id).long(),
+        "attention_mask": attention_mask_for(input_ids, pad_id),
         "pad_token_id": pad_id,
         "labels": input_ids,
     }
@@ -56,7 +57,7 @@ def mtp_loss(model, batch: dict) -> torch.Tensor:
         model,
         logits[:, :-1, :],
         labels,
-        ignore_index=batch["pad_token_id"],
+        ignore_index=-100,  # labels carry no padding; -100 is the loss convention
         reduction="mean",
     )
 
@@ -72,7 +73,7 @@ def sample_mtp(model, tokenizer, prompt_ids, max_new_tokens, temperature=1.0, re
     for step in range(max_new_tokens):
         if x.size(1) > model.backbone.max_length:
             x = x[:, -model.backbone.max_length :]
-        out = model({"input_ids": x, "attention_mask": (x != pad_id).long()})
+        out = model({"input_ids": x, "attention_mask": attention_mask_for(x, pad_id)})
         logits = out[0][:, -1, :] / max(temperature, 1e-5)
         nxt = torch.multinomial(F.softmax(logits, dim=-1), 1)
         x = torch.cat([x, nxt], dim=1)

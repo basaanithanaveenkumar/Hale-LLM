@@ -68,7 +68,6 @@ class ExperimentLogger:
         
         self.tb_writer = SummaryWriter(log_dir=str(path))
         logger.info("tensorboard writing to {}", path.resolve())
-        logger.debug("open tensorboard with: tensorboard --logdir {}", Path(log_dir).resolve())
     
     def _init_wandb(
         self,
@@ -196,7 +195,6 @@ class ExperimentLogger:
             try:
                 import wandb
                 wandb.watch(model, log="all", log_freq=log_freq)
-                logger.debug("wandb watching model gradients")
             except Exception as e:
                 logger.warning("failed to watch model in wandb: {}", e)
     
@@ -212,13 +210,11 @@ class ExperimentLogger:
         if self.tensorboard_enabled and self.tb_writer:
             self.tb_writer.flush()
             self.tb_writer.close()
-            logger.debug("tensorboard writer closed")
         
         if self.wandb_enabled and self.wandb_run:
             try:
                 import wandb
                 wandb.finish()
-                logger.debug("wandb run finished")
             except Exception as e:
                 logger.warning("failed to close wandb: {}", e)
     

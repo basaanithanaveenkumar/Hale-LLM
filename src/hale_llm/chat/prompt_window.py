@@ -36,5 +36,4 @@ class PromptWindow:
         )["input_ids"]
         if len(ids) <= self._max_tokens:
             return text
-        logger.debug("trimming prompt from {} to {} tokens", len(ids), self._max_tokens)
         return self._tokenizer.decode(ids[-self._max_tokens :], skip_special_tokens=True)

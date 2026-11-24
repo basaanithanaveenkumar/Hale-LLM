@@ -7,13 +7,14 @@ from loguru import logger
 from hale_llm.chat.chat_turn import ChatTurn
 from hale_llm.chat.prompt_window import PromptWindow
 from hale_llm.inference.encode import encode_prompt
+from hale_llm.inference.stop import cut_at_stop
 from hale_llm.inference.session import InferenceSession
 
 
 class ChatSession:
     """Keeps a running transcript and asks the model to continue it.
 
-    The checkpoints in this repo are base language models trained on WikiText-2,
+    The checkpoints in this repo are base language models trained on TinyStories,
     not instruction-tuned assistants. "Chat" therefore means: append the user's
     message to the transcript, let the sampler continue it, and treat the new
     tokens as the reply. Every paradigm works because only the registered
@@ -115,7 +116,8 @@ class ChatSession:
         prompt_len = encode_prompt(
             self._session.tokenizer, prompt, self._session.model, self._session.device
         ).size(1)
-        new_ids = result.token_ids[0, prompt_len:].tolist()
+        kept = cut_at_stop(result.token_ids[0], prompt_len, getattr(self._session.tokenizer, "eos_token_id", None))
+        new_ids = kept[prompt_len:].tolist()
         reply = self._session.tokenizer.decode(new_ids, skip_special_tokens=True).strip()
 
         turn = ChatTurn(user=user_text, reply=reply)

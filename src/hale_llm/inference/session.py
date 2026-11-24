@@ -13,8 +13,9 @@ from hale_llm.config.schema import RunConfig
 from hale_llm.core.checkpoint import CheckpointStore
 from hale_llm.core.registry import get_sampler, get_variant
 from hale_llm.core.tensors import log_model_summary
-from hale_llm.dataloader.tokenizer import setup_tokenizer
+from hale_llm.dataloader.tokenizer import build_tokenizer_for
 from hale_llm.inference.encode import encode_prompt
+from hale_llm.inference.stop import cut_at_stop
 from hale_llm.utils.device import get_device
 
 
@@ -64,7 +65,9 @@ class InferenceSession:
             token_ids, history = out
         else:
             token_ids = out
-        text = self.tokenizer.decode(token_ids[0].tolist(), skip_special_tokens=True)
+        # Stop at the end-of-text token (the diffusion samplers always fill the whole length).
+        kept = cut_at_stop(token_ids[0], ids.size(1), getattr(self.tokenizer, "eos_token_id", None))
+        text = self.tokenizer.decode(kept.tolist(), skip_special_tokens=True)
         logger.info("generated: {}", text)
         return GenerationResult(token_ids=token_ids, text=text, prompt=prompt, history=history)
 
@@ -91,7 +94,7 @@ def load_session(
     import hale_llm.models  # noqa: F401
 
     device = get_device(cfg.device)
-    tokenizer = tokenizer or setup_tokenizer(cfg.data.tokenizer_name)
+    tokenizer = tokenizer or build_tokenizer_for(cfg)
     store = checkpoints or CheckpointStore()
     path = checkpoint_path or cfg.train.checkpoint_path
     model_cls = get_variant(cfg.variant)

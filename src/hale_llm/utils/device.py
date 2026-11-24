@@ -7,7 +7,6 @@ from loguru import logger
 class DeviceResolver:
     def resolve(self, device: str | None = None) -> str:
         if device:
-            logger.debug("using requested device={}", device)
             if device == "cuda" and not torch.cuda.is_available():
                 logger.warning("cuda requested but not available; falling back")
             if device == "mps" and not (

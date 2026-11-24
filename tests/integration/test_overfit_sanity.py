@@ -25,7 +25,7 @@ def test_overfit_loss_collapses(variant, tiny_tokenizer, tmp_path):
     cfg.model.n_heads = 4
     cfg.model.n_layers = 2
     cfg.model.d_ff = 128
-    cfg.model.max_length = 32 if variant != "block_diffusion" else 32
+    cfg.set_context_window(32)
     if variant == "block_diffusion":
         cfg.model.block_size = 8
     cfg.data.overfit_text = "hello world hello world"
@@ -53,7 +53,7 @@ def test_mtp_stub_runs_a_few_steps(variant, tiny_tokenizer, tmp_path):
     cfg.model.n_heads = 4
     cfg.model.n_layers = 2
     cfg.model.d_ff = 128
-    cfg.model.max_length = 32
+    cfg.set_context_window(32)
     # Same tiny in-memory corpus as above so the tiny tokenizer ids stay in range.
     cfg.data.overfit_text = "hello world hello world"
     cfg.data.n_overfit_copies = 32
@@ -86,7 +86,8 @@ def test_config_selected_optimizer_and_loss_train(overrides, tiny_tokenizer, tmp
     for key, value in overrides.items():
         setattr(cfg.train, key, value)
     cfg.model.d_model, cfg.model.n_heads, cfg.model.n_layers = 64, 4, 2
-    cfg.model.d_ff, cfg.model.max_length = 128, 32
+    cfg.model.d_ff = 128
+    cfg.set_context_window(32)
     cfg.model.norm_type = "rms"
     cfg.data.overfit_text = "hello world hello world"
     cfg.data.n_overfit_copies = 32

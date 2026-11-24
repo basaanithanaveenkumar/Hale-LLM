@@ -66,15 +66,15 @@ Model strategy
 32. add the gradient clipping
 33. Looped transformers
 34. class or cluster based expert selection so , based on propmt it loads a series of experts should be easier for inference
-35.
+35. need to find a better light weight tokenizer , ann register it and also study more about tokenizers, should I pick a preexisting tokenizer or should i train it from scratch
 
 
 Metrics:
 1. come up with prper metrics 
 
 Infracture
-0. Docker support
-1. Jarvislabs Intrgeation
+0. Docker support, Off-instance copies. Sync checkpoints and W&B artifacts to HF Hub (private),
+1. Jarvislabs Intrgeation (Use a GPU VM, not a template, easy for tweaking)
 2. lets use a modded trainier script from nano chat
 3. lets use the torch titan becuse it claims with less modifications
 4. DDP with gradient accumulation, then FSDP2 above roughly 3B
@@ -86,6 +86,7 @@ Infracture
 10.MXFP8 A/B through torchao.
 11. NVFP4 forward only.
 12. 
+
 Baseline:
 1. fp32 training, adam optimizer and model components working first without any issues
 2. Bf16 or fp16 training
@@ -96,13 +97,13 @@ Baseline:
 ```bash
 uv sync
 
-# 1. Train a small autoregressive model on WikiText-2 (about 2,000 steps; stop any time, it saves checkpoints).
+# 1. Train a small autoregressive model on TinyStories (about 2,000 steps; stop any time, it saves checkpoints).
 uv run hale-llm-train --config configs/autoregressive/small.yaml --steps 2000 --no-resume
 
 # 2. Talk to it. Replies are continuations of what you type, so start with a sentence, not a question.
 uv run hale-llm-chat --config configs/autoregressive/small.yaml --max-new-tokens 40 --temperature 0.8
 ```
 
-The model is a base language model trained on Wikipedia text, not an assistant: expect
-encyclopedia-style sentences that drift. Lower `--temperature` for steadier text, raise it for
+The model is a base language model trained on short children's stories, not an assistant: expect
+simple story-style sentences that drift. Lower `--temperature` for steadier text, raise it for
 variety. Inside the chat, `/help` lists the commands and `/reset` clears the conversation.

@@ -301,7 +301,7 @@ def render_token_grid_gif(
         ax.axis("off")
         t_val, tokens_str, seq_ids = snapshots[fi][:3]
         full_tokens = tokens_str + padded
-        full_ids = list(np.asarray(seq_ids)) + [tokenizer.pad_token_id] * pad_len
+        full_ids = list(np.asarray(seq_ids)) + [-1] * pad_len
         mask_id = getattr(tokenizer, "mask_token_id", None)
         for idx, (tok, tid) in enumerate(zip(full_tokens, full_ids)):
             if tok == "":

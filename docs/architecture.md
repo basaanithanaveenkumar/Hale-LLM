@@ -205,7 +205,7 @@ flowchart LR
 ```mermaid
 flowchart LR
   subgraph BASE["configs/base.yaml"]
-    B1["d_model: 384\nn_layers: 16\nn_heads: 8\nd_ff: 1536\nmax_length: 128\narch: lgt\ntokenizer: gpt2\ndataset: wikitext2\nstride: 10"]
+    B1["d_model: 384\nn_layers: 16\nn_heads: 8\nd_ff: 1536\ncontext_window: 128\narch: lgt\ntokenizer: gpt2\ndataset: TinyStories\npacking: non-overlapping + EOS"]
   end
 
   subgraph VARIANTS["Variant configs (one field change each)"]
@@ -235,7 +235,7 @@ flowchart TB
   R --> BD["models_block_diffusion"]
   R --> FM["models_flow_matching"]
   R --> MTP["models_mtp (stub)"]
-  AR & MD & BD & FM & MTP --> CORE["shared: core backbones · WikiText-2 + GPT-2 windows · trainer · evaluator · inference · GIF visualiser"]
+  AR & MD & BD & FM & MTP --> CORE["shared: core backbones · TinyStories + GPT-2 windows · trainer · evaluator · inference · GIF visualiser"]
 ```
 
 ## 2. Training objectives

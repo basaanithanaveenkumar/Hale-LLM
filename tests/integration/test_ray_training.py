@@ -37,7 +37,7 @@ def test_autoregressive_overfit_on_two_ray_workers(local_ray, tmp_path):
     cfg.train.checkpoint_path = str(tmp_path / "ckpt" / "last.pt")
     cfg.train.resume = False
     cfg.model.d_model, cfg.model.n_heads, cfg.model.n_layers, cfg.model.d_ff = 32, 4, 1, 64
-    cfg.model.max_length = 16
+    cfg.set_context_window(16)
     cfg.data.overfit_text = "hello world hello world"
     cfg.data.n_overfit_copies = 16
     cfg.device = "cpu"

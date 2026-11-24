@@ -85,6 +85,10 @@ class GPTBackbone(SequenceBackbone):
             use_time_cond=use_time_cond,
         )
         self.lm_head = nn.Linear(d_model, vocab_size, bias=False)
+        # GPT-2 style init. nn.Embedding starts at std 1.0, and because the output head is
+        # tied to it the first logits would have std ~sqrt(d_model) (loss ~150 instead of
+        # ln(vocab) ~ 10.8). Small init gives a sensible starting loss and stable early steps.
+        nn.init.normal_(self.token_emb.weight, std=0.02)
         self._tie_head(self.lm_head)
 
         # Names kept for code that reaches into the backbone (viz, summaries).

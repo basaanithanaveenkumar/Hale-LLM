@@ -11,7 +11,6 @@ from torch.utils.tensorboard import SummaryWriter
 
 def make_writer(log_dir: str | None, enabled: bool = True, run_name: str | None = None) -> SummaryWriter | None:
     if not enabled:
-        logger.debug("tensorboard disabled")
         return None
     if not log_dir:
         logger.warning("tensorboard enabled but no log_dir; skipping writer")
@@ -22,7 +21,6 @@ def make_writer(log_dir: str | None, enabled: bool = True, run_name: str | None 
     path.mkdir(parents=True, exist_ok=True)
     writer = SummaryWriter(log_dir=str(path))
     logger.info("tensorboard writing to {}", path.resolve())
-    logger.debug("open tensorboard with: tensorboard --logdir {}", Path(log_dir).resolve())
     return writer
 
 

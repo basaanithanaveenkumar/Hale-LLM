@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import torch
 from datasets import load_dataset
 from loguru import logger
 from torch.utils.data import Dataset
 
-from hale_llm.dataloader.windows import sliding_windows
+from hale_llm.dataloader.context_windows import pack_context_windows
 
 
 def load_hf_split(cfg, split: str):
@@ -32,28 +31,32 @@ def load_hf_split(cfg, split: str):
     return raw
 
 
-def corpus_from_split(raw, text_field: str = "text") -> str:
-    parts = []
+def documents_from_split(raw, text_field: str = "text") -> list[str]:
+    """One string per dataset row; empty rows are dropped. Each row is one document."""
+    documents = []
     for row in raw:
         text = (row.get(text_field) or "").strip()
         if text:
-            parts.append(text)
-    return "\n".join(parts)
+            documents.append(text)
+    return documents
 
 
 class HuggingFaceTextDataset(Dataset):
+    """Hugging Face split packed into non-overlapping context windows (one per item)."""
+
     def __init__(self, tokenizer, cfg, split: str):
         self.tokenizer = tokenizer
-        self.max_length = cfg.model.max_length
-        self.stride_words = cfg.data.stride_words
+        self.context_window = cfg.model.max_length  # set from data.context_window
         raw = load_hf_split(cfg, split)
-        corpus = corpus_from_split(raw, cfg.data.text_field)
-        self.ids = sliding_windows(tokenizer, corpus, self.max_length, self.stride_words)
+        documents = documents_from_split(raw, cfg.data.text_field)
+        self.ids = pack_context_windows(tokenizer, documents, self.context_window)
         logger.info(
-            "windows={} max_length={} stride_words={}",
+            "split={} documents={} -> {:,} context windows of {} tokens ({:,} tokens)",
+            split,
+            len(documents),
             len(self.ids),
-            self.max_length,
-            self.stride_words,
+            self.context_window,
+            self.ids.numel(),
         )
 
     def __len__(self):

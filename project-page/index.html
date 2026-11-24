@@ -132,7 +132,7 @@ a:hover{text-decoration:underline}
   REG --> M["LGT backbone\n(16 layers, 384-d, 8 heads)"]
   REG --> LS["BlockDiffusionLoss\n(CE on active block tokens)"]
   REG --> SA["BlockDiffusionSampler\n(AR over blocks, diffusion inside)"]
-  REG --> DS["WikiText-2\n(10-word sliding stride)"]
+  REG --> DS["WikiText-2\n(non-overlapping 128-token windows)"]
   M & LS & SA & DS --> TR["Trainer.fit()"]</div>
 <figcaption><b>Figure 1.</b> Block diffusion configuration. Change <code>variant:</code> to swap the paradigm — backbone, data, and trainer are unchanged.</figcaption>
 </figure>

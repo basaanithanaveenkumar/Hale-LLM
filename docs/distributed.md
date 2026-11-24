@@ -44,7 +44,7 @@ With `enabled: true`, `make_dataloader` builds the `HuggingFaceTextDataset` (dow
 tokenisation into windows) **only if** no valid shards exist. It writes the windows to
 `<root>/<dataset>-<subset>-<split>-<fingerprint>/shard-*.tar` and then streams them. The
 fingerprint hashes everything that changes the windows: dataset, subset, split, size, text
-field, tokenizer, `max_length`, `stride_words` and `add_special_tokens`. Changing any of these
+field, tokenizer, `context_window` and `add_special_tokens`. Changing any of these
 writes a new shard set, and the old ones are kept. Batches are identical to the non-WebDataset
 loader (tested). Overfit mode (`data.overfit_text`) is a debugging path and is not converted.
 

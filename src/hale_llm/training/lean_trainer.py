@@ -101,6 +101,11 @@ def train_lean(cfg: RunConfig, tokenizer=None) -> list[float]:
         cfg.variant, device, total_steps, cfg.train.batch_size, accum,
         cfg.train.batch_size * accum, use_bf16,
     )
+    n_windows = len(train_loader.dataset)
+    logger.info(
+        "training data: {:,} context windows of {} tokens = {:,} tokens | {} batches per epoch",
+        n_windows, cfg.model.max_length, n_windows * cfg.model.max_length, len(train_loader),
+    )
 
     # 3. Model. Keep a handle on the plain module: a compiled wrapper renames the
     #    state-dict keys, and checkpoints must stay loadable by hale-llm-chat.

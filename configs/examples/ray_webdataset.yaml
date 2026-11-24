@@ -1,4 +1,4 @@
-# Diffusion LM on a Ray cluster, streaming WikiText windows from WebDataset shards.
+# Diffusion LM on a Ray cluster, streaming TinyStories windows from WebDataset shards.
 #
 #   uv sync --extra distributed          # ray[train] + webdataset (through hale-blocks)
 #   hale-llm-train --config configs/examples/ray_webdataset.yaml
