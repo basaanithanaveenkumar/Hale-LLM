@@ -27,3 +27,9 @@ class ModelConfig(StrictModel):
     rope_theta_global: float = 1_000_000.0
     p_rope: float = 0.25
     qk_norm: bool = False
+    # Name of a registered positional encoding (see hale_llm.nn.positional): rope | learned.
+    # Applies to arch transformer/default; lgt and dit fix their own.
+    pos_encoding: str = "rope"
+    # Name of a registered norm layer (see hale_llm.nn.norm): layer | rms.
+    norm_type: str = "layer"
+    rope_theta: float = 10_000.0

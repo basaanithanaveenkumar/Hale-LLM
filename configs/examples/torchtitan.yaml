@@ -1,0 +1,10 @@
+# Run TorchTitan on NVIDIA GPUs (see docs/training.md for setup).
+# On a Mac this fails immediately with TorchTitanUnavailableError; use trainer: lean there.
+inherits: ../autoregressive/small.yaml
+
+train:
+  trainer: torchtitan
+  titan:
+    module: torchtitan_recipes.tests.models.llama3   # smoke-test recipe; use torchtitan_recipes.models.llama3 for real runs
+    config: llama3_debugmodel
+    num_gpus: null          # null = every visible GPU

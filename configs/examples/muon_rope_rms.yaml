@@ -1,0 +1,13 @@
+# Autoregressive run with the optional building blocks switched on:
+# rotary positions (the default), RMSNorm, Muon optimizer and focal loss.
+inherits: ../autoregressive/small.yaml
+
+model:
+  pos_encoding: rope      # rope | learned
+  norm_type: rms          # layer | rms
+train:
+  optimizer_type: muon    # Muon on hidden 2-D weights, AdamW on the rest (lr below)
+  lr: 0.0003              # AdamW group
+  muon_lr: 0.02           # Muon group
+  loss_type: focal
+  focal_gamma: 2.0

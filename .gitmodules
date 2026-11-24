@@ -4,3 +4,6 @@
 [submodule "ext_pkgs/gpt-oss"]
 	path = ext_pkgs/gpt-oss
 	url = https://github.com/openai/gpt-oss.git
+[submodule "ext_pkgs/torchtitan"]
+	path = ext_pkgs/torchtitan
+	url = https://github.com/pytorch/torchtitan.git

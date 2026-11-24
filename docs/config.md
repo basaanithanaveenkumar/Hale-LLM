@@ -92,8 +92,18 @@ Swap without changing variant code: all models call `build_backbone(...)`.
 
 | Key | Type | Default | How to use |
 |---|---|---|---|
-| `attn_impl` | `mha` \| `gqa` \| `mqa` | `mha` | `mha` = PyTorch `MultiheadAttention`. `gqa` = grouped-query (set `n_kv_heads`). `mqa` = one KV head. LGT forces GQA internally. |
+| `attn_impl` | `mha` \| `gqa` \| `mqa` | `mha` | `mha` = one KV head per query head. `gqa` = grouped-query (set `n_kv_heads`). `mqa` = one KV head. LGT forces GQA internally. |
 | `n_kv_heads` | int \| `null` | `null` | KV heads for GQA. Must divide `n_heads`. `null` → `n_heads/4` for GQA, or LGT local `n_heads/2` and global `n_heads/8`. Example: `n_heads: 8`, `n_kv_heads: 2`. |
+
+### Positional encoding and normalisation
+
+| Key | Type | Default | How to use |
+|---|---|---|---|
+| `pos_encoding` | `rope` \| `learned` | `rope` | Registered in `hale_llm.nn.positional`. `rope` rotates queries and keys (no parameters, relative positions). `learned` adds a trainable table of `max_length x d_model`. The chosen scheme is written to the log when the model is built. Applies to `arch: transformer`; `lgt` and `dit` fix their own. |
+| `rope_theta` | float | `10000` | RoPE base frequency. |
+| `norm_type` | `layer` \| `rms` | `layer` | Registered in `hale_llm.nn.norm`. `rms` is RMSNorm. Applies to `arch: transformer`. |
+
+Add a scheme with `@register_positional_encoding("name")` or `@register_norm("name")`; the YAML value is then accepted with no other change.
 
 ### FFN
 
@@ -145,6 +155,11 @@ VRAM: MoE multiplies FFN parameters. Prefer `geglu` on a laptop; use `moe` when 
 | `loss_type` | `ce` \| `focal` \| `label_smoothing` | `ce` | Registered token loss. Add more with `@register_token_loss`. |
 | `focal_gamma` | float | `2.0` | Focal focusing (`loss_type: focal`). |
 | `focal_alpha` | float | `1.0` | Focal class weight. |
+| `trainer` | `lean` \| `full` \| `torchtitan` | `lean` | Training backend; see [training.md](training.md). `lean.*` and `titan.*` hold each backend's settings. |
+| `optimizer_type` | `adamw` \| `adam` \| `sgd` \| `muon` | `adamw` | Default `adamw` is the LLM recipe: betas `(adam_beta1, adam_beta2)` = (0.9, 0.95), weight decay only on weight matrices (not norms, biases, embeddings).  `muon` uses Muon on the 2-D hidden weights and AdamW (at `lr`) on embeddings, the output head, norms and biases. |
+| `adam_beta1` / `adam_beta2` | float | `0.9` / `0.95` | AdamW betas. |
+| `muon_lr` | float | `0.02` | Learning rate of the Muon group. |
+| `muon_momentum` | float | `0.95` | Muon momentum. |
 | `label_smoothing` | float | `0.1` | Smoothing when `loss_type: label_smoothing`. |
 
 **Schedule:** `epochs: 2000` and `steps: null` → 2000 epochs. `epochs: null` and `steps: 1000` → enough epochs to cover 1000 steps.

@@ -142,11 +142,15 @@ class Trainer:
 
         self.opt = build_optimizer(
             cfg.train.optimizer_type,
-            self.model.parameters(),
+            self.model,
             {
                 "lr": cfg.train.lr,
                 "weight_decay": cfg.train.weight_decay,
                 "grad_clip": cfg.train.grad_clip,
+                "adam_beta1": cfg.train.adam_beta1,
+                "adam_beta2": cfg.train.adam_beta2,
+                "muon_lr": cfg.train.muon_lr,
+                "muon_momentum": cfg.train.muon_momentum,
             },
         )
 

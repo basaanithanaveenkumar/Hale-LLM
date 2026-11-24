@@ -57,3 +57,15 @@ loader (tested). Overfit mode (`data.overfit_text`) is a debugging path and is n
 | `shuffle_buffer` | `1000` | in-memory sample shuffle for training |
 | `resample` | `auto` | equal-length epochs on every rank when several ranks train |
 | `overwrite` | `false` | force re-conversion |
+
+## Running the Ray tests
+
+Ray starts its workers with the same `uv run` command line as the driver, so the extra must be
+on that command line or the workers fail with `No module named 'ray'`:
+
+```bash
+uv run --extra dev --extra distributed pytest tests/integration/test_ray_training.py
+```
+
+The repo-root `.rayignore` keeps `ext_pkgs/`, `data/` and `.venv/` out of the upload to the workers
+(without it Ray refuses the multi-GB package).

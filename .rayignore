@@ -1,0 +1,10 @@
+# Keep Ray runtime_env uploads small: only source and configs are needed on workers.
+ext_pkgs/
+data/
+dist/
+.venv/
+.git/
+docs/
+project-page/
+technical_report/
+assets/

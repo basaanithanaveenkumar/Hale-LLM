@@ -8,3 +8,5 @@
 - [Blog](blog.md): long-form posts
 
 Also: the [technical report](../technical_report/main.tex) and the [project page](../project-page/index.html).
+
+- [Training backends](training.md): lean (default), full, TorchTitan.

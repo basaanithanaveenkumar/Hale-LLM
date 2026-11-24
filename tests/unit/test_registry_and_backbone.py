@@ -67,7 +67,7 @@ def test_build_adamw_has_torch_api():
     from hale_llm.core.optimizers import build_optimizer
 
     model = nn.Linear(4, 2)
-    opt = build_optimizer("adamw", model.parameters(), {"lr": 1e-3, "weight_decay": 0.0})
+    opt = build_optimizer("adamw", model, {"lr": 1e-3, "weight_decay": 0.0})
     loss = model(torch.ones(3, 4)).sum()
     opt.zero_grad(set_to_none=True)
     loss.backward()

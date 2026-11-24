@@ -4,9 +4,16 @@ from hale_core.config.sections.ray import RayConfig
 from pydantic import Field
 
 from hale_llm.config.sections.common import StrictModel
+from hale_llm.config.sections.lean import LeanConfig
+from hale_llm.config.sections.titan import TitanConfig
 
 
 class TrainConfig(StrictModel):
+    # Which training backend runs: lean (default, single-file loop) | full (Ray, DDP/FSDP,
+    # W&B, GIFs) | torchtitan (NVIDIA GPUs only). Names come from the backend registry.
+    trainer: str = "lean"
+    lean: LeanConfig = Field(default_factory=LeanConfig)
+    titan: TitanConfig = Field(default_factory=TitanConfig)
     steps: int | None = 300
     epochs: int | None = None
     lr: float = 1e-3
@@ -21,7 +28,15 @@ class TrainConfig(StrictModel):
     loss_type: Literal["ce", "focal", "label_smoothing"] = "ce"
     focal_gamma: float = 2.0
     focal_alpha: float = 1.0
+    # Registered optimizer name: adamw | adam | sgd | muon.
+    # Default adamw = LLM recipe: betas (adam_beta1, adam_beta2), decay on weight matrices only.
     optimizer_type: str = "adamw"
+    adam_beta1: float = 0.9
+    adam_beta2: float = 0.95
+    # Muon only: learning rate and momentum for the hidden weight matrices
+    # (everything else uses `lr` with AdamW). Typical Muon lr is ~0.02.
+    muon_lr: float = 0.02
+    muon_momentum: float = 0.95
 
     # Distributed training / data parallelism
     parallel_strategy: Literal["none", "dp", "ddp", "fsdp"] = "none"

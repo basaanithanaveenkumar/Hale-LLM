@@ -9,8 +9,23 @@ from loguru import logger
 
 from hale_llm.config.experiment import apply_experiment_layout
 from hale_llm.config.schema import load_config
-from hale_llm.training.trainer import train
+from hale_llm.training.backends import get_trainer_backend
 from hale_llm.utils.logging import setup_logging
+
+
+def _warn_ignored_by_lean(args: argparse.Namespace) -> None:
+    """The lean loop has no resume, W&B or GIFs; say so instead of silently ignoring flags."""
+    ignored = [
+        flag
+        for flag, used in {
+            "--resume": args.resume,
+            "--viz": args.viz_enabled,
+            "--wandb": args.wandb,
+        }.items()
+        if used
+    ]
+    if ignored:
+        logger.warning("lean trainer ignores {}; use --trainer full for these", ", ".join(ignored))
 
 
 def main() -> None:
@@ -20,6 +35,11 @@ def main() -> None:
     p.add_argument("--log-level", default=None, choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     p.add_argument("--epochs", type=int, default=None, help="Override train.epochs")
     p.add_argument("--steps", type=int, default=None, help="Override train.steps (ignored if --epochs is set)")
+    p.add_argument(
+        "--trainer",
+        default=None,
+        help="Backend: lean (default) | full | torchtitan. Overrides train.trainer",
+    )
     resume = p.add_mutually_exclusive_group()
     resume.add_argument(
         "--resume",
@@ -115,6 +135,12 @@ def main() -> None:
         if args.wandb_tags is not None:
             cfg.logging.wandb_tags = args.wandb_tags
         
+        if args.trainer is not None:
+            cfg.train.trainer = args.trainer
+        backend = get_trainer_backend(cfg.train.trainer)  # unknown name -> KeyError listing options
+        backend.validate(cfg)  # fail before creating any run folder
+        if cfg.train.trainer == "lean":
+            _warn_ignored_by_lean(args)
         apply_experiment_layout(cfg, create=True, name=args.experiment)
         setup_logging(level=cfg.logging.level, log_file=cfg.logging.log_file, force=True)
         logger.info(
@@ -124,7 +150,7 @@ def main() -> None:
             cfg.viz.enabled,
             cfg.experiment.name,
         )
-        train(cfg)
+        backend.run(cfg)
     except Exception:
         logger.exception("hale-llm-train failed")
         raise

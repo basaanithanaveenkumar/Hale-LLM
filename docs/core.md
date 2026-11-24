@@ -41,3 +41,23 @@ from hale_llm.core.components import (
     build_attention, build_ffn, TransformerLayer, DiTBlock, RMSNorm,
 )
 ```
+
+## Registered building blocks (`hale_llm.nn`, `hale_llm.optim`)
+
+Each switch in the YAML is a name looked up in a registry, so adding an option is one
+decorated class and no edit to the code that uses it.
+
+```mermaid
+flowchart LR
+  Y["YAML<br/>model.pos_encoding · model.norm_type<br/>train.optimizer_type · train.loss_type"] --> F[build_backbone / build_optimizer]
+  F --> P["POSITIONAL_ENCODINGS<br/>rope · learned"]
+  F --> N["NORMS<br/>layer · rms"]
+  F --> O["OPTIMIZERS<br/>muon (hale_llm) · adamw, adam, sgd (hale_core)"]
+  P --> A[PositionalAttention]
+  N --> L[DecoderLayer]
+  A --> L --> S[DecoderStack] --> B[GPTBackbone]
+```
+
+Add a scheme: `@register_positional_encoding("alibi")`, `@register_norm("scale")` or
+`@register_optimizer("lion")`, then import the module once. `lgt` and `dit` backbones come
+from hale_core and keep their own fixed RoPE/RMSNorm; the switches apply to `arch: transformer`.

@@ -67,3 +67,35 @@ def test_mtp_stub_runs_a_few_steps(variant, tiny_tokenizer, tmp_path):
     cfg.experiment.enabled = False
     _, _, losses = train(cfg, tokenizer=tiny_tokenizer)
     assert losses[-1] > 0
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"optimizer_type": "muon", "lr": 3e-3},
+        {"loss_type": "focal", "focal_gamma": 2.0},
+    ],
+    ids=["muon", "focal"],
+)
+def test_config_selected_optimizer_and_loss_train(overrides, tiny_tokenizer, tmp_path):
+    """The names in YAML (`optimizer_type`, `loss_type`) reach the trainer and the loss drops."""
+    cfg = load_config(REPO / "configs" / "autoregressive" / "small.yaml")
+    cfg.train.steps, cfg.train.epochs, cfg.train.batch_size = 150, None, 8
+    cfg.train.checkpoint_path = str(tmp_path / "ckpt.pt")
+    cfg.train.lr = 3e-3
+    for key, value in overrides.items():
+        setattr(cfg.train, key, value)
+    cfg.model.d_model, cfg.model.n_heads, cfg.model.n_layers = 64, 4, 2
+    cfg.model.d_ff, cfg.model.max_length = 128, 32
+    cfg.model.norm_type = "rms"
+    cfg.data.overfit_text = "hello world hello world"
+    cfg.data.n_overfit_copies = 32
+    cfg.device = "cpu"
+    cfg.logging.tensorboard, cfg.logging.log_file, cfg.logging.level = False, None, "WARNING"
+    cfg.train.resume = False
+    cfg.eval.every_n_epochs = None
+    cfg.viz.enabled = False
+    cfg.experiment.enabled = False
+
+    _, _, losses = train(cfg, tokenizer=tiny_tokenizer)
+    assert losses[-1] < losses[0] * 0.7, (losses[0], losses[-1])
