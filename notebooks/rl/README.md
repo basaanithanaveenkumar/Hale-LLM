@@ -46,6 +46,8 @@ flowchart LR
 | 11 | `11_rlaif_selfplay_online` | RLAIF / Constitutional AI, online & iterative DPO, self-rewarding, SPIN, TTRL |
 | 12 | `12_rl_for_vlms` | RLHF-V style, multimodal DPO (mDPO), GRPO for VLMs (Visual-RFT / VLM-R1) |
 | 13 | `13_frontier_pitfalls_systems` | reward hacking, KL estimators, entropy collapse, off-policy/async RL, the family tree |
+| 14 | `14_llm_post_training_step_by_step` | **capstone, beginner-first:** SFT, Bradley-Terry reward model, RLHF with PPO, DPO, GRPO and RLVR on ONE toy task (a tiny GPT answering `a+b=`), with paper figures, 4 animated training films, 40+ verified checks and an honest head-to-head (incl. failure modes) |
+| 15 | `15_deepseek_r1_step_by_step` | DeepSeek-R1, one idea at a time: pure RL from a base model, rule-based rewards, GRPO (checked against REINFORCE), thinking-time growth, the aha moment (and what it takes), pass@k / majority vote, cold start, language-consistency reward, rejection sampling + SFT, distillation vs RL, failed PRM / MCTS - paper figures + toy experiments, honest about what does not reproduce |
 
 Companion: `01_online_rl.ipynb` (pre-existing) applies GRPO / self-reward to this repo's diffusion LLMs
 through `hale_llm.rl`. The course notebooks are self-contained and teach the algorithms from first principles.

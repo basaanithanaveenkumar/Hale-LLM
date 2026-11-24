@@ -318,7 +318,7 @@ def reduce_dict(
 
     reduced = {}
     for key, value in metrics.items():
-        tensor = torch.tensor(value, dtype=torch.float32, device=torch.cuda.current_device())
+        tensor = torch.tensor(value, dtype=torch.float32, device=torch.device("cuda", torch.cuda.current_device()) if torch.cuda.is_available() else torch.device("cpu"))
         dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
         if average:
             tensor /= world_size

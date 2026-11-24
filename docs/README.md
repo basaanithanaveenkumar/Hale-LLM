@@ -1,5 +1,8 @@
 # Docs
 
+- [Overview](overview.md): how it works, design, variants
+- [Getting started](getting_started.md): install, train, sample, experiments, tests
+- [Notebooks and resources](notebooks.md): step-by-step notebooks, paper, project page
 - [Architecture](architecture.md): Mermaid diagrams of paradigms, objectives, block diffusion and the backbone
 - [Configuration reference](config.md): every YAML key, defaults and recipes
 - [Core library](core.md): components, transformer stacks, backbones

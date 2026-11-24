@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "HaleBlocks" / "src"))
 
 import torch
+from hale_llm.utils.device import get_device
 from hale_core.nn import DiTBackbone, GPTBackbone, LGTBackbone
 from hale_core.profiling import ModelProfiler
 from loguru import logger
@@ -73,7 +74,7 @@ _BUILDERS = {"gpt": build_gpt, "lgt": build_lgt, "dit": build_dit}
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="HaloDiffusionLLM profiler")
     p.add_argument("--arch", default="gpt", choices=list(_BUILDERS))
-    p.add_argument("--device", default="cpu")
+    p.add_argument("--device", default="cpu", type=get_device)
     p.add_argument("--batch-size", type=int, default=2)
     p.add_argument("--seq-len", type=int, default=128)
     p.add_argument("--vocab-size", type=int, default=8192)
