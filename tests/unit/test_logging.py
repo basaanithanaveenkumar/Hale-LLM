@@ -7,12 +7,13 @@ def test_setup_logging_levels(tmp_path):
     setup_logging(level="DEBUG", log_file=str(log_file), force=True)
     from loguru import logger
 
-    logger.debug("d")
-    logger.info("i")
-    logger.warning("w")
-    logger.error("e")
+    logger.debug("msg-debug")
+    logger.info("msg-info")
+    logger.warning("msg-warning")
+    logger.error("msg-error")
     text = log_file.read_text()
-    assert "d" in text and "i" in text and "w" in text and "e" in text
+    for level in ("debug", "info", "warning", "error"):
+        assert f"msg-{level}" in text
 
 
 def test_tensorboard_writer(tmp_path):

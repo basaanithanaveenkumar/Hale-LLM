@@ -43,6 +43,8 @@ hale-llm-train = "hale_llm.cli.train:main"
 hale-llm-sample = "hale_llm.cli.sample:main"
 hale-llm-eval = "hale_llm.cli.eval:main"
 hale-llm-viz = "hale_llm.cli.visualize:main"
+hale-llm-infer = "hale_llm.cli.inference:main"
+hale-llm-chat = "hale_llm.cli.chat:main"
 
 [tool.uv.sources]
 hale-blocks = { git = "https://github.com/basaanithanaveenkumar/HaleBlocks.git" }

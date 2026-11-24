@@ -1,3 +1,6 @@
 [submodule "ext_pkgs/grokfast"]
 	path = ext_pkgs/grokfast
 	url = https://github.com/ironjr/grokfast.git
+[submodule "ext_pkgs/gpt-oss"]
+	path = ext_pkgs/gpt-oss
+	url = https://github.com/openai/gpt-oss.git

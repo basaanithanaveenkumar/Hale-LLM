@@ -1,6 +1,6 @@
 name: Project page
 
-# Builds the arXiv-style paper (paper/main.tex) and publishes it together with
+# Builds the technical report (technical_report/main.tex) and publishes it together with
 # the project page in project-page/ to GitHub Pages.
 # One-time setup: Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
 
@@ -8,7 +8,7 @@ on:
   push:
     branches: [masked_diffusion_llm]
     paths:
-      - "paper/**"
+      - "technical_report/**"
       - "project-page/**"
       - "assets/**"
       - ".github/workflows/pages.yml"
@@ -28,16 +28,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Compile paper
+      - name: Compile technical report
         uses: xu-cheng/latex-action@v3
         with:
           root_file: main.tex
-          working_directory: paper
+          working_directory: technical_report
       - name: Assemble site
         run: |
           mkdir -p _site
           cp -r project-page/. _site/
-          cp paper/main.pdf _site/paper.pdf
+          cp technical_report/main.pdf _site/technical_report.pdf
           mkdir -p _site/static
           cp assets/block_diffusion_step4900.gif _site/static/
       - uses: actions/upload-pages-artifact@v3

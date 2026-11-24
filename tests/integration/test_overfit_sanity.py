@@ -54,6 +54,9 @@ def test_mtp_stub_runs_a_few_steps(variant, tiny_tokenizer, tmp_path):
     cfg.model.n_layers = 2
     cfg.model.d_ff = 128
     cfg.model.max_length = 32
+    # Same tiny in-memory corpus as above so the tiny tokenizer ids stay in range.
+    cfg.data.overfit_text = "hello world hello world"
+    cfg.data.n_overfit_copies = 32
     cfg.device = "cpu"
     cfg.logging.tensorboard = False
     cfg.logging.log_file = None

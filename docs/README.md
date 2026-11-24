@@ -7,4 +7,4 @@
 - [Usage](usage.md): CLI recap
 - [Blog](blog.md): long-form posts
 
-Also: the [paper](../paper/main.tex) and the [project page](../project-page/index.html).
+Also: the [technical report](../technical_report/main.tex) and the [project page](../project-page/index.html).

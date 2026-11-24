@@ -220,9 +220,9 @@ flowchart LR
 
 ---
 
-## Diagrams matching the paper
+## Diagrams matching the technical report
 
-Mermaid diagrams (they render on GitHub). They match the [paper](../paper/main.tex) and the
+Mermaid diagrams (they render on GitHub). They match the [technical report](../technical_report/main.tex) and the
 [project page](../project-page/index.html).
 
 ## 1. Paradigms as plugins
