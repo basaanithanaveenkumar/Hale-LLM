@@ -58,7 +58,7 @@ def test_yaml_inherit():
     assert cfg.device == "mps"
     assert "loss" in cfg.eval.metrics
     assert cfg.eval.every_n_epochs == 10
-    assert cfg.viz.enabled is True
+    assert cfg.viz.enabled is False  # GIF output is opt-in (--viz)
     assert cfg.viz.prompt_source == "dataset"
     assert cfg.viz.every_n_epochs is None
     assert cfg.experiment.enabled is True

@@ -40,6 +40,9 @@ class GPTBackbone(SequenceBackbone):
         pos_encoding: str = "rope",
         norm_type: str = "layer",
         rope_theta: float = 10_000.0,
+        rope_scaling: str = "none",
+        rope_scaling_factor: float = 1.0,
+        rope_original_length: int = 4096,
         arch: str = "transformer",
         **_ignored,
     ) -> None:
@@ -68,6 +71,9 @@ class GPTBackbone(SequenceBackbone):
             max_length=max_length,
             head_dim=d_model // n_heads,
             rope_theta=rope_theta,
+            rope_scaling=rope_scaling,
+            rope_scaling_factor=rope_scaling_factor,
+            rope_original_length=rope_original_length,
         )
         self.stack = DecoderStack(
             d_model=d_model,

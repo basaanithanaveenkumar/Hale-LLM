@@ -25,6 +25,11 @@ class DataConfig(StrictModel):
     # joined with EOS between them and cut into back-to-back windows of this size.
     # None = use model.max_length.
     context_window: int | None = None
+    # Share of windows built from naturally long documents (books, papers, code files), mixed
+    # with the normal windows. 0 = off. Context-extension stages set this per stage.
+    long_doc_fraction: float = 0.0
+    # Minimum tokens for a document to count as long (None = half the context window).
+    long_doc_min_tokens: int | None = None
 
     # Convert the tokenised windows to WebDataset tar shards once and stream them afterwards
     # (enabled: true); off by default.

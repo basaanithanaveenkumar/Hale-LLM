@@ -4,7 +4,8 @@ from datasets import load_dataset
 from loguru import logger
 from torch.utils.data import Dataset
 
-from hale_llm.dataloader.context_windows import pack_context_windows
+from hale_llm.dataloader.context_windows import pack_context_windows, require_eos_id, tokenize_documents
+from hale_llm.dataloader.long_document_mix import mix_long_documents
 
 
 def load_hf_split(cfg, split: str):
@@ -49,7 +50,18 @@ class HuggingFaceTextDataset(Dataset):
         self.context_window = cfg.model.max_length  # set from data.context_window
         raw = load_hf_split(cfg, split)
         documents = documents_from_split(raw, cfg.data.text_field)
-        self.ids = pack_context_windows(tokenizer, documents, self.context_window)
+        data = cfg.data
+        if data.long_doc_fraction > 0:
+            # Long-context stage: take part of the windows from naturally long documents.
+            self.ids = mix_long_documents(
+                tokenize_documents(tokenizer, documents),
+                require_eos_id(tokenizer),
+                self.context_window,
+                data.long_doc_fraction,
+                data.long_doc_min_tokens or self.context_window // 2,
+            )
+        else:
+            self.ids = pack_context_windows(tokenizer, documents, self.context_window)
         logger.info(
             "split={} documents={} -> {:,} context windows of {} tokens ({:,} tokens)",
             split,

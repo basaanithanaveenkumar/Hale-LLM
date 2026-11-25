@@ -1,0 +1,43 @@
+# ~300M-parameter autoregressive recipe that follows the context-length guidance:
+#   * pretrain at 4k tokens for 95% of the steps, RoPE base 100k
+#   * extend to 32k for the last 5% with RoPE base 1M, mixing in long documents
+#     so short-context quality does not regress
+#   * optional: run beyond 32k at inference with YaRN (model.rope_scaling: yarn)
+#
+# Replace `data` with your own pretraining mix (this default is only a stand-in).
+# Tokens per optimizer step = batch_size x accum_steps x context_window
+#   = 8 x 16 x 4096 = 524,288, so 20,000 steps is about 10B tokens.
+inherits: ../autoregressive/small.yaml
+
+model:
+  d_model: 1024
+  n_heads: 16
+  n_layers: 24
+  d_ff: 4096
+  dropout: 0.0
+  attn_impl: gqa
+  n_kv_heads: 4
+  norm_type: rms
+  pos_encoding: rope
+  rope_theta: 100000
+data:
+  context_window: 4096
+  train_size: null          # whole split
+  val_size: 2000
+train:
+  trainer: lean
+  steps: 20000
+  epochs: null
+  batch_size: 8
+  lr: 0.0003
+  lean:
+    accum_steps: 16
+    warmup_steps: 1000
+    eval_every: 1000
+  context_stages:
+    - name: extend_32k
+      start_fraction: 0.95
+      context_window: 32768
+      rope_theta: 1000000
+      long_doc_fraction: 0.5
+device: cuda

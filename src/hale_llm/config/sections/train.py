@@ -4,6 +4,7 @@ from hale_core.config.sections.ray import RayConfig
 from pydantic import Field
 
 from hale_llm.config.sections.common import StrictModel
+from hale_llm.config.sections.context_stage import ContextStageConfig
 from hale_llm.config.sections.lean import LeanConfig
 from hale_llm.config.sections.titan import TitanConfig
 
@@ -13,6 +14,9 @@ class TrainConfig(StrictModel):
     # W&B, GIFs) | torchtitan (NVIDIA GPUs only). Names come from the backend registry.
     trainer: str = "lean"
     lean: LeanConfig = Field(default_factory=LeanConfig)
+    # Optional context-extension schedule (lean trainer, RoPE transformer only). Empty =
+    # train at data.context_window throughout. See docs/context_length.md.
+    context_stages: list[ContextStageConfig] = Field(default_factory=list)
     titan: TitanConfig = Field(default_factory=TitanConfig)
     steps: int | None = 300
     epochs: int | None = None

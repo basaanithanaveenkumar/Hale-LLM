@@ -69,6 +69,7 @@ Model strategy
 35. need to find a better light weight tokenizer , ann register it and also study more about tokenizers, should I pick a preexisting tokenizer or should i train it from scratch
 
 
+
 Metrics:
 1. come up with prper metrics 
 
@@ -92,6 +93,20 @@ Baseline:
 2. Bf16 or fp16 training
 3. fp8 training
 4. fp4 training
+
+
+## Training recipie for context length 
+SmolLM3, at your scale, followed it: it pretrained with a global batch size of 2.36M tokens with 4096 sequence length, then trained on an additional 100B tokens to extend its context length. 
+huggingface
+githubusercontent
+
+Pretrain at 4k (8k if your data has a lot of code) for ~90–95% of tokens. Use RoPE with base θ around 10k–500k.
+Extend during mid-training: move to 32k and raise RoPE θ (e.g., to 1M–5M). Train on naturally long documents (books, papers, full repository files) mixed with short data so short-context quality doesn't regress. Budget about 2–5% of total tokens for this.
+Optionally go to 64k–128k: a second stage, or YaRN-style RoPE scaling at inference on top of the 32k-trained model.
+Train post-training data at the target length, including long multi-turn and agent traces. Otherwise the model will technically accept 32k tokens but won't follow instructions well at that length
+
+
+
 ## Train and chat
 
 ```bash

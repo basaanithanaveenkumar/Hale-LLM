@@ -59,6 +59,7 @@ def _bind_paths(cfg: RunConfig, run_dir: Path, *, dump_config: bool = True) -> N
     cfg.logging.log_file = str(run_dir / "logs" / "train.log")
     cfg.logging.tensorboard_dir = str(run_dir / "tb")
     cfg.viz.output_dir = str(run_dir / "viz")
+    cfg.tokenizer.path = str(run_dir / "tokenizer")
     cfg.experiment.name = run_dir.name
     if dump_config:
         _dump_resolved_config(cfg, run_dir)

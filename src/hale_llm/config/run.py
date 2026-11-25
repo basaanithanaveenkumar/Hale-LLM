@@ -10,6 +10,7 @@ from hale_llm.config.sections import (
     LoggingConfig,
     ModelConfig,
     SampleConfig,
+    TokenizerConfig,
     TrainConfig,
     VizConfig,
 )
@@ -21,6 +22,7 @@ class RunConfig(StrictModel):
     model: ModelConfig = Field(default_factory=ModelConfig)
     train: TrainConfig = Field(default_factory=TrainConfig)
     data: DataConfig = Field(default_factory=DataConfig)
+    tokenizer: TokenizerConfig = Field(default_factory=TokenizerConfig)
     sample: SampleConfig = Field(default_factory=SampleConfig)
     eval: EvalConfig = Field(default_factory=EvalConfig)
     viz: VizConfig = Field(default_factory=VizConfig)

@@ -347,6 +347,20 @@ model:
 
 Sample / eval / viz attach to `latest` unless `--experiment` is set. They do not create a new run folder.
 
+### Tokenizer, context stages, RoPE scaling
+
+| Key | Default | Notes |
+|---|---|---|
+| `tokenizer.source` | `trained` | `trained` learns a byte-level tokenizer from the training split each run; `pretrained` uses `data.tokenizer_name`. See [tokenizer.md](tokenizer.md). |
+| `tokenizer.kind` | `superbpe` | `superbpe` or `bpe` (registry). |
+| `tokenizer.vocab_size` | `null` | `null` = chosen from the model size (32,768 under 500M parameters). |
+| `tokenizer.vocab_policy` | `by_model_size` | Registry of sizing rules. |
+| `tokenizer.transition_fraction` / `stage2_max_tokens` / `min_frequency` | `0.8` / `2000000` / `2` | SuperBPE stage split and limits. |
+| `tokenizer.path` | `data/tokenizer` | Experiment runs set it to `<run>/tokenizer`. |
+| `data.long_doc_fraction` / `long_doc_min_tokens` | `0` / `null` | Share of windows from naturally long documents. |
+| `train.context_stages` | `[]` | Context-extension schedule; see [context_length.md](context_length.md). |
+| `model.rope_scaling` / `rope_scaling_factor` / `rope_original_length` | `none` / `1.0` / `4096` | `none`, `linear` or `yarn`. |
+
 ### How text becomes training windows
 
 ```mermaid

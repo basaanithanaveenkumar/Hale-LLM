@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -16,6 +17,7 @@ from hale_llm.core.tensors import log_model_summary
 from hale_llm.dataloader.tokenizer import build_tokenizer_for
 from hale_llm.inference.encode import encode_prompt
 from hale_llm.inference.stop import cut_at_stop
+from hale_llm.tokenizer.store import TokenizerStore
 from hale_llm.utils.device import get_device
 
 
@@ -77,6 +79,21 @@ def session_from_model(model: nn.Module, tokenizer, cfg: RunConfig, device: str 
     return InferenceSession(model=model.to(device), tokenizer=tokenizer, cfg=cfg, device=device)
 
 
+def _adopt_trained_context(cfg: RunConfig, ckpt: dict) -> None:
+    """Use the context window and RoPE base the weights were trained with.
+
+    After context extension the final stage's RoPE base differs from the YAML's. Using
+    the YAML value would silently rotate positions differently from training.
+    """
+    trained = (ckpt.get("config") or {}).get("model") or {}
+    if "max_length" in trained and trained["max_length"] != cfg.model.max_length:
+        logger.info("using the trained context window {} (config says {})", trained["max_length"], cfg.model.max_length)
+        cfg.set_context_window(trained["max_length"])
+    if "rope_theta" in trained and trained["rope_theta"] != cfg.model.rope_theta:
+        logger.info("using the trained rope theta {:g} (config says {:g})", trained["rope_theta"], cfg.model.rope_theta)
+        cfg.model.rope_theta = trained["rope_theta"]
+
+
 def load_session(
     cfg: RunConfig,
     checkpoint_path: str | None = None,
@@ -94,13 +111,19 @@ def load_session(
     import hale_llm.models  # noqa: F401
 
     device = get_device(cfg.device)
-    tokenizer = tokenizer or build_tokenizer_for(cfg)
-    store = checkpoints or CheckpointStore()
     path = checkpoint_path or cfg.train.checkpoint_path
+    # A checkpoint lives in <run>/checkpoints/; its tokenizer in <run>/tokenizer/.
+    beside_checkpoint = Path(path).resolve().parent.parent / "tokenizer"
+    if checkpoint_path and TokenizerStore.exists(beside_checkpoint):
+        cfg.tokenizer.path = str(beside_checkpoint)
+    # Inference must never train a tokenizer: it has to be the one the model was trained with.
+    tokenizer = tokenizer or build_tokenizer_for(cfg, allow_training=False)
+    store = checkpoints or CheckpointStore()
     model_cls = get_variant(cfg.variant)
 
     if store.exists(path):
         ckpt = store.load(path, device)
+        _adopt_trained_context(cfg, ckpt)
         model = model_cls(vocab_size=ckpt["vocab_size"], cfg=cfg).to(device)
         model.load_state_dict(ckpt["model_state_dict"])
         logger.info("inference session variant={} device={} ckpt={}", cfg.variant, device, path)

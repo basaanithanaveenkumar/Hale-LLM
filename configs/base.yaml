@@ -39,6 +39,13 @@ data:
   val_size: 1000
   overfit_text: null
   n_overfit_copies: 64
+tokenizer:
+  source: trained        # trained = learn a byte-level tokenizer from this run's data | pretrained = data.tokenizer_name
+  kind: superbpe         # superbpe | bpe
+  vocab_size: null       # null = chosen from the model size (32,768 under 500M params)
+  vocab_policy: by_model_size
+  transition_fraction: 0.8
+  stage2_max_tokens: 2000000
 sample:
   max_new_tokens: 64
   temperature: 1.0

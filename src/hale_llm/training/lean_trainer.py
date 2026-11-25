@@ -38,6 +38,8 @@ from hale_llm.core.tensors import move_batch_to_device
 from hale_llm.dataloader.data_module import DataModule
 from hale_llm.optim import build_optimizer
 from hale_llm.utils.device import get_device
+from hale_llm.training.context_schedule import ContextSchedule
+from hale_llm.training.context_stage_plan import ContextStagePlan
 from hale_llm.training.schedule import TrainSchedule
 
 
@@ -75,6 +77,30 @@ def validation_loss(model, loss_fn, loader, device: str, max_batches: int) -> fl
     return sum(losses) / max(len(losses), 1)
 
 
+def apply_stage_to_model(model, cfg: RunConfig, plan: ContextStagePlan) -> None:
+    """Switch the model and config to a stage's context window and RoPE base.
+
+    RoPE has no position table, so a longer window only needs the backbone's length limit
+    raised and the rotation base changed. ``cfg`` is updated too because the checkpoint
+    stores it, and inference must rebuild the model with the *final* stage's settings.
+    """
+    cfg.set_context_window(plan.context_window)
+    cfg.model.rope_theta = plan.rope_theta
+    model.backbone.max_length = plan.context_window
+    model.backbone.positional.set_theta(plan.rope_theta)
+
+
+def stage_loaders(cfg: RunConfig, plan: ContextStagePlan, tokenizer):
+    """Train and validation loaders for one stage (its own window, batch and long-document mix)."""
+    stage_cfg = cfg.model_copy(deep=True)
+    stage_cfg.set_context_window(plan.context_window)
+    stage_cfg.train.batch_size = plan.batch_size
+    stage_cfg.data.long_doc_fraction = plan.long_doc_fraction
+    stage_cfg.data.long_doc_min_tokens = plan.long_doc_min_tokens
+    data = DataModule(stage_cfg, tokenizer)
+    return data, data.train_loader(), data.val_loader()
+
+
 def train_lean(cfg: RunConfig, tokenizer=None) -> list[float]:
     """Run the whole training loop and return the per-step training losses.
 
@@ -93,6 +119,9 @@ def train_lean(cfg: RunConfig, tokenizer=None) -> list[float]:
     train_loader = data.train_loader()
     total_steps = TrainSchedule.from_config(cfg, len(train_loader)).total_steps
     train_batches = endless(train_loader)
+    # Optional context-extension stages (empty list = one stage for the whole run).
+    schedule = ContextSchedule.from_config(cfg, total_steps)
+    current_plan = schedule.plan_at(0)
     val_loader = data.val_loader()
 
     logger.info(
@@ -138,7 +167,20 @@ def train_lean(cfg: RunConfig, tokenizer=None) -> list[float]:
     started = time.time()
 
     for step in range(total_steps):
-        # 5. Learning rate for this step: every group keeps its own base lr, scaled.
+        # 5a. Entering a new context stage: longer window, larger RoPE base, fresh loaders.
+        plan = schedule.plan_at(step)
+        if plan is not current_plan:
+            logger.info("step {}: entering context stage '{}' (window {})", step, plan.name, plan.context_window)
+            apply_stage_to_model(plain_model, cfg, plan)
+            data, train_loader, val_loader = stage_loaders(cfg, plan, data.tokenizer)
+            train_batches = endless(train_loader)
+            current_plan = plan
+            logger.info(
+                "stage data: {:,} context windows of {} tokens",
+                len(train_loader.dataset), plan.context_window,
+            )
+
+        # 5b. Learning rate for this step: every group keeps its own base lr, scaled.
         scale = lr_multiplier(step, total_steps, warmup_steps, warmdown_frac)
         for group in optimizer.param_groups:
             group["lr"] = group["base_lr"] * scale

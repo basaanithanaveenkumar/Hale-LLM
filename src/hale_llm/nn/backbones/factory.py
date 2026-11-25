@@ -24,7 +24,8 @@ def build_backbone(vocab_size: int, model_cfg=None, **overrides):
         kwargs = backbone_kwargs(vocab_size, model_cfg, **overrides)
         kwargs["pos_encoding"] = model_cfg.pos_encoding
         kwargs["norm_type"] = model_cfg.norm_type
-        kwargs["rope_theta"] = model_cfg.rope_theta
+        for name in ("rope_theta", "rope_scaling", "rope_scaling_factor", "rope_original_length"):
+            kwargs[name] = getattr(model_cfg, name)
         kwargs.update(overrides)
     else:
         kwargs = {"vocab_size": vocab_size, **overrides}

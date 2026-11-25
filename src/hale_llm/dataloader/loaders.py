@@ -28,6 +28,8 @@ def dataset_fingerprint(cfg, hf_split: str) -> str:
         "tokenizer": data.tokenizer_name,
         "context_window": cfg.model.max_length,
         "packing": "non_overlapping_eos_v1",  # bump when the packing rules change
+        "tokenizer": [cfg.tokenizer.source, cfg.tokenizer.kind, cfg.tokenizer.path],
+        "long_docs": [data.long_doc_fraction, data.long_doc_min_tokens],
         "add_special_tokens": data.add_special_tokens,
     }
     return hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest()

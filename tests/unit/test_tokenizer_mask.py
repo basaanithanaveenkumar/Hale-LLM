@@ -11,14 +11,14 @@ GPT2_VOCAB = 50_257
 
 
 def test_autoregressive_keeps_the_plain_gpt2_vocabulary():
-    tok = build_tokenizer_for(RunConfig(variant="autoregressive"))
+    tok = build_tokenizer_for(RunConfig(variant="autoregressive", tokenizer={"source": "pretrained"}))
     assert len(tok) == GPT2_VOCAB
     assert tok.mask_token is None
 
 
 @pytest.mark.parametrize("variant", ["diffusion", "block_diffusion", "flow_matching"])
 def test_diffusion_variants_get_one_extra_mask_token(variant):
-    tok = build_tokenizer_for(RunConfig(variant=variant))
+    tok = build_tokenizer_for(RunConfig(variant=variant, tokenizer={"source": "pretrained"}))
     assert len(tok) == GPT2_VOCAB + 1
     assert tok.mask_token == "[MASK]"
 
@@ -32,5 +32,5 @@ def test_only_masking_variants_declare_the_flag():
 
 
 def test_tokenizer_is_loaded_once_per_configuration():
-    cfg = RunConfig(variant="autoregressive")
+    cfg = RunConfig(variant="autoregressive", tokenizer={"source": "pretrained"})
     assert build_tokenizer_for(cfg) is build_tokenizer_for(cfg)

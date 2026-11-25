@@ -1,0 +1,6 @@
+# Tokenizer ablation, arm B: SuperBPE (BPE whose second stage merges across words).
+# Same model, data, steps and compute as tokenizer_bpe.yaml; only the tokenizer differs.
+inherits: ../long_context/300m_4k_to_32k.yaml
+
+tokenizer:
+  kind: superbpe

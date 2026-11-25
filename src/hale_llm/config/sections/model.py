@@ -33,3 +33,9 @@ class ModelConfig(StrictModel):
     # Name of a registered norm layer (see hale_llm.nn.norm): layer | rms.
     norm_type: str = "layer"
     rope_theta: float = 10_000.0
+    # Stretch RoPE beyond the trained length (see hale_llm.nn.positional.scaling):
+    # none | linear | yarn. `rope_scaling_factor` = target length / trained length;
+    # `rope_original_length` is the length the weights were trained at.
+    rope_scaling: str = "none"
+    rope_scaling_factor: float = 1.0
+    rope_original_length: int = 4096

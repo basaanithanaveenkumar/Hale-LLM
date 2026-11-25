@@ -32,10 +32,27 @@ def setup_tokenizer(name: str = "gpt2", add_mask_token: bool = False):
     return tok
 
 
-def build_tokenizer_for(cfg):
-    """Tokenizer for a run: adds ``[MASK]`` only when the configured variant needs it."""
+_LOADED: dict[tuple, object] = {}  # in-process memo; the files on disk are the source of truth
+
+
+def build_tokenizer_for(cfg, *, allow_training: bool = True):
+    """The tokenizer for a run.
+
+    ``tokenizer.source: trained`` (default): load the run's trained tokenizer, or train
+    one on the training data if none exists yet (``allow_training=False`` forbids that,
+    used when loading a model for inference). ``pretrained``: a Hub tokenizer such as gpt2.
+    """
     import hale_llm.models  # noqa: F401  (registers the variants)
     from hale_llm.core.registry import get_variant
 
     needs_mask = getattr(get_variant(cfg.variant), "uses_mask_token", False)
-    return setup_tokenizer(cfg.data.tokenizer_name, add_mask_token=needs_mask)
+    if cfg.tokenizer.source == "pretrained":
+        return setup_tokenizer(cfg.data.tokenizer_name, add_mask_token=needs_mask)
+
+    from hale_llm.tokenizer import TokenizerBuilder
+
+    t = cfg.tokenizer
+    key = (t.path, needs_mask, t.kind, t.vocab_size, cfg.data.dataset)
+    if key not in _LOADED:
+        _LOADED[key] = TokenizerBuilder(cfg, with_mask=needs_mask).build(allow_training=allow_training)
+    return _LOADED[key]
