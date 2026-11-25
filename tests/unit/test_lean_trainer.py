@@ -93,3 +93,17 @@ def test_a_checkpoint_of_another_variant_is_rejected(tiny_tokenizer, tmp_path):
     other.variant, other.model.ffn_type = "autoregressive_moe", "moe"
     with pytest.raises(ValueError, match="variant"):
         load_session(other, tokenizer=tiny_tokenizer, require_checkpoint=True)
+
+
+def test_a_moe_checkpoint_saved_with_ffn_type_mlp_still_loads(tiny_tokenizer, tmp_path):
+    """Older runs stored ffn_type='mlp' for the MoE variant; the variant decides."""
+    from hale_llm.runtime import CheckpointStore
+
+    cfg = _cfg(tmp_path, "adamw")
+    cfg.variant, cfg.model.ffn_type, cfg.train.steps = "autoregressive_moe", "moe", 2
+    train_lean(cfg, tokenizer=tiny_tokenizer)
+    store = CheckpointStore()
+    ckpt = store.load(cfg.train.checkpoint_path)
+    ckpt["config"]["model"]["ffn_type"] = "mlp"
+    store.save(cfg.train.checkpoint_path, **ckpt)
+    assert load_session(cfg, tokenizer=tiny_tokenizer, require_checkpoint=True).model.uses_moe
