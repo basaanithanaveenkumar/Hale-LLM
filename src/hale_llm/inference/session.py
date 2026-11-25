@@ -10,7 +10,6 @@ import torch
 from loguru import logger
 from torch import nn
 
-from hale_llm.config.run import VARIANT_FFN_TYPE
 from hale_llm.config.schema import RunConfig
 from hale_llm.runtime import CheckpointStore
 from hale_llm.registry import get_sampler, get_variant
@@ -95,10 +94,7 @@ def _adopt_trained_model(cfg: RunConfig, ckpt: dict) -> None:
     if ckpt.get("variant") not in (None, cfg.variant):
         raise ValueError(f"checkpoint was trained as variant {ckpt['variant']!r}, config says {cfg.variant!r}")
     kept = {name: getattr(cfg.model, name) for name in _INFERENCE_KNOBS}
-    settings = {**trained, **kept}
-    # Checkpoints saved before RunConfig fixed the feed-forward type per variant may say "mlp".
-    settings["ffn_type"] = VARIANT_FFN_TYPE.get(cfg.variant, settings["ffn_type"])
-    adopted = type(cfg.model)(**settings)
+    adopted = type(cfg.model)(**{**trained, **kept})
     changed = sorted(n for n in type(cfg.model).model_fields if getattr(adopted, n) != getattr(cfg.model, n))
     if changed:
         logger.info("using the trained model settings from the checkpoint; differs from the YAML in: {}", changed)
