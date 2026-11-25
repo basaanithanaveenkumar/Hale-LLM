@@ -116,7 +116,8 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
     #    The step count comes from train.steps, or from train.epochs x batches per epoch.
     data = DataModule(cfg, tokenizer)
     train_loader = data.train_loader()
-    total_steps = TrainSchedule.from_config(cfg, len(train_loader)).total_steps
+    # One optimizer step consumes ``accum`` batches, so an epoch is len(loader) // accum steps.
+    total_steps = TrainSchedule.from_config(cfg, max(len(train_loader) // accum, 1)).total_steps
     train_batches = endless(train_loader)
     # Optional context-extension stages (empty list = one stage for the whole run).
     schedule = ContextSchedule.from_config(cfg, total_steps)

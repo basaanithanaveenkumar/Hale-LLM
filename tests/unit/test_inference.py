@@ -94,3 +94,13 @@ def test_session_cuts_text_after_the_stop_token(tiny_tokenizer, monkeypatch):
     result = session.generate("hi")  # prompt "hi" = 2 tokens
     assert result.token_ids.size(1) == 6  # raw sampler output is untouched
     assert result.text == tiny_tokenizer.decode([40, 41, 50])  # text ends before EOS
+
+
+def test_a_long_prompt_keeps_its_end(tiny_tokenizer):
+    from hale_llm.inference.encode import encode_prompt
+
+    model = type("M", (), {"backbone": type("B", (), {"max_length": 8})()})()
+    ids = encode_prompt(tiny_tokenizer, "a" * 20 + "xyz", model, "cpu")
+    assert ids.shape == (1, 8)
+    full = tiny_tokenizer("a" * 20 + "xyz", truncation=False, padding=False)["input_ids"][0].tolist()
+    assert ids[0].tolist() == full[-8:]

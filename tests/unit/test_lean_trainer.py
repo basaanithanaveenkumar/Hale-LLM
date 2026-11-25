@@ -60,3 +60,36 @@ def test_both_variants_overfit_and_reload(variant, tiny_tokenizer, tmp_path):
     session = load_session(cfg, tokenizer=tiny_tokenizer, require_checkpoint=True)
     assert type(session.model).variant_name == variant
     assert isinstance(session.generate("hello").text, str)
+
+
+def test_epochs_are_counted_in_optimizer_steps_not_batches():
+    from hale_llm.config.schema import RunConfig
+    from hale_llm.training.schedule import TrainSchedule
+
+    # 20 batches per epoch and 4 batches per step: 2 epochs = 10 steps (not 40).
+    cfg = RunConfig(variant="autoregressive", train={"epochs": 2, "steps": None})
+    assert TrainSchedule.from_config(cfg, 20 // 4).total_steps == 10
+
+
+def test_a_checkpoint_loads_even_if_the_yaml_describes_another_architecture(tiny_tokenizer, tmp_path):
+    trained = _cfg(tmp_path, "adamw")
+    trained.variant, trained.model.ffn_type = "autoregressive_moe", "moe"
+    trained.model.moe_num_experts, trained.model.moe_top_k, trained.model.norm_type = 6, 3, "rms"
+    trained.train.steps = 3
+    train_lean(trained, tokenizer=tiny_tokenizer)
+
+    wrong_yaml = _cfg(tmp_path, "adamw")  # dense, layer norm, different width
+    wrong_yaml.variant, wrong_yaml.model.ffn_type, wrong_yaml.model.d_model = "autoregressive_moe", "moe", 32
+    session = load_session(wrong_yaml, tokenizer=tiny_tokenizer, require_checkpoint=True)
+    assert session.cfg.model.d_model == 64 and session.cfg.model.norm_type == "rms"
+    assert len(session.model.backbone.stack.layers[0].ffn.routed_experts) == 6
+
+
+def test_a_checkpoint_of_another_variant_is_rejected(tiny_tokenizer, tmp_path):
+    trained = _cfg(tmp_path, "adamw")
+    trained.train.steps = 2
+    train_lean(trained, tokenizer=tiny_tokenizer)
+    other = _cfg(tmp_path, "adamw")
+    other.variant, other.model.ffn_type = "autoregressive_moe", "moe"
+    with pytest.raises(ValueError, match="variant"):
+        load_session(other, tokenizer=tiny_tokenizer, require_checkpoint=True)

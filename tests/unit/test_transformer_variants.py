@@ -1,5 +1,7 @@
 """The dense and mixture-of-experts autoregressive variants, end to end on tiny shapes."""
 
+import math
+
 import pytest
 import torch
 
@@ -114,3 +116,24 @@ def test_moe_model_class_rejects_a_dense_config():
     cfg = _cfg("autoregressive")
     with pytest.raises(ValueError, match="ffn_type"):
         get_variant("autoregressive_moe")(vocab_size=50, cfg=cfg)
+
+
+def test_initialisation_is_gpt_style_and_residual_outputs_are_scaled():
+    import math
+
+    model = get_variant("autoregressive_moe")(vocab_size=500, cfg=_cfg("autoregressive_moe", n_layers=8))
+    backbone = model.backbone
+    assert backbone.token_emb.weight.std().item() == pytest.approx(0.02, rel=0.1)
+    assert backbone.lm_head.weight is backbone.token_emb.weight  # tied
+    expected = 0.02 / math.sqrt(2 * 8)
+    layer = backbone.stack.layers[0]
+    assert layer.attn.proj.weight.std().item() == pytest.approx(expected, rel=0.25)
+    assert layer.ffn.routed_experts[0].w2.weight.std().item() == pytest.approx(expected, rel=0.25)
+    assert layer.attn.proj.bias.abs().max().item() == 0.0
+
+
+def test_a_fresh_model_scores_close_to_uniform_guessing():
+    vocab = 1000
+    model = get_variant("autoregressive")(vocab_size=vocab, cfg=_cfg("autoregressive", n_layers=8))
+    loss = float(get_loss("autoregressive")(model, _batch(vocab)).detach())
+    assert abs(loss - math.log(vocab)) < 0.5

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import math
+
 import torch
 from loguru import logger
 from torch import nn
 
 from hale_llm.nn.backbones.decoder_transformer import DecoderTransformer
-from hale_llm.nn.blocks import build_ffn
+from hale_llm.nn.blocks import FeedForward, build_ffn
 from hale_llm.nn.positional import build_positional_encoding
 
 
@@ -46,15 +48,39 @@ class TransformerBackbone(nn.Module):
             positional=self.positional,
         )
         self.lm_head = nn.Linear(cfg.d_model, vocab_size, bias=False)
-        # GPT-2 style init. nn.Embedding starts at std 1.0 and, tied to the head, would give
-        # first logits of std ~sqrt(d_model) (loss ~150 instead of ln(vocab) ~ 10.8).
-        nn.init.normal_(self.token_emb.weight, std=0.02)
+        self._init_weights(cfg.n_layers)
         if cfg.tie_embeddings:
             self.lm_head.weight = self.token_emb.weight
         logger.info(
             "TransformerBackbone: layers={} d_model={} heads={} ffn={} positional={} norm={}",
             cfg.n_layers, cfg.d_model, cfg.n_heads, cfg.ffn_type, self.positional.describe(), cfg.norm_type,
         )
+
+    def _init_weights(self, n_layers: int) -> None:
+        """GPT-2 style initialisation.
+
+        * Every Linear and Embedding starts at N(0, 0.02), biases at 0. PyTorch's default
+          Embedding is N(0, 1); tied to the output head it would give first logits of std
+          ~sqrt(d_model) and a first loss near 150 instead of ln(vocab).
+        * The layers that write into the residual stream (attention output, feed-forward
+          output, expert output) are scaled by 1 / sqrt(2 * n_layers). Each block adds two
+          such terms, so without this the stream grows with depth.
+        """
+        for module in self.modules():
+            if isinstance(module, (nn.Linear, nn.Embedding)):
+                nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if isinstance(module, nn.Linear) and module.bias is not None:
+                nn.init.zeros_(module.bias)
+
+        residual_std = 0.02 / math.sqrt(2 * n_layers)
+        for layer in self.stack.layers:
+            nn.init.normal_(layer.attn.proj.weight, std=residual_std)
+            ffn = layer.ffn
+            if isinstance(ffn, FeedForward):
+                nn.init.normal_(ffn.down.weight, std=residual_std)
+            else:  # mixture of experts: every expert's output matrix
+                for expert in [*ffn.shared_experts, *ffn.routed_experts]:
+                    nn.init.normal_(expert.w2.weight, std=residual_std)
 
     def forward(
         self, token_ids: torch.Tensor, attention_mask: torch.Tensor | None = None

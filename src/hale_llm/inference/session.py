@@ -76,19 +76,30 @@ def session_from_model(model: nn.Module, tokenizer, cfg: RunConfig, device: str 
     return InferenceSession(model=model.to(device), tokenizer=tokenizer, cfg=cfg, device=device)
 
 
-def _adopt_trained_context(cfg: RunConfig, ckpt: dict) -> None:
-    """Use the context window and RoPE base the weights were trained with.
+#: Model settings that are inference-time choices, so the YAML keeps control of them.
+_INFERENCE_KNOBS = ("rope_scaling", "rope_scaling_factor", "rope_original_length")
 
-    After context extension the final stage's RoPE base differs from the YAML's. Using
-    the YAML value would silently rotate positions differently from training.
+
+def _adopt_trained_model(cfg: RunConfig, ckpt: dict) -> None:
+    """Rebuild the model exactly as it was trained, whatever the YAML passed to the CLI says.
+
+    A checkpoint only fits the architecture it was trained with (width, depth, experts, norm,
+    RoPE base, context window). gpt-oss does the same: it reads ``config.json`` from the
+    checkpoint folder. Only the RoPE-scaling fields stay under the YAML's control, because
+    running past the trained length with YaRN is something you choose at inference time.
     """
-    trained = (ckpt.get("config") or {}).get("model") or {}
-    if "max_length" in trained and trained["max_length"] != cfg.model.max_length:
-        logger.info("using the trained context window {} (config says {})", trained["max_length"], cfg.model.max_length)
-        cfg.set_context_window(trained["max_length"])
-    if "rope_theta" in trained and trained["rope_theta"] != cfg.model.rope_theta:
-        logger.info("using the trained rope theta {:g} (config says {:g})", trained["rope_theta"], cfg.model.rope_theta)
-        cfg.model.rope_theta = trained["rope_theta"]
+    trained = (ckpt.get("config") or {}).get("model")
+    if not trained:
+        return  # an old checkpoint without a saved config: trust the YAML
+    if ckpt.get("variant") not in (None, cfg.variant):
+        raise ValueError(f"checkpoint was trained as variant {ckpt['variant']!r}, config says {cfg.variant!r}")
+    kept = {name: getattr(cfg.model, name) for name in _INFERENCE_KNOBS}
+    adopted = type(cfg.model)(**{**trained, **kept})
+    changed = sorted(n for n in type(cfg.model).model_fields if getattr(adopted, n) != getattr(cfg.model, n))
+    if changed:
+        logger.info("using the trained model settings from the checkpoint; differs from the YAML in: {}", changed)
+    cfg.model = adopted
+    cfg.data.context_window = adopted.max_length
 
 
 def load_session(
@@ -120,7 +131,7 @@ def load_session(
 
     if store.exists(path):
         ckpt = store.load(path, device)
-        _adopt_trained_context(cfg, ckpt)
+        _adopt_trained_model(cfg, ckpt)
         model = model_cls(vocab_size=ckpt["vocab_size"], cfg=cfg).to(device)
         model.load_state_dict(ckpt["model_state_dict"])
         logger.info("inference session variant={} device={} ckpt={}", cfg.variant, device, path)
