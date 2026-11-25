@@ -7,19 +7,15 @@ from torch import nn
 
 from hale_llm.nn.moe.expert import Expert
 from hale_llm.nn.moe.registry import build_router
-from hale_llm.nn.moe.router_output import RouterOutput
 
 
 class DeepseekMoE(nn.Module):
-    """``y = sum(shared experts)(x) + sum_k weight_k * routed_expert_k(x)``.
+    """``output = sum(shared experts)(x) + sum over the top-k of weight * routed_expert(x)``.
 
-    Shared experts see every token and hold common knowledge; the router sends each
-    token to its best ``top_k`` routed experts, which can specialise.
+    Shared experts see every token and hold common knowledge. The router sends each token
+    to its best ``top_k`` routed experts, which can specialise.
 
-    During training the layer also computes a load-balancing loss (Switch Transformer
-    form, ``n_experts * sum(fraction_i * mean_prob_i)``). It is 1.0 when tokens are
-    spread evenly and grows when a few experts take everything. Read it with
-    :attr:`aux_loss`.
+    While training, the layer also leaves a load-balancing loss in :attr:`aux_loss`.
     """
 
     def __init__(
@@ -46,34 +42,39 @@ class DeepseekMoE(nn.Module):
         self.aux_loss: torch.Tensor | None = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        batch, seq_len, dim = x.shape
-        flat = x.reshape(-1, dim)  # (tokens, d_model)
+        """``x`` is ``[B, S, D]``; ``T = B * S`` tokens, ``E`` routed experts."""
+        B, S, D = x.shape
 
-        output = torch.zeros_like(flat)
+        # 1. Treat every token on its own: [B, S, D] -> [T, D].
+        tokens = x.reshape(-1, D)
+
+        # 2. Shared experts: every token goes through every one of them.
+        output = torch.zeros_like(tokens)  # [T, D]
         for expert in self.shared_experts:
-            output = output + expert(flat)
+            output = output + expert(tokens)
 
-        routing = self.router(flat)
-        output = self._add_routed(flat, output, routing)
-        self.aux_loss = self._load_balance_loss(routing) if self.training else flat.new_zeros(())
-        return output.view(batch, seq_len, dim)
+        # 3. Routing: which experts each token uses, and how much of each.
+        routing = self.router(tokens)  # weights [T, E], indices [T, k], probs [T, E]
 
-    def _add_routed(
-        self, flat: torch.Tensor, output: torch.Tensor, routing: RouterOutput
-    ) -> torch.Tensor:
-        """Run each routed expert only on the tokens that chose it."""
+        # 4. Routed experts: each one runs once, on just the tokens that picked it.
         for expert_id, expert in enumerate(self.routed_experts):
-            token_ids = (routing.indices == expert_id).any(dim=-1).nonzero(as_tuple=True)[0]
+            picked = (routing.indices == expert_id).any(dim=-1)  # [T] True if this expert was chosen
+            token_ids = picked.nonzero(as_tuple=True)[0]  # which tokens
             if token_ids.numel() == 0:
-                continue
-            gate = routing.weights[token_ids, expert_id].unsqueeze(-1)
-            update = (expert(flat[token_ids]) * gate).to(output.dtype)
-            output = output.index_add(0, token_ids, update)
-        return output
+                continue  # nobody chose this expert in this batch
+            gate = routing.weights[token_ids, expert_id].unsqueeze(-1)  # [n, 1]
+            expert_output = expert(tokens[token_ids]) * gate  # [n, D]
+            output.index_add_(0, token_ids, expert_output.to(output.dtype))  # add to those tokens
 
-    def _load_balance_loss(self, routing: RouterOutput) -> torch.Tensor:
-        """Penalise routing that piles tokens onto few experts."""
-        chosen = torch.zeros_like(routing.probs).scatter(-1, routing.indices, 1.0)
-        fraction = chosen.mean(dim=0) / routing.indices.size(-1)  # share of picks per expert
-        mean_prob = routing.probs.mean(dim=0)
-        return self.n_routed_experts * torch.sum(fraction * mean_prob)
+        # 5. Load-balancing loss (Switch Transformer form): E * sum(share_i * mean_prob_i).
+        #    It is 1.0 when tokens are spread evenly and grows when a few experts take most.
+        if self.training:
+            chosen = torch.zeros_like(routing.probs).scatter(-1, routing.indices, 1.0)  # [T, E]
+            share = chosen.mean(dim=0) / routing.indices.size(-1)  # [E] share of all picks
+            mean_prob = routing.probs.mean(dim=0)  # [E]
+            self.aux_loss = self.n_routed_experts * torch.sum(share * mean_prob)
+        else:
+            self.aux_loss = tokens.new_zeros(())
+
+        # 6. Back to [B, S, D].
+        return output.view(B, S, D)

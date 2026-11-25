@@ -10,11 +10,7 @@ from hale_llm.nn.positional.positional_encoding import PositionalEncoding
 
 
 class MultiHeadAttention(nn.Module):
-    """``n_heads`` independent heads of width ``d_model // n_heads``.
-
-    Each head attends on its own; the outputs are concatenated back to ``d_model``
-    and mixed by one output projection.
-    """
+    """``n_heads`` independent heads of width ``d_model // n_heads``."""
 
     def __init__(
         self,
@@ -28,11 +24,8 @@ class MultiHeadAttention(nn.Module):
         if d_model % n_heads != 0:
             raise ValueError(f"d_model={d_model} must be divisible by n_heads={n_heads}")
         head_size = d_model // n_heads
-        self.n_heads = n_heads
         self.heads = nn.ModuleList(
-            HeadAttention(
-                d_model, head_size, dropout=dropout, causal=causal, positional=positional
-            )
+            HeadAttention(d_model, head_size, dropout=dropout, causal=causal, positional=positional)
             for _ in range(n_heads)
         )
         self.proj = nn.Linear(d_model, d_model)
@@ -44,6 +37,13 @@ class MultiHeadAttention(nn.Module):
         positions: torch.Tensor | None = None,
         key_padding_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """``(batch, seq, d_model)`` in and out."""
-        head_outputs = [head(inputs, positions, key_padding_mask) for head in self.heads]
-        return self.dropout(self.proj(torch.cat(head_outputs, dim=-1)))
+        """``[B, S, D]`` in and out."""
+        # 1. Every head attends on its own.
+        head_outputs = [head(inputs, positions, key_padding_mask) for head in self.heads]  # n x [B, S, H]
+
+        # 2. Concatenate the heads back to the model width.
+        concat_output = torch.cat(head_outputs, dim=-1)  # [B, S, D]
+
+        # 3. Mix them with one output projection.
+        output = self.proj(concat_output)  # [B, S, D]
+        return self.dropout(output)

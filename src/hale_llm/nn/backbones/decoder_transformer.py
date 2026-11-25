@@ -46,9 +46,11 @@ class DecoderTransformer(nn.Module):
         positions: torch.Tensor | None = None,
         key_padding_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        x = inputs
+        x = inputs  # [B, S, D]
+        # 1. Each block keeps the shape [B, S, D].
         for layer in self.layers:
             x = layer(x, positions, key_padding_mask)
+        # 2. Final norm before the output head.
         return self.norm(x)
 
     def auxiliary_loss(self) -> torch.Tensor:

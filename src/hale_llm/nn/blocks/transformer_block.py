@@ -11,7 +11,7 @@ from hale_llm.nn.positional.positional_encoding import PositionalEncoding
 
 
 class TransformerBlock(nn.Module):
-    """``x + attention(norm(x))`` followed by ``x + ffn(norm(x))``.
+    """Attention and feed-forward, each with a norm before it and a residual after it.
 
     The feed-forward network is passed in, so the same block serves a dense MLP and a
     mixture of experts.
@@ -29,9 +29,9 @@ class TransformerBlock(nn.Module):
     ) -> None:
         super().__init__()
         self.attn = MultiHeadAttention(d_model, n_heads, dropout, causal, positional)
-        self.norm1 = build_norm(norm_type, d_model)
+        self.norm1 = build_norm(norm_type, d_model)  # before attention
         self.ffn = ffn
-        self.norm2 = build_norm(norm_type, d_model)
+        self.norm2 = build_norm(norm_type, d_model)  # before the feed-forward network
 
     def forward(
         self,
@@ -39,8 +39,14 @@ class TransformerBlock(nn.Module):
         positions: torch.Tensor | None = None,
         key_padding_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        x = inputs + self.attn(self.norm1(inputs), positions, key_padding_mask)
-        return x + self.ffn(self.norm2(x))
+        """``[B, S, D]`` in and out."""
+        # 1. Attention block, with a residual connection.
+        attn_output = self.attn(self.norm1(inputs), positions, key_padding_mask)  # [B, S, D]
+        x = inputs + attn_output
+
+        # 2. Feed-forward block, with a residual connection.
+        ffn_output = self.ffn(self.norm2(x))  # [B, S, D]
+        return x + ffn_output
 
     def auxiliary_loss(self) -> torch.Tensor:
         """The feed-forward network's extra training loss (MoE load balancing), else 0."""

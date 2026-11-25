@@ -7,16 +7,16 @@ from torch import nn
 
 
 class FeedForward(nn.Module):
-    """``Linear -> GELU -> Linear -> Dropout``."""
+    """``Linear -> GELU -> Linear -> Dropout``: widen to ``d_ff``, mix, narrow back."""
 
     def __init__(self, d_model: int, d_ff: int, dropout: float = 0.0) -> None:
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(d_model, d_ff),
-            nn.GELU(),
-            nn.Linear(d_ff, d_model),
-            nn.Dropout(dropout),
-        )
+        self.up = nn.Linear(d_model, d_ff)
+        self.act = nn.GELU()
+        self.down = nn.Linear(d_ff, d_model)
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x)
+        """``[B, S, D]`` in and out."""
+        hidden = self.act(self.up(x))  # [B, S, d_ff]
+        return self.dropout(self.down(hidden))  # [B, S, D]

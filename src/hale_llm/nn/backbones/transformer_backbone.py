@@ -59,14 +59,27 @@ class TransformerBackbone(nn.Module):
     def forward(
         self, token_ids: torch.Tensor, attention_mask: torch.Tensor | None = None
     ) -> torch.Tensor:
-        """Logits ``(batch, seq, vocab)``. ``attention_mask`` is 1 for real tokens, 0 for padding."""
-        seq_len = token_ids.size(1)
-        if seq_len > self.max_length:
-            raise ValueError(f"sequence of {seq_len} tokens exceeds max_length={self.max_length}")
-        hidden = self.positional.encode_embeddings(self.token_emb(token_ids))
-        key_padding = (attention_mask == 0) if attention_mask is not None else None
-        positions = torch.arange(seq_len, device=token_ids.device)
-        return self.lm_head(self.stack(hidden, positions, key_padding))
+        """``token_ids`` is ``[B, S]``; returns logits ``[B, S, vocab]``.
+
+        ``attention_mask`` is 1 for real tokens and 0 for padding.
+        """
+        B, S = token_ids.shape
+        if S > self.max_length:
+            raise ValueError(f"sequence of {S} tokens exceeds max_length={self.max_length}")
+
+        # 1. Token ids to vectors, plus a position table if the scheme uses one.
+        hidden = self.token_emb(token_ids)  # [B, S, D]
+        hidden = self.positional.encode_embeddings(hidden)  # [B, S, D]
+
+        # 2. Which keys are padding, and the position of every token.
+        key_padding = (attention_mask == 0) if attention_mask is not None else None  # [B, S]
+        positions = torch.arange(S, device=token_ids.device)  # [S]
+
+        # 3. Run the transformer blocks.
+        hidden = self.stack(hidden, positions, key_padding)  # [B, S, D]
+
+        # 4. Project every position to a score for each vocabulary token.
+        return self.lm_head(hidden)  # [B, S, vocab]
 
     def auxiliary_loss(self) -> torch.Tensor:
         """Extra training loss from the layers (MoE load balancing); zero when dense."""
