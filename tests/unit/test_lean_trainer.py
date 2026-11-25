@@ -53,6 +53,7 @@ def test_train_lean_learns_and_saves_loadable_checkpoint(optimizer, tiny_tokeniz
 def test_both_variants_overfit_and_reload(variant, tiny_tokenizer, tmp_path):
     cfg = _cfg(tmp_path, "adamw")
     cfg.variant = variant
+    cfg.model.ffn_type = "moe" if variant == "autoregressive_moe" else "mlp"
     cfg.model.moe_hidden_dim = 64
     losses = train_lean(cfg, tokenizer=tiny_tokenizer)
     assert losses[-1] < losses[0] * 0.7

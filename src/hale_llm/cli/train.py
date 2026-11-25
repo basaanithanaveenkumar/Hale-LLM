@@ -13,6 +13,16 @@ from hale_llm.training.backends import get_trainer_backend
 from hale_llm.utils.logging import setup_logging
 
 
+def _dry_run(cfg) -> None:
+    """Run the config through a few real steps without creating a run folder."""
+    from hale_llm.training.dry_run import DryRun
+
+    if cfg.train.trainer != "lean":
+        raise SystemExit("--dry-run runs the lean trainer; use --trainer lean")
+    setup_logging(level=cfg.logging.level, log_file=None, force=True)
+    print(DryRun(cfg).run().format())
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="hale-llm-train")
     p.add_argument("--config", required=True, help="YAML under configs/")
@@ -24,6 +34,11 @@ def main() -> None:
         "--trainer",
         default=None,
         help="Backend: lean (default) | torchtitan. Overrides train.trainer",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Train 3 steps on a small slice in a temp folder, print a report, write nothing",
     )
     resume = p.add_mutually_exclusive_group()
     resume.add_argument(
@@ -73,6 +88,9 @@ def main() -> None:
             cfg.logging.tensorboard = args.tensorboard
         if args.trainer is not None:
             cfg.train.trainer = args.trainer
+        if args.dry_run:
+            _dry_run(cfg)
+            return
         backend = get_trainer_backend(cfg.train.trainer)  # unknown name -> KeyError listing options
         backend.validate(cfg)  # fail before creating any run folder
         apply_experiment_layout(cfg, create=True, name=args.experiment)

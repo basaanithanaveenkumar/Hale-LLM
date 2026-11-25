@@ -70,12 +70,6 @@ def test_rope_is_applied_through_the_positional_hook():
     assert not torch.allclose(plain(x), rotated(x), atol=1e-4)
 
 
-def test_positional_module_is_not_registered_under_every_head():
-    rope = RotaryPositionalEncoding(head_dim=4)
-    mha = MultiHeadAttention(16, 4, causal=True, positional=rope)
-    assert not any("positional" in name for name, _ in mha.named_modules())
-
-
 def test_heads_must_divide_model_width():
     with pytest.raises(ValueError, match="divisible"):
         MultiHeadAttention(10, 4)

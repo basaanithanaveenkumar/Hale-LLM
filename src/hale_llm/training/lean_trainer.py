@@ -23,7 +23,7 @@ from __future__ import annotations
 import contextlib
 import math
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import torch
 from loguru import logger
@@ -99,10 +99,11 @@ def stage_loaders(cfg: RunConfig, plan: ContextStagePlan, tokenizer):
     return data, data.train_loader(), data.val_loader()
 
 
-def train_lean(cfg: RunConfig, tokenizer=None) -> list[float]:
+def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | None = None) -> list[float]:
     """Run the whole training loop and return the per-step training losses.
 
-    Loop settings come from ``cfg.train.lean`` (see :class:`LeanConfig`).
+    Loop settings come from ``cfg.train.lean`` (see :class:`LeanConfig`). ``on_step(step)``,
+    if given, is called after every optimizer step (the dry run uses it for timing).
     """
     # 1. Config, seed, device. One optimizer step uses ``accum`` micro-batches.
     lean = cfg.train.lean
@@ -205,6 +206,8 @@ def train_lean(cfg: RunConfig, tokenizer=None) -> list[float]:
         grad_norm = torch.nn.utils.clip_grad_norm_(plain_model.parameters(), cfg.train.grad_clip)
         optimizer.step()
         losses.append(step_loss)
+        if on_step is not None:
+            on_step(step)
 
         if step % cfg.train.log_every == 0 or step == total_steps - 1:
             elapsed = time.time() - started

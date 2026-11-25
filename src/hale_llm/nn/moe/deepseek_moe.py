@@ -42,7 +42,8 @@ class DeepseekMoE(nn.Module):
             Expert(d_model, hidden_dim, dropout, activation) for _ in range(n_routed_experts)
         )
         self.n_routed_experts = n_routed_experts
-        self.aux_loss: torch.Tensor = torch.zeros(())
+        # Set on every forward: the balancing loss in training mode, zero in eval mode.
+        self.aux_loss: torch.Tensor | None = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch, seq_len, dim = x.shape

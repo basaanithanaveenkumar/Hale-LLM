@@ -19,10 +19,9 @@ class TransformerBackbone(nn.Module):
     switching any of them is a config change.
     """
 
-    def __init__(self, vocab_size: int, model_cfg, ffn_type: str | None = None) -> None:
+    def __init__(self, vocab_size: int, model_cfg) -> None:
         super().__init__()
         cfg = model_cfg
-        ffn_type = ffn_type or cfg.ffn_type
         self.vocab_size = vocab_size
         self.max_length = cfg.max_length
 
@@ -41,7 +40,7 @@ class TransformerBackbone(nn.Module):
             n_layers=cfg.n_layers,
             d_model=cfg.d_model,
             n_heads=cfg.n_heads,
-            ffn_factory=lambda: build_ffn(ffn_type, cfg),
+            ffn_factory=lambda: build_ffn(cfg.ffn_type, cfg),
             dropout=cfg.dropout,
             norm_type=cfg.norm_type,
             positional=self.positional,
@@ -54,7 +53,7 @@ class TransformerBackbone(nn.Module):
             self.lm_head.weight = self.token_emb.weight
         logger.info(
             "TransformerBackbone: layers={} d_model={} heads={} ffn={} positional={} norm={}",
-            cfg.n_layers, cfg.d_model, cfg.n_heads, ffn_type, self.positional.describe(), cfg.norm_type,
+            cfg.n_layers, cfg.d_model, cfg.n_heads, cfg.ffn_type, self.positional.describe(), cfg.norm_type,
         )
 
     def forward(

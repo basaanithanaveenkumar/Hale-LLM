@@ -16,6 +16,11 @@ from hale_llm.config.sections import (
 from hale_llm.config.sections.common import StrictModel
 
 
+#: Variants that fix the feed-forward type. The config says so up front, so everything that
+#: reads ``model.ffn_type`` (parameter estimate, vocabulary sizing, the model) agrees.
+VARIANT_FFN_TYPE = {"autoregressive_moe": "moe"}
+
+
 class RunConfig(StrictModel):
     variant: str
     model: ModelConfig = Field(default_factory=ModelConfig)
@@ -27,6 +32,14 @@ class RunConfig(StrictModel):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     experiment: ExperimentConfig = Field(default_factory=ExperimentConfig)
     device: str | None = None
+
+    @model_validator(mode="after")
+    def _variant_sets_ffn_type(self) -> "RunConfig":
+        wanted = VARIANT_FFN_TYPE.get(self.variant)
+        if wanted and self.model.ffn_type != wanted:
+            logger.info("variant {} uses model.ffn_type={} (was {})", self.variant, wanted, self.model.ffn_type)
+            self.model.ffn_type = wanted
+        return self
 
     @model_validator(mode="after")
     def _context_window_sets_model_length(self) -> "RunConfig":

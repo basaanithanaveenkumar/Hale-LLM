@@ -69,7 +69,7 @@ One decoder-only transformer. The blocks are pre-norm: `x + attention(norm(x))`,
 
 | Key | Type | Default | How to use |
 |---|---|---|---|
-| `ffn_type` | `mlp` \| `moe` | `mlp` | `mlp` = Linear-GELU-Linear. `moe` = DeepSeek-style experts. The variant `autoregressive_moe` always uses `moe`. |
+| `ffn_type` | `mlp` \| `moe` | `mlp` | `mlp` = Linear-GELU-Linear. `moe` = DeepSeek-style experts. `variant: autoregressive_moe` sets this to `moe` when the config loads. |
 | `moe_num_experts` | int | `4` | Routed experts per layer. |
 | `moe_top_k` | int | `2` | Routed experts each token uses. At most `moe_num_experts`. |
 | `moe_num_shared` | int | `1` | Shared experts every token passes through. |
@@ -242,7 +242,7 @@ latest -> <that folder>
 
 | Command | Required | Useful flags |
 |---|---|---|
-| `hale-llm-train` | `--config` | `--no-resume` new run; `--experiment NAME`; `--epochs` / `--steps`; `--trainer` |
+| `hale-llm-train` | `--config` | `--no-resume` new run; `--experiment NAME`; `--epochs` / `--steps`; `--trainer`; `--dry-run` |
 | `hale-llm-sample` | `--config` | `--experiment`, `--prompt`, `--checkpoint` |
 | `hale-llm-eval` | `--config` | `--experiment`, `--metrics a,b` |
 | `hale-llm-infer` / `hale-llm-chat` | `--config` | `--experiment`, `--checkpoint`, `--max-new-tokens`, `--temperature` |

@@ -43,7 +43,7 @@ def test_variant_trains_one_step_and_samples(variant, tiny_tokenizer):
 
 def test_moe_variant_forces_moe_and_adds_the_balance_loss():
     dense = get_variant("autoregressive")(vocab_size=50, cfg=_cfg("autoregressive"))
-    moe = get_variant("autoregressive_moe")(vocab_size=50, cfg=_cfg("autoregressive_moe", ffn_type="mlp"))
+    moe = get_variant("autoregressive_moe")(vocab_size=50, cfg=_cfg("autoregressive_moe", ffn_type="mlp"))  # config overrides to moe
     assert not dense.uses_moe and moe.uses_moe
     assert sum(p.numel() for p in moe.parameters()) > sum(p.numel() for p in dense.parameters())
     assert float(dense.backbone.auxiliary_loss()) == 0.0
@@ -99,3 +99,18 @@ def test_model_config_validation():
         _cfg("autoregressive", d_model=30)
     with pytest.raises(ValueError, match="moe_top_k"):
         _cfg("autoregressive_moe", moe_top_k=9)
+
+
+def test_moe_variant_sets_ffn_type_in_the_config_so_every_reader_agrees():
+    from hale_llm.tokenizer.vocab.param_estimate import estimate_non_embedding_params
+
+    cfg = _cfg("autoregressive_moe", ffn_type="mlp")
+    assert cfg.model.ffn_type == "moe"
+    dense = _cfg("autoregressive")
+    assert estimate_non_embedding_params(cfg.model) > 3 * estimate_non_embedding_params(dense.model)
+
+
+def test_moe_model_class_rejects_a_dense_config():
+    cfg = _cfg("autoregressive")
+    with pytest.raises(ValueError, match="ffn_type"):
+        get_variant("autoregressive_moe")(vocab_size=50, cfg=cfg)

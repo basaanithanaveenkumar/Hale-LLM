@@ -9,6 +9,14 @@ uv run hale-llm-eval --config configs/autoregressive/small.yaml
 tensorboard --logdir data/experiments
 ```
 
+Check a config before a long run with a dry run. It trains 3 steps on a small slice in a temp
+folder, writes nothing to `data/`, and prints the parameter count at the real vocabulary size,
+the first loss against `ln(vocab)`, seconds per step and (on CUDA) peak memory:
+
+```bash
+uv run hale-llm-train --config configs/autoregressive_moe/nano.yaml --dry-run
+```
+
 Configs inherit with `inherits:`. Full parameter list: [config.md](config.md).
 
 ## Try a trained model: `hale-llm-infer` and `hale-llm-chat`

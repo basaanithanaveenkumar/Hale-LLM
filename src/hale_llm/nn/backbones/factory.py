@@ -7,11 +7,11 @@ from hale_llm.nn.norm import NORMS
 from hale_llm.nn.positional import POSITIONAL_ENCODINGS
 
 
-def build_backbone(vocab_size: int, model_cfg, ffn_type: str | None = None) -> TransformerBackbone:
+def build_backbone(vocab_size: int, model_cfg) -> TransformerBackbone:
     """Create a :class:`TransformerBackbone`; unknown scheme names fail with the valid choices."""
     _check_name("positional encoding", model_cfg.pos_encoding, POSITIONAL_ENCODINGS)
     _check_name("norm", model_cfg.norm_type, NORMS)
-    return TransformerBackbone(vocab_size, model_cfg, ffn_type=ffn_type)
+    return TransformerBackbone(vocab_size, model_cfg)
 
 
 def _check_name(kind: str, name: str, registry) -> None:
