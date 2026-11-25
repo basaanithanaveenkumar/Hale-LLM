@@ -1,6 +1,6 @@
 import hale_llm.models  # noqa: F401
 from hale_llm.config.schema import RunConfig
-from hale_llm.core.registry import get_variant
+from hale_llm.registry import get_variant
 from hale_llm.inference import session_from_model
 
 
@@ -79,7 +79,7 @@ def test_autoregressive_sampler_stops_at_the_end_of_text_token(tiny_tokenizer):
 
 
 def test_session_cuts_text_after_the_stop_token(tiny_tokenizer, monkeypatch):
-    """Samplers that fill the whole length (diffusion) still end the text at EOS."""
+    """A sampler that fills the whole length still ends the text at EOS."""
     import torch
 
     from hale_llm.inference import session as session_module

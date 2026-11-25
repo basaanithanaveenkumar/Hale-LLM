@@ -5,7 +5,7 @@ import pytest
 import hale_llm.models  # noqa: F401
 from hale_llm.chat import ChatCommands, ChatSession, PromptWindow
 from hale_llm.config.schema import RunConfig
-from hale_llm.core.registry import get_variant
+from hale_llm.registry import get_variant
 from hale_llm.inference import session_from_model
 
 
@@ -60,8 +60,6 @@ def test_setters_validate(chat):
         chat.temperature = 0
     with pytest.raises(ValueError):
         chat.max_new_tokens = 32  # equals the context length, no room for a prompt
-    with pytest.raises(ValueError):
-        chat.sampling_steps = 0
 
 
 def test_reset_clears_turns(chat):

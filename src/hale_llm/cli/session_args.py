@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 
-import hale_llm.models  # noqa: F401  (registers every paradigm)
+import hale_llm.models  # noqa: F401  (registers the model variants)
 from hale_llm.config.experiment import apply_experiment_layout
 from hale_llm.config.schema import load_config
 from hale_llm.inference import InferenceSession, load_session
@@ -18,7 +18,6 @@ def add_session_arguments(parser: argparse.ArgumentParser, *, default_log_level:
     parser.add_argument("--experiment", default=None, help="Run folder under data/experiments/<variant>/")
     parser.add_argument("--max-new-tokens", type=int, default=None)
     parser.add_argument("--temperature", type=float, default=None)
-    parser.add_argument("--steps", type=int, default=None, help="Diffusion sampling steps")
     parser.add_argument(
         "--log-level",
         default=default_log_level,

@@ -45,9 +45,7 @@ def test_no_stages_means_one_plan():
     assert len(ContextSchedule.from_config(cfg, 100).plans) == 1
 
 
-def test_stages_need_a_rope_transformer():
-    with pytest.raises(ValueError, match="arch"):
-        ContextSchedule.from_config(_cfg().model_copy(update={"model": _cfg().model.model_copy(update={"arch": "lgt"})}), 100)
+def test_stages_need_rope_positions():
     cfg = _cfg()
     cfg.model.pos_encoding = "learned"
     with pytest.raises(ValueError, match="rope"):

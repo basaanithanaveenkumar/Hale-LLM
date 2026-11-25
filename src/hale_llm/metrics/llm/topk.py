@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import torch
-
-from hale_llm.core.registry import register_metric
+from hale_llm.registry import register_metric
 from hale_llm.metrics.base import Metric, MetricContext
+from hale_llm.metrics.llm.variants import AUTOREGRESSIVE_VARIANTS
 
 
-@register_metric("topk_accuracy", variants=("autoregressive", "mtp"))
+@register_metric("topk_accuracy", variants=AUTOREGRESSIVE_VARIANTS)
 class TopKAccuracyMetric(Metric):
     """Fraction of non-ignored labels whose true id is in the top-k logits."""
 
@@ -27,16 +26,9 @@ class TopKAccuracyMetric(Metric):
         if isinstance(logits, (list, tuple)):
             logits = logits[0]
         pad_id = ctx.batch.get("pad_token_id")
-        if ctx.variant == "mtp":
-            logits = logits[:, :-1]
-            labels = labels[:, 1:]
-            valid = torch.ones_like(labels, dtype=torch.bool)
-            if pad_id is not None:
-                valid = labels.ne(pad_id)
-        else:
-            valid = labels.ne(-100)
-            if pad_id is not None:
-                valid = valid & labels.ne(pad_id)
+        valid = labels.ne(-100)
+        if pad_id is not None:
+            valid = valid & labels.ne(pad_id)
         k = min(self.k, logits.size(-1))
         topk = logits.topk(k, dim=-1).indices
         hit = (topk == labels.unsqueeze(-1)).any(dim=-1)

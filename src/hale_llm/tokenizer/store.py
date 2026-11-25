@@ -10,7 +10,7 @@ from pathlib import Path
 from loguru import logger
 from transformers import PreTrainedTokenizerFast
 
-from hale_llm.tokenizer.special_tokens import EOS_TOKEN, MASK_TOKEN
+from hale_llm.tokenizer.special_tokens import EOS_TOKEN
 
 
 class TokenizerStore:
@@ -23,12 +23,11 @@ class TokenizerStore:
         return (Path(directory) / cls._MARKER).is_file()
 
     @staticmethod
-    def wrap(tokenizer_object, *, with_mask: bool) -> PreTrainedTokenizerFast:
+    def wrap(tokenizer_object) -> PreTrainedTokenizerFast:
         """Give a raw ``tokenizers.Tokenizer`` the Hugging Face interface the pipeline expects."""
         return PreTrainedTokenizerFast(
             tokenizer_object=tokenizer_object,
             eos_token=EOS_TOKEN,
-            mask_token=MASK_TOKEN if with_mask else None,
         )
 
     @classmethod

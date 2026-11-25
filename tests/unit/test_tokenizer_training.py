@@ -6,7 +6,7 @@ from hale_llm.config.sections.model import ModelConfig
 from hale_llm.config.sections.tokenizer import TokenizerConfig
 from hale_llm.tokenizer import TokenizerStore, bytes_per_token
 from hale_llm.tokenizer.pretokenizer_pattern import CL100K_PATTERN
-from hale_llm.tokenizer.special_tokens import EOS_TOKEN, MASK_TOKEN
+from hale_llm.tokenizer.special_tokens import EOS_TOKEN
 from hale_llm.tokenizer.training import TOKENIZER_TRAINERS, build_tokenizer_trainer
 from hale_llm.tokenizer.training.byte_level_pipeline import regex_byte_level_pre_tokenizer
 from hale_llm.tokenizer.vocab import (
@@ -26,7 +26,7 @@ CORPUS = [
 def _train(kind, vocab_size=400, **overrides):
     settings = TokenizerConfig(kind=kind, **overrides)
     raw = build_tokenizer_trainer(settings).train(CORPUS, vocab_size, [EOS_TOKEN])
-    return TokenizerStore.wrap(raw, with_mask=False)
+    return TokenizerStore.wrap(raw)
 
 
 def test_both_kinds_are_registered():
@@ -81,12 +81,6 @@ def test_superbpe_reaches_the_requested_vocabulary_when_text_allows():
     assert raw.get_vocab_size() == 700
 
 
-def test_mask_token_is_added_only_when_asked():
-    raw = build_tokenizer_trainer(TokenizerConfig(kind="bpe")).train(CORPUS, 300, [EOS_TOKEN, MASK_TOKEN])
-    tok = TokenizerStore.wrap(raw, with_mask=True)
-    assert tok.mask_token == MASK_TOKEN and tok.mask_token_id == 1
-
-
 def test_store_round_trip(tmp_path):
     tok = _train("superbpe")
     TokenizerStore.save(tok, tmp_path / "tok", {"kind": "superbpe"})
@@ -127,14 +121,15 @@ def test_vocab_policy_rejects_negative_and_unknown():
 
 def test_parameter_estimate_matches_a_hand_count():
     # d=64, 2 layers, mha, mlp d_ff=128: attention 4*64^2 = 16,384; ffn 2*64*128 = 16,384.
-    model = ModelConfig(d_model=64, n_heads=4, n_layers=2, d_ff=128, attn_impl="mha", ffn_type="mlp")
+    model = ModelConfig(d_model=64, n_heads=4, n_layers=2, d_ff=128, ffn_type="mlp")
     assert estimate_non_embedding_params(model) == 2 * (16_384 + 16_384)
-    gated = model.model_copy(update={"ffn_type": "geglu"})
-    assert estimate_non_embedding_params(gated) == 2 * (16_384 + 3 * 64 * 128)
+    # MoE: (4 routed + 1 shared) SwiGLU experts of 3*64*128 each, plus a 64x4 router.
+    moe = model.model_copy(update={"ffn_type": "moe"})
+    assert estimate_non_embedding_params(moe) == 2 * (16_384 + 5 * 3 * 64 * 128 + 64 * 4)
 
 
 def test_300m_recipe_lands_in_the_small_vocab_tier():
-    model = ModelConfig(d_model=1024, n_heads=16, n_layers=24, d_ff=4096, attn_impl="gqa", n_kv_heads=4)
+    model = ModelConfig(d_model=1024, n_heads=16, n_layers=24, d_ff=4096)
     params = estimate_non_embedding_params(model)
     assert 200e6 < params < 350e6
     assert get_vocab_policy("by_model_size").choose(params) == 32_768

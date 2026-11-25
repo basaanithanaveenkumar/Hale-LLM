@@ -10,7 +10,6 @@ class EvalConfig(StrictModel):
             "perplexity",
             "bits_per_token",
             "token_accuracy",
-            "masked_accuracy",
         ]
     )
     every_n_epochs: int | None = 1

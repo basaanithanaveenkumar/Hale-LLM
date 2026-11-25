@@ -47,3 +47,15 @@ def test_train_lean_learns_and_saves_loadable_checkpoint(optimizer, tiny_tokeniz
     # The checkpoint must load through the same path chat/sample use.
     session = load_session(cfg, tokenizer=tiny_tokenizer, require_checkpoint=True)
     assert isinstance(session.generate("hello").text, str)
+
+
+@pytest.mark.parametrize("variant", ["autoregressive", "autoregressive_moe"])
+def test_both_variants_overfit_and_reload(variant, tiny_tokenizer, tmp_path):
+    cfg = _cfg(tmp_path, "adamw")
+    cfg.variant = variant
+    cfg.model.moe_hidden_dim = 64
+    losses = train_lean(cfg, tokenizer=tiny_tokenizer)
+    assert losses[-1] < losses[0] * 0.7
+    session = load_session(cfg, tokenizer=tiny_tokenizer, require_checkpoint=True)
+    assert type(session.model).variant_name == variant
+    assert isinstance(session.generate("hello").text, str)

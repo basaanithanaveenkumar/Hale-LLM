@@ -58,7 +58,6 @@ def main(argv: list[str] | None = None) -> None:
             session,
             max_new_tokens=args.max_new_tokens,
             temperature=args.temperature,
-            sampling_steps=args.steps,
         )
         run_loop(chat)
     except FileNotFoundError as err:

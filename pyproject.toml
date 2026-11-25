@@ -5,15 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "hale-llm"
 version = "0.1.0"
-description = "Research codebase for comparing language-model paradigms on a shared transformer foundation"
+description = "A small, readable decoder-only language-model codebase: transformer, mixture of experts, trained tokenizer"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "hale-blocks",
     "datasets>=5.0.0",
     "huggingface-hub>=1.23.0",
-    "matplotlib>=3.11.1",
-    "pillow>=10.0",
     "pydantic>=2.0",
     "pyyaml>=6.0",
     "loguru>=0.7",
@@ -21,7 +18,6 @@ dependencies = [
     "torch>=2.13.0",
     "tqdm>=4.68.4",
     "transformers>=5.13.1",
-    "trackio>=0.37.0",
 ]
 
 [project.optional-dependencies]
@@ -30,25 +26,14 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
 ]
-flash = [
-    "flash-attn>=2.0; sys_platform == 'linux'",
-]
-# Ray Train launcher (train.ray.enabled: true) and WebDataset shards (data.webdataset.enabled: true).
-ray = ["hale-blocks[ray]"]
-webdataset = ["hale-blocks[webdataset]"]
-distributed = ["hale-blocks[ray,webdataset]"]
 
 [project.scripts]
 hale-llm-train = "hale_llm.cli.train:main"
 hale-llm-sample = "hale_llm.cli.sample:main"
 hale-llm-eval = "hale_llm.cli.eval:main"
-hale-llm-viz = "hale_llm.cli.visualize:main"
 hale-llm-tokenizer-ablation = "hale_llm.cli.tokenizer_ablation:main"
 hale-llm-infer = "hale_llm.cli.inference:main"
 hale-llm-chat = "hale_llm.cli.chat:main"
-
-[tool.uv.sources]
-hale-blocks = { git = "https://github.com/basaanithanaveenkumar/HaleBlocks.git" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hale_llm"]

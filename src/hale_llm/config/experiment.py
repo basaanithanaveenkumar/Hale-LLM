@@ -53,12 +53,10 @@ def _bind_paths(cfg: RunConfig, run_dir: Path, *, dump_config: bool = True) -> N
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "checkpoints").mkdir(exist_ok=True)
     (run_dir / "logs").mkdir(exist_ok=True)
-    (run_dir / "viz").mkdir(exist_ok=True)
     (run_dir / "tb").mkdir(exist_ok=True)
     cfg.train.checkpoint_path = str(run_dir / "checkpoints" / "last.pt")
     cfg.logging.log_file = str(run_dir / "logs" / "train.log")
     cfg.logging.tensorboard_dir = str(run_dir / "tb")
-    cfg.viz.output_dir = str(run_dir / "viz")
     cfg.tokenizer.path = str(run_dir / "tokenizer")
     cfg.experiment.name = run_dir.name
     if dump_config:

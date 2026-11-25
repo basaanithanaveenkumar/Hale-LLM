@@ -1,6 +1,5 @@
-from hale_llm.nn.backbones.decoder_layer import DecoderLayer
-from hale_llm.nn.backbones.decoder_stack import DecoderStack
+from hale_llm.nn.backbones.decoder_transformer import DecoderTransformer
 from hale_llm.nn.backbones.factory import build_backbone
-from hale_llm.nn.backbones.gpt_backbone import GPTBackbone
+from hale_llm.nn.backbones.transformer_backbone import TransformerBackbone
 
-__all__ = ["DecoderLayer", "DecoderStack", "GPTBackbone", "build_backbone"]
+__all__ = ["DecoderTransformer", "TransformerBackbone", "build_backbone"]

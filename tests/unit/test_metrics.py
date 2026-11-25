@@ -4,23 +4,16 @@ import torch
 
 import hale_llm.models  # noqa: F401
 from hale_llm.config.schema import RunConfig
-from hale_llm.core.registry import instantiate_metrics
+from hale_llm.registry import instantiate_metrics
 from hale_llm.evaluation import evaluate
 from hale_llm.metrics import LossMetric, MetricContext, PerplexityMetric, TokenAccuracyMetric
 
 
 def test_instantiate_skips_inapplicable_metric():
-    metrics = instantiate_metrics(["loss", "token_accuracy", "masked_accuracy"], "autoregressive")
+    metrics = instantiate_metrics(["loss", "token_accuracy", "bleu"], "autoregressive_moe")
     names = [type(m).__name__ for m in metrics]
     assert "LossMetric" in names
     assert "TokenAccuracyMetric" in names
-    assert not any("Masked" in n for n in names)
-
-
-def test_instantiate_masked_for_diffusion():
-    metrics = instantiate_metrics(["masked_accuracy"], "diffusion")
-    assert len(metrics) == 1
-    assert "Diffusion" in type(metrics[0]).__name__
 
 
 def test_unknown_metric_raises():
@@ -71,7 +64,7 @@ def test_evaluate_returns_dict(tiny_tokenizer):
         logging={"tensorboard": False, "log_file": None, "level": "WARNING"},
         device="cpu",
     )
-    from hale_llm.core.registry import get_variant
+    from hale_llm.registry import get_variant
     from hale_llm.dataloader import make_overfit_loader
 
     model = get_variant("autoregressive")(vocab_size=len(tiny_tokenizer), cfg=cfg)

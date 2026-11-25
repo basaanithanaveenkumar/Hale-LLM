@@ -7,7 +7,6 @@ from hale_llm.config.sections.model import ModelConfig
 from hale_llm.config.sections.sample import SampleConfig
 from hale_llm.config.sections.tokenizer import TokenizerConfig
 from hale_llm.config.sections.train import TrainConfig
-from hale_llm.config.sections.viz import VizConfig
 
 __all__ = [
     "ModelConfig",
@@ -17,7 +16,6 @@ __all__ = [
     "DataConfig",
     "SampleConfig",
     "EvalConfig",
-    "VizConfig",
     "LoggingConfig",
     "ExperimentConfig",
 ]

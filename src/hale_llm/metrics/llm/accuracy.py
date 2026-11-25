@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import torch
-
-from hale_llm.core.registry import register_metric
+from hale_llm.registry import register_metric
 from hale_llm.metrics.base import Metric, MetricContext
+from hale_llm.metrics.llm.variants import AUTOREGRESSIVE_VARIANTS
 
 
 def _pred_and_labels(ctx: MetricContext):
@@ -15,20 +14,13 @@ def _pred_and_labels(ctx: MetricContext):
         logits = logits[0]
     pred = logits.argmax(dim=-1)
     pad_id = ctx.batch.get("pad_token_id")
-    if ctx.variant == "mtp":
-        pred = pred[:, :-1]
-        labels = labels[:, 1:]
-        valid = torch.ones_like(labels, dtype=torch.bool)
-        if pad_id is not None:
-            valid = labels.ne(pad_id)
-    else:
-        valid = labels.ne(-100)
-        if pad_id is not None:
-            valid = valid & labels.ne(pad_id)
+    valid = labels.ne(-100)
+    if pad_id is not None:
+        valid = valid & labels.ne(pad_id)
     return pred, labels, valid
 
 
-@register_metric("token_accuracy", variants=("autoregressive", "mtp"))
+@register_metric("token_accuracy", variants=AUTOREGRESSIVE_VARIANTS)
 class TokenAccuracyMetric(Metric):
     """Greedy next-token accuracy on `labels`, ignoring -100 and pad."""
 

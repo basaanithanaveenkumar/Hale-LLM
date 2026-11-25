@@ -19,8 +19,7 @@ flowchart LR
 
 `data.context_window` is where the starting length is set; `model.max_length` is derived from it.
 Stages live under `train.context_stages` and are supported by the lean trainer on RoPE transformers
-(`arch: transformer`, `pos_encoding: rope`); `lgt` and `dit` fix their own position handling, and the
-full trainer rejects stages.
+(`pos_encoding: rope`); a learned position table has a fixed length, so stages need RoPE.
 
 ```yaml
 data:

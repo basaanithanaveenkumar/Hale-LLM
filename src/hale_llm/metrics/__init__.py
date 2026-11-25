@@ -5,7 +5,6 @@ Subpackages
 -----------
 llm         — Language model metrics: loss, perplexity, token accuracy
 generation  — Text generation quality: BLEU, ROUGE, Distinct-N, Self-BLEU, Repetition
-diffusion   — Diffusion process metrics: NFE, VLB, acceptance rate
 """
 
 from hale_llm.metrics.base import Metric, MetricContext
@@ -28,13 +27,6 @@ from hale_llm.metrics.generation import (
     SelfBLEUMetric,
 )
 
-# Diffusion process metrics
-from hale_llm.metrics.diffusion import (
-    AcceptanceRateMetric,
-    NFEMetric,
-    VLBMetric,
-)
-
 __all__ = [
     # Base
     "Metric",
@@ -51,8 +43,4 @@ __all__ = [
     "DistinctNMetric",
     "SelfBLEUMetric",
     "RepetitionMetric",
-    # Diffusion
-    "NFEMetric",
-    "VLBMetric",
-    "AcceptanceRateMetric",
 ]

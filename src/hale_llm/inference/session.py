@@ -11,9 +11,9 @@ from loguru import logger
 from torch import nn
 
 from hale_llm.config.schema import RunConfig
-from hale_llm.core.checkpoint import CheckpointStore
-from hale_llm.core.registry import get_sampler, get_variant
-from hale_llm.core.tensors import log_model_summary
+from hale_llm.runtime import CheckpointStore
+from hale_llm.registry import get_sampler, get_variant
+from hale_llm.runtime import log_model_summary
 from hale_llm.dataloader.tokenizer import build_tokenizer_for
 from hale_llm.inference.encode import encode_prompt
 from hale_llm.inference.stop import cut_at_stop
@@ -43,12 +43,10 @@ class InferenceSession:
         return_history: bool = False,
         max_new_tokens: int | None = None,
         temperature: float | None = None,
-        sampling_steps: int | None = None,
     ) -> GenerationResult:
         prompt = prompt if prompt is not None else self.cfg.sample.prompt
         max_new_tokens = max_new_tokens if max_new_tokens is not None else self.cfg.sample.max_new_tokens
         temperature = temperature if temperature is not None else self.cfg.sample.temperature
-        sampling_steps = sampling_steps if sampling_steps is not None else self.cfg.sample.sampling_steps
         sampler = get_sampler(self.cfg.variant)
         self.model.eval()
         ids = encode_prompt(self.tokenizer, prompt, self.model, self.device)
@@ -59,7 +57,6 @@ class InferenceSession:
             ids,
             max_new_tokens=max_new_tokens,
             temperature=temperature,
-            sampling_steps=sampling_steps,
             return_history=return_history,
         )
         history = None
@@ -67,7 +64,7 @@ class InferenceSession:
             token_ids, history = out
         else:
             token_ids = out
-        # Stop at the end-of-text token (the diffusion samplers always fill the whole length).
+        # Stop at the end-of-text token.
         kept = cut_at_stop(token_ids[0], ids.size(1), getattr(self.tokenizer, "eos_token_id", None))
         text = self.tokenizer.decode(kept.tolist(), skip_special_tokens=True)
         logger.info("generated: {}", text)

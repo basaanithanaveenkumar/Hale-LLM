@@ -1,8 +1,5 @@
 from typing import Literal
 
-from hale_core.config.sections.webdataset import WebDatasetConfig
-from pydantic import Field
-
 from hale_llm.config.sections.common import StrictModel
 
 
@@ -30,7 +27,3 @@ class DataConfig(StrictModel):
     long_doc_fraction: float = 0.0
     # Minimum tokens for a document to count as long (None = half the context window).
     long_doc_min_tokens: int | None = None
-
-    # Convert the tokenised windows to WebDataset tar shards once and stream them afterwards
-    # (enabled: true); off by default.
-    webdataset: WebDatasetConfig = Field(default_factory=WebDatasetConfig)

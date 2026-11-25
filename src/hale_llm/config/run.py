@@ -12,7 +12,6 @@ from hale_llm.config.sections import (
     SampleConfig,
     TokenizerConfig,
     TrainConfig,
-    VizConfig,
 )
 from hale_llm.config.sections.common import StrictModel
 
@@ -25,7 +24,6 @@ class RunConfig(StrictModel):
     tokenizer: TokenizerConfig = Field(default_factory=TokenizerConfig)
     sample: SampleConfig = Field(default_factory=SampleConfig)
     eval: EvalConfig = Field(default_factory=EvalConfig)
-    viz: VizConfig = Field(default_factory=VizConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     experiment: ExperimentConfig = Field(default_factory=ExperimentConfig)
     device: str | None = None

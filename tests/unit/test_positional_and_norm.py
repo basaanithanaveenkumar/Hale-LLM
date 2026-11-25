@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from hale_llm.config.sections.model import ModelConfig
-from hale_llm.nn.backbones import GPTBackbone, build_backbone
+from hale_llm.nn.backbones import TransformerBackbone, build_backbone
 from hale_llm.nn.norm import NORMS, RMSNorm, build_norm
 from hale_llm.nn.positional import (
     POSITIONAL_ENCODINGS,
@@ -48,13 +48,11 @@ def test_rope_rejects_odd_head_dim():
         RotaryPositionalEncoding(head_dim=7)
 
 
-def test_learned_adds_table_and_handles_doubled_sequence():
+def test_learned_adds_a_table_and_rejects_longer_sequences():
     enc = LearnedPositionalEncoding(d_model=4, max_length=6)
     assert enc.encode_embeddings(torch.zeros(2, 6, 4)).shape == (2, 6, 4)
-    doubled = enc.encode_embeddings(torch.zeros(1, 12, 4))  # clean + noised halves
-    assert torch.equal(doubled[:, :6], doubled[:, 6:])
     with pytest.raises(ValueError):
-        enc.encode_embeddings(torch.zeros(1, 14, 4))
+        enc.encode_embeddings(torch.zeros(1, 7, 4))
 
 
 def test_unknown_names_raise_with_options():
@@ -79,16 +77,16 @@ def test_rope_is_the_default_and_adds_no_position_parameters():
     cfg = _tiny_cfg()
     assert cfg.pos_encoding == "rope"
     backbone = build_backbone(50, cfg)
-    assert isinstance(backbone, GPTBackbone)
+    assert isinstance(backbone, TransformerBackbone)
     assert isinstance(backbone.positional, RotaryPositionalEncoding)
     assert not any("table" in n for n, _ in backbone.named_parameters())
 
 
 @pytest.mark.parametrize("pos", ["rope", "learned"])
 @pytest.mark.parametrize("norm", ["layer", "rms"])
-@pytest.mark.parametrize("impl", ["mha", "gqa", "mqa"])
-def test_backbone_forward_for_every_combination(pos, norm, impl):
-    cfg = _tiny_cfg(pos_encoding=pos, norm_type=norm, attn_impl=impl, attn_type="causal")
+@pytest.mark.parametrize("ffn", ["mlp", "moe"])
+def test_backbone_forward_for_every_combination(pos, norm, ffn):
+    cfg = _tiny_cfg(pos_encoding=pos, norm_type=norm, ffn_type=ffn)
     backbone = build_backbone(50, cfg)
     tokens = torch.randint(0, 50, (2, 16))
     logits = backbone(tokens)
@@ -97,7 +95,7 @@ def test_backbone_forward_for_every_combination(pos, norm, impl):
 
 
 def test_causality_is_preserved_with_rope():
-    backbone = build_backbone(50, _tiny_cfg(attn_type="causal")).eval()
+    backbone = build_backbone(50, _tiny_cfg()).eval()
     a = torch.randint(0, 50, (1, 12))
     b = a.clone()
     b[0, 8:] = (b[0, 8:] + 1) % 50  # change only the future
@@ -106,7 +104,7 @@ def test_causality_is_preserved_with_rope():
 
 
 def test_padded_keys_do_not_produce_nan():
-    backbone = build_backbone(50, _tiny_cfg(attn_type="causal")).eval()
+    backbone = build_backbone(50, _tiny_cfg()).eval()
     tokens = torch.randint(0, 50, (1, 8))
     mask = torch.tensor([[0, 0, 0, 1, 1, 1, 1, 1]])  # left padding: row 0 sees only pads
     assert torch.isfinite(backbone(tokens, attention_mask=mask)).all()
@@ -119,18 +117,13 @@ def test_unknown_config_names_fail_at_build_time():
         build_backbone(50, _tiny_cfg(norm_type="batch"))
 
 
-def test_lgt_ignores_the_switches_but_still_builds():
-    backbone = build_backbone(50, _tiny_cfg(arch="lgt", attn_type="bidirectional", pos_encoding="learned"))
-    assert not isinstance(backbone, GPTBackbone)
-
-
 def test_initial_loss_is_close_to_uniform_guessing():
     import math
 
     import torch.nn.functional as F
 
     vocab = 1000
-    backbone = build_backbone(vocab, _tiny_cfg(attn_type="causal"))
+    backbone = build_backbone(vocab, _tiny_cfg())
     tokens = torch.randint(0, vocab, (4, 16))
     loss = F.cross_entropy(backbone(tokens).reshape(-1, vocab), tokens.reshape(-1)).item()
     assert abs(loss - math.log(vocab)) < 1.0, loss  # huge embedding init gave ~sqrt(d_model)x too much

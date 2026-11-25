@@ -1,14 +1,12 @@
+"""Build the train / validation DataLoader of packed context windows."""
+
 from __future__ import annotations
 
 import hashlib
 import json
-import re
 
 import torch
-import torch.distributed as dist
-from hale_core.data.webdataset import WebDatasetAdapter
-from torch.utils.data import DataLoader, IterableDataset
-from torch.utils.data.distributed import DistributedSampler
+from torch.utils.data import DataLoader
 
 from hale_llm.dataloader.collate import get_collate
 from hale_llm.dataloader.sources.huggingface import HuggingFaceTextDataset
@@ -25,55 +23,30 @@ def dataset_fingerprint(cfg, hf_split: str) -> str:
         "split": hf_split,
         "size": size,
         "text_field": data.text_field,
-        "tokenizer": data.tokenizer_name,
         "context_window": cfg.model.max_length,
         "packing": "non_overlapping_eos_v1",  # bump when the packing rules change
-        "tokenizer": [cfg.tokenizer.source, cfg.tokenizer.kind, cfg.tokenizer.path],
+        "tokenizer": [cfg.tokenizer.source, cfg.tokenizer.kind, cfg.tokenizer.path, data.tokenizer_name],
         "long_docs": [data.long_doc_fraction, data.long_doc_min_tokens],
         "add_special_tokens": data.add_special_tokens,
     }
     return hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest()
 
 
-def webdataset_name(cfg, hf_split: str, fingerprint: str) -> str:
-    """Shard directory name: readable dataset/split plus a short fingerprint, so different data
-    configs never overwrite each other's shards."""
-    base = f"{cfg.data.dataset}-{cfg.data.subset or 'default'}-{hf_split}"
-    return f"{re.sub(r'[^A-Za-z0-9._-]+', '_', base)}-{fingerprint[:12]}"
-
-
 def make_dataloader(cfg, split: str = "train", **collate_kwargs) -> DataLoader:
-    tok = build_tokenizer_for(cfg)
+    """Tokenise one split into context windows and wrap it in a batching DataLoader."""
+    tokenizer = build_tokenizer_for(cfg)
     hf_split = cfg.data.train_split if split == "train" else cfg.data.val_split
-    training = split == "train"
-
-    # With data.webdataset.enabled the HF download + tokenisation only runs when the shards are
-    # missing or stale (the factory is not called otherwise); with the flag off this is the
-    # plain HuggingFaceTextDataset as before.
-    fingerprint = dataset_fingerprint(cfg, hf_split)
-    ds = WebDatasetAdapter(cfg.data.webdataset).prepare(
-        lambda: HuggingFaceTextDataset(tok, cfg, split=hf_split),
-        webdataset_name(cfg, hf_split, fingerprint),
-        training=training,
-        fingerprint=fingerprint,
-    )
+    dataset = HuggingFaceTextDataset(tokenizer, cfg, split=hf_split)
     collate = get_collate(cfg.variant)
 
     def _collate(batch):
         tensors = torch.stack(list(batch), dim=0)
-        return collate(tensors, tokenizer=tok, **collate_kwargs)
+        return collate(tensors, tokenizer=tokenizer, **collate_kwargs)
 
-    loader_kwargs: dict = {
-        "batch_size": cfg.train.batch_size,
-        "drop_last": True,
-        "collate_fn": _collate,
-    }
-    if isinstance(ds, IterableDataset):
-        pass  # WebDataset streams shuffle and split across ranks themselves
-    elif dist.is_available() and dist.is_initialized() and dist.get_world_size() > 1:
-        # DDP / Ray: every rank reads its own 1/world_size of the windows; the trainer calls
-        # sampler.set_epoch(epoch) so the order changes between epochs.
-        loader_kwargs["sampler"] = DistributedSampler(ds, shuffle=training, drop_last=True)
-    else:
-        loader_kwargs["shuffle"] = training
-    return DataLoader(ds, **loader_kwargs)
+    return DataLoader(
+        dataset,
+        batch_size=cfg.train.batch_size,
+        drop_last=True,
+        collate_fn=_collate,
+        shuffle=split == "train",
+    )

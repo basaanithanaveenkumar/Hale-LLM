@@ -1,8 +1,7 @@
 """The lean trainer: one readable file in the nanochat / modded-nanogpt style.
 
-This is the default backend (``train.trainer: lean``). The full trainer
-(``train.trainer: full``) adds Ray, DDP, FSDP, W&B and GIF visualisation; this one does
-only what a small training run needs, so you can follow a whole run from top to bottom:
+This is the default backend (``train.trainer: lean``). It does only what a training run
+on one device needs, so you can follow a whole run from top to bottom:
 
     1. read the config and pick the device
     2. build the data loaders
@@ -13,11 +12,10 @@ only what a small training run needs, so you can follow a whole run from top to 
     7. every N steps: measure validation loss
     8. save a checkpoint that ``hale-llm-chat`` and ``hale-llm-sample`` can load
 
-Every paradigm works (autoregressive, diffusion, block diffusion, flow matching)
-because the loss comes from the same registry the full trainer uses.
+Every registered variant works because the loss comes from the loss registry.
 
 Settings live under ``train.lean`` in the YAML (accum_steps, warmup_steps, warmdown_frac,
-eval_every, eval_batches, compile). It has no resume, W&B or GIF output.
+eval_every, eval_batches, compile). It has no resume support.
 """
 
 from __future__ import annotations
@@ -30,11 +28,11 @@ from collections.abc import Iterator
 import torch
 from loguru import logger
 
-import hale_llm.models  # noqa: F401  (registers every paradigm)
+import hale_llm.models  # noqa: F401  (registers the model variants)
 from hale_llm.config.schema import RunConfig
-from hale_llm.core.checkpoint import CheckpointStore
-from hale_llm.core.registry import get_loss, get_variant
-from hale_llm.core.tensors import move_batch_to_device
+from hale_llm.runtime import CheckpointStore
+from hale_llm.registry import get_loss, get_variant
+from hale_llm.runtime import move_batch_to_device
 from hale_llm.dataloader.data_module import DataModule
 from hale_llm.optim import build_optimizer
 from hale_llm.utils.device import get_device
@@ -220,7 +218,7 @@ def train_lean(cfg: RunConfig, tokenizer=None) -> list[float]:
                 step + 1, validation_loss(model, loss_fn, val_loader, device, eval_batches),
             )
 
-    # 8. Save in the same format as the full trainer so chat / sample / eval can load it.
+    # 8. Save a checkpoint that chat / sample / eval can load.
     store.save(
         cfg.train.checkpoint_path,
         model_state_dict=plain_model.state_dict(),

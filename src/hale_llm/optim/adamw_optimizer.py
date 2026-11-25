@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import torch
-from hale_core.nn.optim.base import BaseOptimizer
+from hale_llm.optim.base_optimizer import BaseOptimizer
 from loguru import logger
 
 from hale_llm.optim.parameter_groups import split_parameters

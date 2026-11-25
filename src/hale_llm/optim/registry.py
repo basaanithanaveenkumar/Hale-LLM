@@ -1,10 +1,10 @@
-"""Optimizers owned by hale_llm, looked up before the hale_core ones."""
+"""Name -> optimizer lookup (``train.optimizer_type`` in YAML)."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
-from hale_core.registry import NamedRegistry
+from hale_llm.registry import NamedRegistry
 
 OPTIMIZERS = NamedRegistry("optimizer")
 

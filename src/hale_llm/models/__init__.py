@@ -1,10 +1,7 @@
-"""Import every models_* subpackage so decorators fire.
+"""Import every ``models_*`` subpackage so its decorators register the variants.
 
-Adding a paradigm: new folder `models/models_<name>/`, one import here, one YAML under configs/.
+Adding a model variant: a new folder ``models/models_<name>/`` (model, loss, sampler and
+collate, each registered under the variant name), one import here, one YAML under configs/.
 """
 
-from hale_llm.models import models_autoregressive as _ar  # noqa: F401
-from hale_llm.models import models_block_diffusion as _bd  # noqa: F401
-from hale_llm.models import models_diffusion as _diff  # noqa: F401
-from hale_llm.models import models_flow_matching as _fm  # noqa: F401
-from hale_llm.models import models_mtp as _mtp  # noqa: F401
+from hale_llm.models import models_autoregressive as _autoregressive  # noqa: F401

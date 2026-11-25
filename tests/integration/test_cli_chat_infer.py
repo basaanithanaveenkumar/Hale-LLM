@@ -9,7 +9,7 @@ from hale_llm.chat import ChatSession
 from hale_llm.cli import chat as chat_cli
 from hale_llm.cli import inference as infer_cli
 from hale_llm.config.schema import RunConfig
-from hale_llm.core.registry import get_variant
+from hale_llm.registry import get_variant
 from hale_llm.inference import session_from_model
 
 

@@ -1,5 +1,7 @@
 from typing import Literal
 
+from pydantic import model_validator
+
 from hale_llm.config.sections.common import StrictModel
 
 
@@ -7,28 +9,25 @@ class ModelConfig(StrictModel):
     d_model: int = 128
     n_heads: int = 4
     n_layers: int = 4
+    # Hidden width of the feed-forward network (and of each MoE expert unless moe_hidden_dim).
     d_ff: int = 512
     dropout: float = 0.0
     max_length: int = 64
-    attn_type: Literal["causal", "bidirectional", "block_causal"] = "causal"
-    attn_impl: Literal["mha", "gqa", "mqa"] = "mha"
-    n_kv_heads: int | None = None
-    ffn_type: Literal["mlp", "geglu", "moe"] = "mlp"
-    moe_num_experts: int = 4
-    moe_top_k: int = 2
-    moe_num_shared: int = 1
-    use_time_cond: bool = False
-    block_size: int | None = None
-    n_mtp_heads: int = 2
-    arch: Literal["default", "transformer", "lgt", "dit"] = "default"
-    sliding_window: int = 512
-    local_global_ratio: int = 5
-    rope_theta_local: float = 10_000.0
-    rope_theta_global: float = 1_000_000.0
-    p_rope: float = 0.25
-    qk_norm: bool = False
+    # Share the token embedding with the output head (saves vocab_size * d_model parameters).
+    tie_embeddings: bool = True
+
+    # Feed-forward network: a dense MLP, or the DeepSeek-style mixture of experts.
+    ffn_type: Literal["mlp", "moe"] = "mlp"
+    moe_num_experts: int = 4  # routed experts
+    moe_top_k: int = 2  # routed experts used per token
+    moe_num_shared: int = 1  # shared experts every token passes through
+    moe_hidden_dim: int | None = None  # None = d_ff
+    moe_router: str = "noisy_topk"  # topk | noisy_topk (see hale_llm.nn.moe)
+    moe_activation: Literal["swiglu", "gelu"] = "swiglu"
+    # Weight of the load-balancing loss that keeps tokens spread over the experts.
+    moe_aux_loss_coef: float = 0.01
+
     # Name of a registered positional encoding (see hale_llm.nn.positional): rope | learned.
-    # Applies to arch transformer/default; lgt and dit fix their own.
     pos_encoding: str = "rope"
     # Name of a registered norm layer (see hale_llm.nn.norm): layer | rms.
     norm_type: str = "layer"
@@ -39,3 +38,13 @@ class ModelConfig(StrictModel):
     rope_scaling: str = "none"
     rope_scaling_factor: float = 1.0
     rope_original_length: int = 4096
+
+    @model_validator(mode="after")
+    def _check_shapes(self) -> "ModelConfig":
+        if self.d_model % self.n_heads != 0:
+            raise ValueError(f"d_model={self.d_model} must be divisible by n_heads={self.n_heads}")
+        if self.moe_top_k > self.moe_num_experts:
+            raise ValueError(
+                f"moe_top_k={self.moe_top_k} cannot exceed moe_num_experts={self.moe_num_experts}"
+            )
+        return self

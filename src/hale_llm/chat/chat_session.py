@@ -34,13 +34,11 @@ class ChatSession:
         *,
         max_new_tokens: int | None = None,
         temperature: float | None = None,
-        sampling_steps: int | None = None,
     ) -> None:
         self._session = session
         sample_cfg = session.cfg.sample
         self.max_new_tokens = max_new_tokens or sample_cfg.max_new_tokens
         self.temperature = temperature if temperature is not None else sample_cfg.temperature
-        self.sampling_steps = sampling_steps or sample_cfg.sampling_steps
         self._turns: list[ChatTurn] = []
         self._context = ""
 
@@ -72,16 +70,6 @@ class ChatSession:
         self._temperature = value
 
     @property
-    def sampling_steps(self) -> int:
-        return self._sampling_steps
-
-    @sampling_steps.setter
-    def sampling_steps(self, value: int) -> None:
-        if value < 1:
-            raise ValueError(f"sampling_steps must be >= 1, got {value}")
-        self._sampling_steps = value
-
-    @property
     def turns(self) -> tuple[ChatTurn, ...]:
         return tuple(self._turns)
 
@@ -109,7 +97,6 @@ class ChatSession:
             prompt,
             max_new_tokens=self._max_new_tokens,
             temperature=self._temperature,
-            sampling_steps=self._sampling_steps,
         )
 
         # Step 4: the sampler returns prompt + continuation; keep only the continuation.

@@ -6,7 +6,6 @@ from torch.utils.data import DataLoader
 
 from hale_llm.config.schema import RunConfig
 from hale_llm.dataloader.loaders import make_dataloader
-from hale_llm.dataloader.prompts import collect_dataset_passages, dataset_prompt
 from hale_llm.dataloader.sources.overfit import make_overfit_loader, uses_overfit
 from hale_llm.dataloader.tokenizer import build_tokenizer_for
 from loguru import logger
@@ -16,14 +15,6 @@ class DataModule:
     def __init__(self, cfg: RunConfig, tokenizer=None) -> None:
         self.cfg = cfg
         self.tokenizer = tokenizer or build_tokenizer_for(cfg)
-        self._viz_passages: list[str] | None = None
-
-    def viz_prompt(self, seed: int = 0) -> str:
-        if self.cfg.viz.prompt_source != "dataset":
-            return self.cfg.sample.prompt
-        if self._viz_passages is None:
-            self._viz_passages = collect_dataset_passages(self.cfg, min_words=self.cfg.viz.prompt_words)
-        return dataset_prompt(self.cfg, seed=seed, passages=self._viz_passages)
 
     def train_loader(self) -> DataLoader:
         cfg = self.cfg

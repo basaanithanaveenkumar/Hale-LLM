@@ -4,12 +4,15 @@ model:
   n_layers: 16
   d_ff: 1536
   dropout: 0.1
-  attn_impl: mha
-  n_kv_heads: null
   ffn_type: mlp
   moe_num_experts: 4
   moe_top_k: 2
   moe_num_shared: 1
+  moe_router: noisy_topk
+  moe_activation: swiglu
+  moe_aux_loss_coef: 0.01
+  pos_encoding: rope
+  norm_type: layer
 train:
   epochs: 2000
   steps: null
@@ -49,8 +52,6 @@ tokenizer:
 sample:
   max_new_tokens: 64
   temperature: 1.0
-  sampling_steps: 32
-  eps: 0.001
   prompt: "The meaning of life is"
 eval:
   metrics:
@@ -58,29 +59,13 @@ eval:
     - perplexity
     - bits_per_token
     - token_accuracy
-    - masked_accuracy
   every_n_epochs: 10
   max_batches: null
-viz:
-  enabled: false
-  every_n_steps: 50
-  every_n_epochs: null
-  sampling_steps: 8
-  prompt_source: dataset
-  prompt_words: 8
-  output_dir: data/viz
 logging:
   level: INFO
   log_file: data/logs/hale_llm.log
   tensorboard: true
   tensorboard_dir: data/tb
-  wandb: false
-  wandb_project: null
-  wandb_entity: null
-  wandb_run_name: null
-  wandb_tags: null
-  wandb_watch_model: false
-  wandb_log_freq: 100
 experiment:
   enabled: true
   root: data/experiments

@@ -1,6 +1,5 @@
-"""Training backends. Importing this package registers ``lean``, ``full`` and ``torchtitan``."""
+"""Training backends. Importing this package registers ``lean`` and ``torchtitan``."""
 
-from hale_llm.training.backends.full_backend import FullTrainerBackend
 from hale_llm.training.backends.lean_backend import LeanTrainerBackend
 from hale_llm.training.backends.registry import (
     TRAINER_BACKENDS,
@@ -14,7 +13,6 @@ from hale_llm.training.backends.trainer_backend import TrainerBackend
 
 __all__ = [
     "TRAINER_BACKENDS",
-    "FullTrainerBackend",
     "LeanTrainerBackend",
     "TorchTitanBackend",
     "TorchTitanCommandBuilder",

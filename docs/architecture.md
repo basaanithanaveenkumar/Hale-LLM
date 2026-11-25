@@ -1,289 +1,91 @@
 # Architecture
 
-Mermaid diagrams (render on GitHub). See also the [project page](../project-page/index.html)
-and the [README](../README.md) for a laymen overview.
-For usage details, see [usage.md](usage.md) and [core.md](core.md).
+One decoder-only transformer, in two flavours: a dense feed-forward network, or a DeepSeek-style
+mixture of experts. Both are model *variants* chosen by `variant:` in the YAML.
 
----
+```mermaid
+flowchart LR
+  V{"variant"} -- autoregressive --> D["AutoregressiveLM<br/>ffn = model.ffn_type (mlp)"]
+  V -- autoregressive_moe --> M["MoEAutoregressiveLM<br/>ffn = moe"]
+  D --> B["TransformerBackbone"]
+  M --> B
+  B --> L["registered loss<br/>next-token NLL (+ MoE balance loss)"]
+  B --> S["registered sampler<br/>token by token, stops at EOS"]
+```
 
-## 1. Shared backbone — LGT transformer
-
-All four generation paradigms run on the same Local-Global Transformer (LGT) or standard GPT backbone. Autoregressive uses GPT; all diffusion/flow variants use LGT because they need bidirectional context.
+## The backbone
 
 ```mermaid
 flowchart TB
-  subgraph LGT["LGT layer (Local-Global Transformer)"]
-    H_IN["hidden states h  [B, S, D]"]
-
-    subgraph LOCAL["Local attention heads  (nl heads)"]
-      LNorm["RMSNorm"]
-      LATTN["MHA within a window of size w\n(e.g. w = 32 tokens)\nRoPE with local frequency θ_local"]
-      LOUT["local context  [B, S, D_l]"]
-      LNorm --> LATTN --> LOUT
-    end
-
-    subgraph GLOBAL["Global attention heads  (ng heads)"]
-      GNorm["RMSNorm"]
-      GATTN["MHA over full sequence\nRoPE with global frequency θ_global\n(nl + ng = n_heads total)"]
-      GOUT["global context  [B, S, D_g]"]
-      GNorm --> GATTN --> GOUT
-    end
-
-    MERGE["concat(local, global) → Linear → [B, S, D]"]
-    ADD1["residual add"]
-
-    subgraph FFN_L["FFN sub-layer"]
-      FNorm["RMSNorm"]
-      FFNMOD["GeGLU: gate(x) × up(x) → down\nor MoE (configurable)"]
-      FOUT["[B, S, D]"]
-      FNorm --> FFNMOD --> FOUT
-    end
-
-    ADD2["residual add"]
-    H_OUT["h_out  [B, S, D]"]
-
-    H_IN --> LOCAL & GLOBAL
-    LOUT & GOUT --> MERGE --> ADD1
-    ADD1 --> FNorm
-    FOUT --> ADD2 --> H_OUT
-  end
+  T["token ids"] --> E["token embedding"]
+  E --> P["positional.encode_embeddings<br/>(learned table adds here; RoPE does nothing)"]
+  P --> B1["TransformerBlock x n_layers"]
+  B1 --> N["final norm"]
+  N --> H["lm_head (tied to the embedding)"]
+  H --> O["logits"]
 ```
 
----
+`TransformerBackbone` (`nn/backbones/`) owns the embedding, the positional encoding, the stack
+(`DecoderTransformer`) and the output head. The positional encoding and the norm are looked up by
+name (`model.pos_encoding`, `model.norm_type`), the feed-forward by `model.ffn_type`; each lookup is a
+registry, so a new choice is one decorated class.
 
-## 2. Four generation paradigms in detail
-
-### 2a. Autoregressive (reference baseline)
+## One block
 
 ```mermaid
 flowchart LR
-  subgraph AR_TRAIN["Training"]
-    TOKENS["token sequence x₁ x₂ … xₙ"]
-    CAUSAL["causal mask\n(each position attends\nonly to previous tokens)"]
-    LOGITS["logits p(xₜ | x₁…xₜ₋₁)\nfor all positions in parallel"]
-    CE_LOSS["cross-entropy loss\naverage over non-padding tokens"]
-    TOKENS --> CAUSAL --> LOGITS --> CE_LOSS
-  end
-
-  subgraph AR_SAMPLE["Sampling"]
-    START["prefix tokens"]
-    STEP["sample xₙ₊₁ ~ softmax(logits[-1] / τ)\n(temperature τ, top-k, top-p)"]
-    APPEND["append xₙ₊₁ to sequence"]
-    START --> STEP --> APPEND
-    APPEND -->|"repeat until EOS or max_len"| STEP
-  end
+  X["x"] --> N1["norm1"] --> A["MultiHeadAttention"] --> R1(("+"))
+  X --> R1
+  R1 --> N2["norm2"] --> F["ffn: FeedForward or DeepseekMoE"] --> R2(("+"))
+  R1 --> R2
+  R2 --> Y["y"]
 ```
 
-### 2b. Masked diffusion (absorbing-state)
+**Attention.** `MultiHeadAttention` holds `n_heads` `HeadAttention` modules. Each head projects the
+input to a query, key and value of width `d_model / n_heads`, applies the positional hook (RoPE
+rotates queries and keys), attends with a causal mask and scales the scores by
+`1 / sqrt(head_size)`. The outputs are concatenated and mixed by one projection. The fused
+`scaled_dot_product_attention` kernel does the work; `return_attn_weights=True` on a head switches to
+an explicit softmax so the weights can be inspected.
+
+## Mixture of experts
 
 ```mermaid
 flowchart LR
-  subgraph MD_TRAIN["Training"]
-    X1["clean tokens x₁…xₙ"]
-    T_SAMP["sample noise level t ~ U(0,1)"]
-    MASK_PROB["mask probability m(t)\n(e.g. cosine schedule)"]
-    XT["x_t: replace each token\nwith [MASK] with prob m(t)"]
-    BIDIR["bidirectional attention\n(all positions see all others)"]
-    UNMASK_LOGITS["p(x_i | x_t)  for every masked i"]
-    MASK_LOSS["cross-entropy on masked positions only\nwith masking weight 1/m(t)"]
-    X1 & T_SAMP --> MASK_PROB --> XT --> BIDIR --> UNMASK_LOGITS --> MASK_LOSS
-  end
-
-  subgraph MD_SAMPLE["Sampling (MDLM schedule)"]
-    ALLMASKED["x = [MASK]…[MASK]\n(all positions masked)"]
-    SCORE["score all masked positions\nvia one forward pass"]
-    SELECT["unmask fraction 1/T tokens\n(highest-confidence predictions)"]
-    ALLMASKED --> SCORE --> SELECT
-    SELECT -->|"repeat T steps"| SCORE
-  end
+  X["tokens"] --> S["shared experts<br/>(every token)"]
+  X --> R["router: gate scores<br/>+ noise while training"]
+  R --> K["top-k experts per token<br/>softmax over the chosen k"]
+  K --> E["routed experts<br/>(each sees only its tokens)"]
+  S --> Add(("+"))
+  E --> Add
+  Add --> Y["output"]
+  R -. "probs" .-> A["load-balance loss"]
 ```
 
-### 2c. Block diffusion
+* `Router` scores every expert, keeps the top `k` and softmaxes over them. `BestKRouter` uses the plain
+  gate; `NoisyBestKRouter` adds noise scaled by a learned amount while training.
+* `Expert` is SwiGLU (`w2(silu(w1 x) * w3 x)`) or plain GELU.
+* `DeepseekMoE` adds the shared experts' output to the weighted routed outputs. Each routed expert runs
+  only on the tokens that picked it.
+* While training, the layer computes a Switch-style balance loss `n_experts * sum(fraction_i * mean_prob_i)`
+  (1.0 when tokens are spread evenly). The loss function adds it with weight `model.moe_aux_loss_coef`.
 
-```mermaid
-flowchart LR
-  subgraph BD_TRAIN["Training"]
-    SEQBD["x₁…xₙ split into blocks\nof size block_size B"]
-    BLOCK_K["select block k at random"]
-    PREV["x₁…x_{kB-1} committed\n(prefix, visible via block-causal mask)"]
-    MASKED_BLK["x_{kB}…x_{(k+1)B-1} fully masked"]
-    BLKCAUSAL["block-causal attention:\nprefix tokens see each other\nmasked block sees prefix + itself"]
-    PRED["p(x_i | prefix, x_t_block)\nfor i in masked block"]
-    BLKLOSS["cross-entropy on masked block tokens"]
-    SEQBD --> BLOCK_K
-    PREV & MASKED_BLK --> BLKCAUSAL --> PRED --> BLKLOSS
-  end
+## Package layout
 
-  subgraph BD_SAMPLE["Sampling (left to right over blocks)"]
-    COMMIT["committed = []"]
-    NEXT_BLK["denoise next block via T diffusion steps\n(bidirectional within block,\nblock-causal to committed prefix)"]
-    APPEND_BLK["append denoised block to committed"]
-    COMMIT --> NEXT_BLK --> APPEND_BLK
-    APPEND_BLK -->|"repeat over blocks"| NEXT_BLK
-  end
-```
+| Package | Holds |
+|---|---|
+| `nn/attention`, `nn/blocks`, `nn/moe`, `nn/backbones` | Heads, blocks, experts and routers, the backbone |
+| `nn/positional`, `nn/norm` | RoPE (with scaling) and learned positions; LayerNorm and RMSNorm |
+| `models/models_autoregressive` | The two variants: model, loss, sampler, collate |
+| `registry` | `NamedRegistry`, `VariantRegistry`, and the model / loss / sampler / metric decorators |
+| `runtime` | `CheckpointStore`, tensor helpers, the parameter summary |
+| `optim` | `adam`, `adamw` (LLM recipe), `sgd`, `muon` |
+| `tokenizer`, `dataloader` | Trained SuperBPE / BPE tokenizer, context-window packing |
+| `training`, `inference`, `chat`, `cli` | Lean trainer and TorchTitan launcher, sessions, chat, commands |
 
-### 2d. Discrete flow matching
+## Adding a model variant
 
-```mermaid
-flowchart LR
-  subgraph FM_TRAIN["Training"]
-    X0_FM["x₀ ~ uniform over vocab\n(noisy distribution)"]
-    X1_FM["x₁ = ground truth tokens\n(target distribution)"]
-    T_FM["t ~ U(0, 1)"]
-    XT_FM["x_t: straight-line interpolation\np_t(y) = (1-t)·p₀(y) + t·p₁(y)\n(per-token token mixture)"]
-    TARGET_FM["target velocity\nv*(y) = p₁(y) - p₀(y)"]
-    PRED_FM["model predicts v_θ(x_t, t)\nvia full-sequence forward pass"]
-    FLOW_LOSS["MSE or KL(v_θ, v*)"]
-    X0_FM & X1_FM & T_FM --> XT_FM --> TARGET_FM & PRED_FM --> FLOW_LOSS
-  end
-
-  subgraph FM_SAMPLE["Sampling (Euler integration)"]
-    P0["p₀ = uniform distribution"]
-    EULER["for i in 0…T:\n  dt = 1/T\n  v = model(p_t, t_i)\n  p_{t+dt} = p_t + v · dt\n  (re-normalise to simplex)"]
-    P1_OUT["p₁ ≈ data distribution\n→ sample token from p₁"]
-    P0 --> EULER --> P1_OUT
-  end
-```
-
----
-
-## 3. Token backbone — ids to logits
-
-```mermaid
-flowchart LR
-  IDS["token ids  [B, S]"]
-  EMB["Token embedding\n50,257 × D_model\n(GPT-2 tokenizer)"]
-  STACK["LGT or GPT transformer stack\nN layers, D_model=384, 8 heads, D_ff=1536"]
-  LM_HEAD["LM head\nLinear D_model → 50,257\n(often tied with embedding weights)"]
-  LOGITS["logits  [B, S, 50,257]"]
-
-  IDS --> EMB --> STACK --> LM_HEAD --> LOGITS
-```
-
----
-
-## 4. Loss functions
-
-```mermaid
-flowchart TB
-  subgraph AR_LOSS["Autoregressive loss"]
-    AR_L["CE( logits[:, :-1], tokens[:, 1:] )\nshift by 1 — predict next token\naverage over non-padding positions"]
-  end
-  subgraph MD_LOSS_F["Masked diffusion loss"]
-    MD_L["CE( p(x_i | x_t) , x_i ) for masked i only\n× reweighting 1 / m(t)\n(upweights highly masked steps)"]
-  end
-  subgraph BD_LOSS_F["Block diffusion loss"]
-    BD_L["CE( p(x_i | prefix, x_t_block) , x_i )\nfor tokens i in the masked block only"]
-  end
-  subgraph FM_LOSS_F["Flow matching loss"]
-    FM_L["MSE( v_θ(x_t, t) , p₁ − p₀ )\nor token-level KL(v_θ || v*)\nover all positions"]
-  end
-```
-
----
-
-## 5. Visualiser — block diffusion GIF
-
-```mermaid
-flowchart LR
-  CKPT["checkpoint (latest or named run)"]
-  PROMPT["prompt text (prefix)"]
-  MODEL_VIZ["load model + config"]
-  SAMPLE_VIZ["run block diffusion sampling\nrecord partial sequences at each\ndenoising step of each block"]
-  FRAMES["list of partial sequences"]
-  RENDER["render each frame:\nprompt = steelblue\ncommitted tokens = orange\nactive block = black on light overlay\nmasked positions = dimmed"]
-  GIF["output.gif\n(one frame per denoising step)"]
-
-  CKPT & PROMPT --> MODEL_VIZ --> SAMPLE_VIZ --> FRAMES --> RENDER --> GIF
-```
-
----
-
-## 6. Config inheritance and variant switching
-
-```mermaid
-flowchart LR
-  subgraph BASE["configs/base.yaml"]
-    B1["d_model: 384\nn_layers: 16\nn_heads: 8\nd_ff: 1536\ncontext_window: 128\narch: lgt\ntokenizer: gpt2\ndataset: TinyStories\npacking: non-overlapping + EOS"]
-  end
-
-  subgraph VARIANTS["Variant configs (one field change each)"]
-    V1["autoregressive/small.yaml\n  inherits: base.yaml\n  variant: autoregressive\n  arch: transformer\n  attention_mask: causal"]
-    V2["diffusion/small.yaml\n  inherits: base.yaml\n  variant: diffusion\n  attention_mask: bidirectional"]
-    V3["block_diffusion/small.yaml\n  inherits: base.yaml\n  variant: block_diffusion\n  attention_mask: block_causal\n  block_size: 16"]
-    V4["flow_matching/small.yaml\n  inherits: base.yaml\n  variant: flow_matching\n  attention_mask: bidirectional"]
-  end
-
-  BASE --> V1 & V2 & V3 & V4
-```
-
----
-
-## Diagrams matching the technical report
-
-Mermaid diagrams (they render on GitHub). They match the [technical report](../technical_report/main.tex) and the
-[project page](../project-page/index.html).
-
-## 1. Paradigms as plugins
-
-```mermaid
-flowchart TB
-  Y["configs/&lt;variant&gt;/small.yaml<br/>inherits: ../base.yaml"] --> R{"registries<br/>variant · collate · loss · sampler · metric"}
-  R --> AR["models_autoregressive"]
-  R --> MD["models_diffusion"]
-  R --> BD["models_block_diffusion"]
-  R --> FM["models_flow_matching"]
-  R --> MTP["models_mtp (stub)"]
-  AR & MD & BD & FM & MTP --> CORE["shared: core backbones · TinyStories + GPT-2 windows · trainer · evaluator · inference · GIF visualiser"]
-```
-
-## 2. Training objectives
-
-```mermaid
-flowchart LR
-  X["x (128 GPT-2 tokens)"] --> ARc["AR: causal mask<br/>labels shifted by 1"] --> ARl["CE(next token)"]
-  X --> MDc["Masked diffusion: t ~ U(ε,1)<br/>mask each token w.p. t"] --> MDl["CE on masked × 1/t"]
-  X --> BDc["Block diffusion: t_k per 16-token block<br/>input = [clean ; noisy], block-causal mask"] --> BDl["CE on masked noisy × 1/t_k"]
-  X --> FMc["Flow matching: t ~ U(0,1−ε)<br/>mask w.p. 1−t"] --> FMl["CE on masked × 1/(1−t)<br/>(= MD with s = 1−t)"]
-```
-
-## 3. Block diffusion: attention and decoding
-
-```mermaid
-flowchart LR
-  subgraph Attention["who attends to whom"]
-    direction TB
-    c["clean block k"] -->|"blocks ≤ k"| cc["clean"]
-    n["noisy block k"] -->|"blocks &lt; k"| cc
-    n -->|"block k only"| nn["noisy"]
-  end
-  subgraph Decode["sampling"]
-    direction TB
-    p["prompt blocks fixed"] --> b1["block j: all [MASK]"]
-    b1 --> s1["S steps, t: 1 → 0<br/>reveal w.p. (t − s)/t"]
-    s1 --> f["freeze block j"] --> b2["block j + 1"]
-  end
-```
-
-## 4. Shared backbone
-
-```mermaid
-flowchart TB
-  IDS["token ids"] --> EMB["token embedding (tied)<br/>+ learned positions (GPT / DiT)"]
-  T["diffusion time t"] --> TE["sinusoidal → MLP → t_emb"]
-  EMB --> ST{"model.arch"}
-  ST -->|transformer| G["GPTStack: pre-LN, MHA, MLP"]
-  ST -->|lgt| L["LGTStack: RMSNorm, GQA, 5 local : 1 global,<br/>RoPE θ 10⁴ / 10⁶, GeGLU"]
-  ST -->|dit| D["DiTStack: AdaLN-Zero"]
-  TE -. "scale/shift norms" .-> L
-  TE -. "AdaLN" .-> D
-  G & L & D --> H["LM head → logits (B, S, 50,258)"]
-```
-
-## Sizes (measured, `configs/base.yaml`)
-
-| Paradigm | Backbone | Params |
-|---|---|---|
-| AR | GPT, MLP, MHA | 47.7M |
-| Diffusion / block diffusion / flow matching | LGT, GeGLU, GQA n_kv = 2, time-conditioned | 63.2M |
+1. A folder `models/models_<name>/` with a model class (`@register_variant`), a loss (`@register_loss`),
+   a sampler (`@register_sampler`) and a collate function (`@register_collate`), all under the same name.
+2. One import in `models/__init__.py`.
+3. A YAML under `configs/`.

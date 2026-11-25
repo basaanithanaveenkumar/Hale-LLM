@@ -7,7 +7,7 @@ import torch
 
 import hale_llm.models  # noqa: F401
 from hale_llm.config.schema import RunConfig
-from hale_llm.core.checkpoint import CheckpointStore
+from hale_llm.runtime import CheckpointStore
 from hale_llm.dataloader.sources import huggingface as hf_source
 from hale_llm.inference import load_session
 from hale_llm.training.lean_trainer import train_lean

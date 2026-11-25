@@ -1,20 +1,19 @@
 # Configuration reference
 
-Every run is a YAML file under `configs/`. Variant files **inherit** [`configs/base.yaml`](../configs/base.yaml) and override only what they need. Unknown keys are rejected (`extra: forbid` in the Pydantic schema).
+Every run is a YAML file under `configs/`. A config **inherits** another with `inherits:` (any depth) and overrides only what it needs. Unknown keys are rejected (`extra: forbid` in the Pydantic schema).
 
 ```yaml
-inherits: ../base.yaml
-variant: block_diffusion
+inherits: ../autoregressive/nano.yaml
+variant: autoregressive_moe
 model:
-  arch: lgt
+  d_ff: 384
+  moe_top_k: 2
 ```
 
 Schema lives in [`src/hale_llm/config/sections/`](../src/hale_llm/config/sections/) (one file per YAML block). [`RunConfig`](../src/hale_llm/config/run.py) composes them; [`load_config`](../src/hale_llm/config/load.py) handles YAML inheritance.
 
-Pass a file to the CLI:
-
 ```bash
-uv run hale-llm-train --config configs/block_diffusion/small.yaml --no-resume --viz
+uv run hale-llm-train --config configs/autoregressive/small.yaml --no-resume
 ```
 
 CLI flags (`--epochs`, `--steps`, `--resume`, `--prompt`, `--experiment`) override YAML after load.
@@ -24,116 +23,60 @@ CLI flags (`--epochs`, `--steps`, `--resume`, `--prompt`, `--experiment`) overri
 ## Inheritance
 
 1. Load the file you pass (`--config`).
-2. If it has `inherits:`, load that parent (and its parent, one extra hop).
+2. If it has `inherits:`, load that parent first, and its parent, to any depth. Cycles are rejected.
 3. Deep-merge: nested dicts merge; scalars in the child **replace** the parent.
 
 `inherits` is not a `RunConfig` field; it is stripped during merge.
-
-Put shared size, data, and logging in `base.yaml`. Put paradigm-specific `variant`, `model.attn_type`, `model.arch`, and `model.block_size` in `configs/<variant>/small.yaml`.
 
 ---
 
 ## Top-level
 
-| Key | Type | Default | What it does |
+| Key | Type | Default | How to use |
 |---|---|---|---|
-| `variant` | string, **required** | — | Which registered model/loss/sampler to use: `autoregressive`, `diffusion`, `block_diffusion`, `flow_matching`, `mtp`. Must match a `@register_variant` name. |
-| `device` | `mps` \| `cuda` \| `cpu` \| `null` | `null` (auto) | Training device. `null` lets the runtime pick. Example: `device: mps` on Apple Silicon. |
+| `variant` | string, **required** | none | Which registered model, loss and sampler to use: `autoregressive` (dense) or `autoregressive_moe` (mixture of experts). Must match a `@register_variant` name. |
 | `model` | object | see below | Architecture. |
-| `train` | object | see below | Optimizer loop. |
-| `data` | object | see below | Dataset and tokenizer. |
-| `sample` | object | see below | Generation. |
-| `eval` | object | see below | Validation metrics. |
-| `viz` | object | see below | Unmasking GIFs. |
-| `logging` | object | see below | Loguru + TensorBoard. |
-| `experiment` | object | see below | Run folders under `data/experiments/`. |
+| `train` | object | see below | Optimizer, schedule, backend. |
+| `data` | object | see below | Dataset and context windows. |
+| `tokenizer` | object | see below | Trained tokenizer settings. |
+| `sample` | object | see below | Generation defaults. |
+| `eval` | object | see below | Metrics. |
+| `logging` | object | see below | Log level, log file, TensorBoard. |
+| `experiment` | object | see below | Run folders. |
+| `device` | string \| `null` | auto | `cuda`, `mps` or `cpu`. |
 
 ---
 
 ## `model`
 
-Shared width/depth for every variant. `arch` chooses the **block stack**; `attn_type` chooses the **mask**.
-
-### Size
-
-| Key | Type | Default (schema / `base.yaml`) | How to use |
-|---|---|---|---|
-| `d_model` | int | `128` / `384` | Residual stream width. Must be divisible by `n_heads`. Larger → more capacity and VRAM. |
-| `n_heads` | int | `4` / `8` | Query heads. |
-| `n_layers` | int | `4` / `16` | Transformer / DiT / LGT depth. |
-| `d_ff` | int | `512` / `1536` | FFN inner size (per expert if MoE). Typical ~4× `d_model`. |
-| `dropout` | float | `0` / `0.1` | Attention and FFN dropout. |
-| `max_length` | int | filled from `data.context_window` | Derived: the backbone's context length. Set `data.context_window` instead; if both are set, the data value wins. Must be divisible by `block_size` for block diffusion. |
-
-### Backbone (`arch`)
-
-| Value | Stack | Typical use |
-|---|---|---|
-| `transformer` or `default` | GPT-style pre-norm + LayerNorm + learned positions | Autoregressive, MTP |
-| `lgt` | Local-global transformer: RMSNorm sandwich, GQA, dual RoPE, 5:1 sliding-window / global, GeGLU | Diffusion, block diffusion, flow matching |
-| `dit` | AdaLN-Zero DiT blocks (scale, shift, residual gates) | Same denoisers, alternative to LGT |
-
-```yaml
-model:
-  arch: lgt    # or dit, or transformer
-```
-
-Swap without changing variant code: all models call `build_backbone(...)`.
-
-### Attention mask (`attn_type`)
-
-| Value | Meaning | Variant |
-|---|---|---|
-| `causal` | Token *i* attends to *≤ i* | `autoregressive`, `mtp` |
-| `bidirectional` | Full self-attention | `diffusion`, `flow_matching` |
-| `block_causal` | AR across blocks, bidirectional inside the current block (clean + noised streams) | `block_diffusion` |
-
-### Attention implementation
+One decoder-only transformer. The blocks are pre-norm: `x + attention(norm(x))`, then `x + ffn(norm(x))`.
 
 | Key | Type | Default | How to use |
 |---|---|---|---|
-| `attn_impl` | `mha` \| `gqa` \| `mqa` | `mha` | `mha` = one KV head per query head. `gqa` = grouped-query (set `n_kv_heads`). `mqa` = one KV head. LGT forces GQA internally. |
-| `n_kv_heads` | int \| `null` | `null` | KV heads for GQA. Must divide `n_heads`. `null` → `n_heads/4` for GQA, or LGT local `n_heads/2` and global `n_heads/8`. Example: `n_heads: 8`, `n_kv_heads: 2`. |
-
-### Positional encoding and normalisation
-
-| Key | Type | Default | How to use |
-|---|---|---|---|
-| `pos_encoding` | `rope` \| `learned` | `rope` | Registered in `hale_llm.nn.positional`. `rope` rotates queries and keys (no parameters, relative positions). `learned` adds a trainable table of `max_length x d_model`. The chosen scheme is written to the log when the model is built. Applies to `arch: transformer`; `lgt` and `dit` fix their own. |
+| `d_model` | int | `128` | Width. Must be divisible by `n_heads`. |
+| `n_heads` | int | `4` | Attention heads of width `d_model / n_heads`. |
+| `n_layers` | int | `4` | Blocks. |
+| `d_ff` | int | `512` | Hidden width of the dense MLP, and of each MoE expert unless `moe_hidden_dim` is set. |
+| `dropout` | float | `0.0` | Attention-weight, projection and FFN dropout. |
+| `max_length` | int | from `data.context_window` | Derived. Set `data.context_window` instead. |
+| `tie_embeddings` | bool | `true` | Share the token embedding with the output head. |
+| `pos_encoding` | `rope` \| `learned` | `rope` | Registered in `hale_llm.nn.positional`. Logged when the model is built. |
+| `norm_type` | `layer` \| `rms` | `layer` | Registered in `hale_llm.nn.norm`. |
 | `rope_theta` | float | `10000` | RoPE base frequency. |
-| `norm_type` | `layer` \| `rms` | `layer` | Registered in `hale_llm.nn.norm`. `rms` is RMSNorm. Applies to `arch: transformer`. |
+| `rope_scaling` / `rope_scaling_factor` / `rope_original_length` | | `none` / `1.0` / `4096` | `none`, `linear` or `yarn`; see [context_length.md](context_length.md). |
 
-Add a scheme with `@register_positional_encoding("name")` or `@register_norm("name")`; the YAML value is then accepted with no other change.
-
-### FFN
+### Feed-forward and mixture of experts
 
 | Key | Type | Default | How to use |
 |---|---|---|---|
-| `ffn_type` | `mlp` \| `geglu` \| `moe` | `mlp` | `mlp` = Linear–GELU–Linear. `geglu` = gated GELU (LGT default if you leave `mlp` on `arch: lgt`). `moe` = noisy top-k experts + shared experts. |
-| `moe_num_experts` | int | `4` | Routed experts (ignored unless `ffn_type: moe`). |
-| `moe_top_k` | int | `2` | Experts active per token. Must be `≤ moe_num_experts`. |
-| `moe_num_shared` | int | `1` | Experts applied to every token. |
-
-VRAM: MoE multiplies FFN parameters. Prefer `geglu` on a laptop; use `moe` when you want sparsity.
-
-### Time, blocks, MTP
-
-| Key | Type | Default | How to use |
-|---|---|---|---|
-| `use_time_cond` | bool | `false` | AdaLN (transformer/LGT) or DiT timestep embedding. Set `true` for diffusion / block diffusion / flow matching. Leave `false` for AR. |
-| `block_size` | int \| `null` | `null` | Tokens per block for `attn_type: block_causal`. Required for block diffusion. `max_length` must be a multiple (e.g. `128` and `16`). |
-| `n_mtp_heads` | int | `2` | Extra next-token heads for the MTP stub. Unused by other variants. |
-
-### LGT-only (ignored by `transformer` / `dit`)
-
-| Key | Type | Default | How to use |
-|---|---|---|---|
-| `sliding_window` | int | `512` | Local layers attend at most this many tokens away. If `≥ max_length`, local ≈ full attention; global layers still use p-RoPE. |
-| `local_global_ratio` | int | `5` | Five local layers then one global (`(i+1) % 6 == 0`). |
-| `rope_theta_local` | float | `10000` | RoPE base on local layers. |
-| `rope_theta_global` | float | `1e6` | RoPE base on global layers. |
-| `p_rope` | float | `0.25` | Fraction of head dim rotated on **global** layers (p-RoPE). Local layers rotate the full head. |
-| `qk_norm` | bool | `false` | RMSNorm on Q and K. LGT always applies QK-Norm. |
+| `ffn_type` | `mlp` \| `moe` | `mlp` | `mlp` = Linear-GELU-Linear. `moe` = DeepSeek-style experts. The variant `autoregressive_moe` always uses `moe`. |
+| `moe_num_experts` | int | `4` | Routed experts per layer. |
+| `moe_top_k` | int | `2` | Routed experts each token uses. At most `moe_num_experts`. |
+| `moe_num_shared` | int | `1` | Shared experts every token passes through. |
+| `moe_hidden_dim` | int \| `null` | `null` | Expert hidden width; `null` = `d_ff`. |
+| `moe_router` | string | `noisy_topk` | `topk` or `noisy_topk` (Gaussian noise while training). Registry: `hale_llm.nn.moe`. |
+| `moe_activation` | `swiglu` \| `gelu` | `swiglu` | Expert activation. SwiGLU has a third gate matrix. |
+| `moe_aux_loss_coef` | float | `0.01` | Weight of the load-balancing loss added to the training loss (training only). |
 
 ---
 
@@ -144,18 +87,17 @@ VRAM: MoE multiplies FFN parameters. Prefer `geglu` on a laptop; use `moe` when 
 | `epochs` | int \| `null` | `null` / `2000` | Full passes over the loader. If set, **wins** over `steps`. CLI: `--epochs`. |
 | `steps` | int \| `null` | `300` / `null` | Optimizer steps if `epochs` is `null`. CLI: `--steps` (ignored when `--epochs` is set). |
 | `lr` | float | `1e-3` / `3e-4` | AdamW learning rate. |
-| `batch_size` | int | `8` / `32` | Sequences per step. `drop_last=True`; if the split is smaller than this, the loader is empty. Lower on MPS (block diffusion uses `28`). |
+| `batch_size` | int | `8` / `32` | Sequences per step. `drop_last=True`; if the split is smaller than this, the loader is empty. |
 | `weight_decay` | float | `0` / `0.01` | AdamW decay. |
 | `log_every` | int | `50` / `100` | Log loss / lr / grad every N steps. |
 | `grad_clip` | float | `1.0` | Global grad-norm clip. `0` or very large disables in practice if you change code; keep `1.0`. |
 | `seed` | int | `0` | `torch.manual_seed`. |
 | `checkpoint_path` | string | `checkpoints/last.pt` | Overwritten by the experiment layout to `.../checkpoints/last.pt`. |
-| `checkpoint_every_epoch` | bool | `true` | Save `last.pt` at epoch end. |
-| `resume` | bool | `true` / `false` | Load `last.pt` if present. CLI `--resume` / `--no-resume`. `--no-resume` starts a new timestamped run. |
+| `resume` | bool | `true` / `false` | Attach to the `latest` run folder of the variant instead of creating a new one. CLI `--resume` / `--no-resume`. The lean trainer starts from scratch either way. |
 | `loss_type` | `ce` \| `focal` \| `label_smoothing` | `ce` | Registered token loss. Add more with `@register_token_loss`. |
 | `focal_gamma` | float | `2.0` | Focal focusing (`loss_type: focal`). |
 | `focal_alpha` | float | `1.0` | Focal class weight. |
-| `trainer` | `lean` \| `full` \| `torchtitan` | `lean` | Training backend; see [training.md](training.md). `lean.*` and `titan.*` hold each backend's settings. |
+| `trainer` | `lean` \| `torchtitan` | `lean` | Training backend; see [training.md](training.md). `lean.*` and `titan.*` hold each backend's settings. |
 | `optimizer_type` | `adamw` \| `adam` \| `sgd` \| `muon` | `adamw` | Default `adamw` is the LLM recipe: betas `(adam_beta1, adam_beta2)` = (0.9, 0.95), weight decay only on weight matrices (not norms, biases, embeddings).  `muon` uses Muon on the 2-D hidden weights and AdamW (at `lr`) on embeddings, the output head, norms and biases. |
 | `adam_beta1` / `adam_beta2` | float | `0.9` / `0.95` | AdamW betas. |
 | `muon_lr` | float | `0.02` | Learning rate of the Muon group. |
@@ -179,7 +121,7 @@ VRAM: MoE multiplies FFN parameters. Prefer `geglu` on a laptop; use `moe` when 
 | `val_split` | string | `validation` | Some datasets use `test` or `valid`. |
 | `text_field` | string | `text` | Column with raw text. |
 | `cache_dir` | string \| `null` | `null` | Hugging Face cache. `null` → default `~/.cache/huggingface`. |
-| `tokenizer_name` | string | `gpt2` | `AutoTokenizer.from_pretrained`. Must match a Hub tokenizer. |
+| `tokenizer_name` | string | `gpt2` | Only used when `tokenizer.source: pretrained`. |
 | `train_size` | int \| `null` | `100000` | Keep the first N Hub **rows** (not windows). `null` = all. TinyStories has 2.1M stories, so the default caps it; WikiText-2 is small enough for `null`. |
 | `val_size` | int \| `null` | `1000` | Same for validation. |
 | `context_window` | int | `128` | Tokens per training example **and the model's context length**. Rows are tokenised, an EOS token is appended after each, the stream is cut into back-to-back windows of this size (no overlap, no padding, remainder dropped). The log prints how many windows result. |
@@ -240,15 +182,13 @@ data:
 
 ## `sample`
 
-Used by `hale-llm-sample`, `hale-llm-viz`, and training GIFs (viz can shorten `sampling_steps`).
+Used by `hale-llm-sample`, `hale-llm-infer` and `hale-llm-chat`.
 
-| Key | Type | Default (schema / `base.yaml`) | How to use |
+| Key | Type | Default | How to use |
 |---|---|---|---|
-| `max_new_tokens` | int | `32` / `64` | Tokens generated after the prompt. |
-| `temperature` | float | `1.0` | Softmax temperature. Lower → sharper. |
-| `sampling_steps` | int | `32` | Denoising / flow steps. Ignored by greedy AR decode except as unused. More steps → slower, usually cleaner diffusion. |
-| `eps` | float | `1e-3` / `0.001` | Minimum noise level (avoid `t=0` in diffusion/flow). |
-| `prompt` | string | `"hello"` / `"The meaning of life is"` | Default prompt. CLI `--prompt` overrides. Viz uses this only if `viz.prompt_source: config`. |
+| `max_new_tokens` | int | `32` / `64` | Tokens to generate; generation also stops at EOS. |
+| `temperature` | float | `1.0` | Softmax temperature. Lower = steadier text. |
+| `prompt` | string | `"hello"` | Default prompt. CLI `--prompt` overrides. |
 
 ---
 
@@ -256,26 +196,9 @@ Used by `hale-llm-sample`, `hale-llm-viz`, and training GIFs (viz can shorten `s
 
 | Key | Type | Default | How to use |
 |---|---|---|---|
-| `metrics` | list of strings | `loss`, `perplexity`, `bits_per_token`, `token_accuracy`, `masked_accuracy` | Names from the metric registry. LLM metrics live in `hale_llm.metrics.llm` (`topk_accuracy` is optional). Unknown names error. CLI `hale-llm-eval --metrics loss,perplexity`. |
-| `every_n_epochs` | int \| `null` | `1` / `10` | Run eval during training. `null` skips periodic eval. Block diffusion `small.yaml` uses `1`. |
-| `max_batches` | int \| `null` | `null` | Cap val batches. `null` = full val loader. Set e.g. `20` to speed training. |
-
----
-
-## `viz`
-
-Training GIFs go to the experiment `viz/` folder (layout overrides `output_dir`).
-
-| Key | Type | Default (schema / `base.yaml`) | How to use |
-|---|---|---|---|
-| `enabled` | bool | `false` / `true` | Master switch. CLI `--viz` / `--no-viz`. |
-| `every_n_steps` | int \| `null` | `500` / `50` | GIF every N optimizer steps. `null` disables step-based GIFs. Cheap: `500`. Frequent: `50`. |
-| `every_n_epochs` | int \| `null` | `null` | Extra GIF at epoch boundaries. |
-| `sampling_steps` | int \| `null` | `8` | Denoise steps **inside training GIFs** (keep small). `hale-llm-viz` uses `sample.sampling_steps`. |
-| `max_new_tokens` | int \| `null` | `null` | Override generation length for GIFs. `null` → `sample.max_new_tokens`. |
-| `prompt_source` | `dataset` \| `config` | `dataset` | `dataset` = prefix from validation paragraphs. `config` = `sample.prompt`. `--prompt` forces config. |
-| `prompt_words` | int | `8` | Words taken from a validation passage. |
-| `output_dir` | string | `data/viz` | Unused when experiments are on; files land in the run `viz/`. |
+| `metrics` | list of strings | `loss`, `perplexity`, `bits_per_token`, `token_accuracy` | Names from the metric registry (`topk_accuracy` is optional). Unknown names error. CLI `hale-llm-eval --metrics loss,perplexity`. |
+| `every_n_epochs` | int \| `null` | `1` | Kept for configs; the lean trainer validates every `train.lean.eval_every` steps. |
+| `max_batches` | int \| `null` | `null` | Cap validation batches. |
 
 ---
 
@@ -288,7 +211,7 @@ Training GIFs go to the experiment `viz/` folder (layout overrides `output_dir`)
 | `tensorboard` | bool | `true` | Write scalars. |
 | `tensorboard_dir` | string | `runs` | Redirected to the run `tb/`. `tensorboard --logdir data/experiments`. |
 
-Scalars: `train/loss`, `train/lr`, `train/grad_norm`, `eval/*`.
+`hale-llm-eval` writes `eval/*` scalars.
 
 ---
 
@@ -296,7 +219,7 @@ Scalars: `train/loss`, `train/lr`, `train/grad_norm`, `eval/*`.
 
 | Key | Type | Default | How to use |
 |---|---|---|---|
-| `enabled` | bool | `true` | If `true`, checkpoints/logs/tb/viz live under `root`. Tests set `false`. |
+| `enabled` | bool | `true` | If `true`, checkpoints/logs/tb live under `root`. Tests set `false`. |
 | `root` | string | `data/experiments` | Parent directory. |
 | `name` | string \| `null` | `null` | Folder name. `null` → `<variant>_<YYYYMMDD_HHMMSS>`. CLI `--experiment NAME` reuses a folder. |
 | `source_yaml` | string \| `null` | set at load | Path of the YAML you passed; do not set by hand. |
@@ -310,28 +233,7 @@ data/experiments/<variant>/<variant>_<stamp>/
   checkpoints/last.pt
   logs/train.log
   tb/
-  viz/
 latest -> <that folder>
-```
-
----
-
-## Variant YAML cheat sheet
-
-| File | `variant` | `arch` | `attn_type` | Extra |
-|---|---|---|---|---|
-| `configs/autoregressive/small.yaml` | `autoregressive` | `transformer` (from base) | `causal` | `use_time_cond: false` |
-| `configs/diffusion/small.yaml` | `diffusion` | `lgt` | `bidirectional` | `use_time_cond: true` |
-| `configs/block_diffusion/small.yaml` | `block_diffusion` | `lgt` | `block_causal` | `block_size: 16`, `use_time_cond: true` |
-| `configs/flow_matching/small.yaml` | `flow_matching` | `lgt` | `bidirectional` | `use_time_cond: true` |
-| `configs/mtp/small.yaml` | `mtp` | `transformer` | `causal` | `n_mtp_heads: 5` (stub) |
-
-To try DiT on block diffusion, only change:
-
-```yaml
-# configs/block_diffusion/small.yaml
-model:
-  arch: dit
 ```
 
 ---
@@ -340,12 +242,12 @@ model:
 
 | Command | Required | Useful flags |
 |---|---|---|
-| `hale-llm-train` | `--config` | `--no-resume` new run; `--resume` / `--experiment NAME`; `--epochs` / `--steps`; `--viz` |
+| `hale-llm-train` | `--config` | `--no-resume` new run; `--experiment NAME`; `--epochs` / `--steps`; `--trainer` |
 | `hale-llm-sample` | `--config` | `--experiment`, `--prompt`, `--checkpoint` |
 | `hale-llm-eval` | `--config` | `--experiment`, `--metrics a,b` |
-| `hale-llm-viz` | `--config` | `--experiment`, `--prompt`, `--output` |
+| `hale-llm-infer` / `hale-llm-chat` | `--config` | `--experiment`, `--checkpoint`, `--max-new-tokens`, `--temperature` |
 
-Sample / eval / viz attach to `latest` unless `--experiment` is set. They do not create a new run folder.
+Sample / eval attach to `latest` unless `--experiment` is set. They do not create a new run folder.
 
 ### Tokenizer, context stages, RoPE scaling
 
@@ -377,7 +279,7 @@ Why non-overlapping: one forward pass over a window already gives a next-token p
 every position, so overlapping windows would only repeat tokens (more compute, no new data).
 Overlap (a stride smaller than the window) is useful for *evaluating* perplexity, not for training.
 
-**Stop token.** GPT-2's `<|endoftext|>` (id 50256) is the document separator and the stop token:
+**Stop token.** `<|endoftext|>` (id 0 in a trained tokenizer, 50256 in GPT-2) is the document separator and the stop token:
 autoregressive generation ends when it is produced, and every generator cuts its text at the first
 one. No start token is added. For reference, gpt-oss (`o200k_harmony` tokenizer) also does not
 prepend a start token when generating; `gpt_oss/generate.py` encodes the prompt as-is and stops on

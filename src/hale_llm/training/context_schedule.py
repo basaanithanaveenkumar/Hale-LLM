@@ -91,12 +91,7 @@ class ContextSchedule:
 
     @staticmethod
     def _require_extensible(cfg: RunConfig) -> None:
-        """Only a RoPE transformer can change its context length mid-run."""
-        if cfg.model.arch not in ("default", "transformer"):
-            raise ValueError(
-                f"context stages need model.arch 'transformer' (got {cfg.model.arch!r}); "
-                "lgt and dit fix their own position handling"
-            )
+        """Only a RoPE model can change its context length mid-run."""
         if cfg.model.pos_encoding != "rope":
             raise ValueError("context stages need model.pos_encoding: rope (a learned table has a fixed length)")
 

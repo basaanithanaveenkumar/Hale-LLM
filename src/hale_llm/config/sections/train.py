@@ -1,6 +1,5 @@
 from typing import Literal
 
-from hale_core.config.sections.ray import RayConfig
 from pydantic import Field
 
 from hale_llm.config.sections.common import StrictModel
@@ -10,8 +9,8 @@ from hale_llm.config.sections.titan import TitanConfig
 
 
 class TrainConfig(StrictModel):
-    # Which training backend runs: lean (default, single-file loop) | full (Ray, DDP/FSDP,
-    # W&B, GIFs) | torchtitan (NVIDIA GPUs only). Names come from the backend registry.
+    # Which training backend runs: lean (default, single-file loop) | torchtitan (NVIDIA GPUs
+    # only). Names come from the backend registry.
     trainer: str = "lean"
     lean: LeanConfig = Field(default_factory=LeanConfig)
     # Optional context-extension schedule (lean trainer, RoPE transformer only). Empty =
@@ -42,13 +41,3 @@ class TrainConfig(StrictModel):
     muon_lr: float = 0.02
     muon_momentum: float = 0.95
 
-    # Distributed training / data parallelism
-    parallel_strategy: Literal["none", "dp", "ddp", "fsdp"] = "none"
-    distributed_backend: str | None = None  # 'nccl', 'gloo', 'mpi' (auto-detected if None)
-    find_unused_parameters: bool = False  # DDP: find unused parameters
-    gradient_as_bucket_view: bool = True  # DDP: memory optimization
-    static_graph: bool = False  # DDP: static graph optimization
-
-    # Ray Train launcher (multi-GPU / multi-node, fault tolerant); off by default.
-    # With enabled: true, `hale-llm-train` runs this config on Ray workers with DDP.
-    ray: RayConfig = Field(default_factory=RayConfig)

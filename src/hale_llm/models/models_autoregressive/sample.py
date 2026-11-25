@@ -3,11 +3,11 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as F
 
-from hale_llm.core.registry import register_sampler
 from hale_llm.dataloader.padding import attention_mask_for
+from hale_llm.models.models_autoregressive.variants import ALL_VARIANTS
+from hale_llm.registry import register_sampler
 
 
-@register_sampler("autoregressive")
 @torch.no_grad()
 def sample_autoregressive(
     model,
@@ -42,3 +42,7 @@ def sample_autoregressive(
         if stop_id is not None and bool(finished.all()):
             break
     return (x, history) if return_history else x
+
+
+for _name in ALL_VARIANTS:
+    register_sampler(_name)(sample_autoregressive)

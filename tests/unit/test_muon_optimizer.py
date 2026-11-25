@@ -73,6 +73,6 @@ def test_adamw_is_the_llm_recipe():
     assert undecayed["weight_decay"] == 0.0  # embedding, head, bias, norm
 
 
-def test_other_names_still_come_from_hale_core():
+def test_sgd_and_adam_are_registered():
     opt = build_optimizer("sgd", TinyLM(), {"lr": 0.1})
     assert isinstance(opt.optimizer, torch.optim.SGD)

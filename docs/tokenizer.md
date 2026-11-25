@@ -23,7 +23,7 @@ flowchart LR
 | New training run | Tokenizer is trained on the training split and saved to `<run>/tokenizer/` |
 | Resume, evaluate, sample, chat | The saved tokenizer is loaded; **inference never trains one** |
 | `tokenizer.source: pretrained` | Download `data.tokenizer_name` (e.g. `gpt2`) instead |
-| Ray / several ranks | The tokenizer is trained once on the driver and saved atomically, workers load it |
+| Several processes | The tokenizer is saved atomically (staging folder, then rename), so a reader never sees a half-written one |
 
 ```yaml
 tokenizer:

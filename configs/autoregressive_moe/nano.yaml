@@ -1,0 +1,13 @@
+# Mixture-of-experts variant: every block's feed-forward is 1 shared + 4 routed experts
+# (top 2 per token). Same data, tokenizer and trainer as configs/autoregressive/nano.yaml.
+inherits: ../autoregressive/nano.yaml
+variant: autoregressive_moe
+
+model:
+  d_ff: 384                 # hidden width of each expert (the dense FFN uses 768)
+  moe_num_experts: 4
+  moe_top_k: 2
+  moe_num_shared: 1
+  moe_router: noisy_topk    # topk | noisy_topk
+  moe_activation: swiglu    # swiglu | gelu
+  moe_aux_loss_coef: 0.01   # weight of the load-balancing loss

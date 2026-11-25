@@ -1,0 +1,74 @@
+"""Token embedding, decoder stack and (tied) language-model head."""
+
+from __future__ import annotations
+
+import torch
+from loguru import logger
+from torch import nn
+
+from hale_llm.nn.backbones.decoder_transformer import DecoderTransformer
+from hale_llm.nn.blocks import build_ffn
+from hale_llm.nn.positional import build_positional_encoding
+
+
+class TransformerBackbone(nn.Module):
+    """``token ids -> logits`` over the vocabulary.
+
+    The positional encoding comes from the registry (``model.pos_encoding``), the norm
+    from ``model.norm_type`` and the feed-forward network from ``model.ffn_type``, so
+    switching any of them is a config change.
+    """
+
+    def __init__(self, vocab_size: int, model_cfg, ffn_type: str | None = None) -> None:
+        super().__init__()
+        cfg = model_cfg
+        ffn_type = ffn_type or cfg.ffn_type
+        self.vocab_size = vocab_size
+        self.max_length = cfg.max_length
+
+        self.positional = build_positional_encoding(
+            cfg.pos_encoding,
+            d_model=cfg.d_model,
+            max_length=cfg.max_length,
+            head_dim=cfg.d_model // cfg.n_heads,
+            rope_theta=cfg.rope_theta,
+            rope_scaling=cfg.rope_scaling,
+            rope_scaling_factor=cfg.rope_scaling_factor,
+            rope_original_length=cfg.rope_original_length,
+        )
+        self.token_emb = nn.Embedding(vocab_size, cfg.d_model)
+        self.stack = DecoderTransformer(
+            n_layers=cfg.n_layers,
+            d_model=cfg.d_model,
+            n_heads=cfg.n_heads,
+            ffn_factory=lambda: build_ffn(ffn_type, cfg),
+            dropout=cfg.dropout,
+            norm_type=cfg.norm_type,
+            positional=self.positional,
+        )
+        self.lm_head = nn.Linear(cfg.d_model, vocab_size, bias=False)
+        # GPT-2 style init. nn.Embedding starts at std 1.0 and, tied to the head, would give
+        # first logits of std ~sqrt(d_model) (loss ~150 instead of ln(vocab) ~ 10.8).
+        nn.init.normal_(self.token_emb.weight, std=0.02)
+        if cfg.tie_embeddings:
+            self.lm_head.weight = self.token_emb.weight
+        logger.info(
+            "TransformerBackbone: layers={} d_model={} heads={} ffn={} positional={} norm={}",
+            cfg.n_layers, cfg.d_model, cfg.n_heads, ffn_type, self.positional.describe(), cfg.norm_type,
+        )
+
+    def forward(
+        self, token_ids: torch.Tensor, attention_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        """Logits ``(batch, seq, vocab)``. ``attention_mask`` is 1 for real tokens, 0 for padding."""
+        seq_len = token_ids.size(1)
+        if seq_len > self.max_length:
+            raise ValueError(f"sequence of {seq_len} tokens exceeds max_length={self.max_length}")
+        hidden = self.positional.encode_embeddings(self.token_emb(token_ids))
+        key_padding = (attention_mask == 0) if attention_mask is not None else None
+        positions = torch.arange(seq_len, device=token_ids.device)
+        return self.lm_head(self.stack(hidden, positions, key_padding))
+
+    def auxiliary_loss(self) -> torch.Tensor:
+        """Extra training loss from the layers (MoE load balancing); zero when dense."""
+        return self.stack.auxiliary_loss()

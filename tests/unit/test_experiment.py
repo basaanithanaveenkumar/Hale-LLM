@@ -13,7 +13,6 @@ def _cfg(tmp_path: Path, **kwargs) -> RunConfig:
         experiment={"enabled": True, "root": str(tmp_path / "experiments"), "name": None},
         train={"resume": False, "checkpoint_path": "unused.pt"},
         logging={"log_file": "old.log", "tensorboard_dir": "old_tb"},
-        viz={"output_dir": "old_viz"},
     )
 
 
@@ -28,7 +27,6 @@ def test_create_timestamped_run(tmp_path):
     assert cfg.train.checkpoint_path == str(run_dir / "checkpoints" / "last.pt")
     assert cfg.logging.log_file == str(run_dir / "logs" / "train.log")
     assert cfg.logging.tensorboard_dir == str(run_dir / "tb")
-    assert cfg.viz.output_dir == str(run_dir / "viz")
     latest = run_dir.parent / "latest"
     assert latest.is_symlink()
     assert latest.resolve() == run_dir.resolve()

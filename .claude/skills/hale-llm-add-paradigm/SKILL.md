@@ -1,52 +1,22 @@
 ---
 name: hale-llm-add-paradigm
-description: Add a new language-modelling paradigm (or finish the MTP stub) in HALE-LLM as a models_<name> plugin with model, collate, loss, sampler and metrics, plus config and tests. Use when implementing a new generative objective (e.g. MTP heads, uniform-noise diffusion, speculative decoding) or changing an existing one.
+description: Add a new model variant to HALE-LLM as a models_<name> package with model, loss, sampler and collate, plus config and tests. Use when adding a new architecture or objective on top of the shared transformer blocks.
 ---
 
-# Adding a paradigm
+# Add a model variant
 
-1. `src/ha_llm/models/models_<name>/model.py`:
+1. Create `src/hale_llm/models/models_<name>/` with:
+   - `model.py`: an `nn.Module` decorated with `@register_variant("<name>")`, constructed as
+     `Model(vocab_size, cfg)`, whose `forward(batch)` returns logits. Build the network with
+     `hale_llm.nn.backbones.build_backbone(vocab_size, cfg.model, ffn_type=...)` or compose the
+     blocks in `hale_llm.nn` yourself.
+   - `loss.py`: `@register_loss("<name>")`, `(model, batch) -> scalar`. Use `model_token_nll` so
+     `train.loss_type` keeps working.
+   - `sample.py`: `@register_sampler("<name>")`, returns the generated ids; stop at EOS.
+   - the collate function, registered with `register_collate("<name>")`.
+2. Import the package in `models/__init__.py`.
+3. Metrics that apply to the variant: pass its name in `variants=` when registering them.
+4. Add `configs/<name>/nano.yaml` (`inherits:` a base) and a unit test that runs one training step
+   and one sample (see `tests/unit/test_transformer_variants.py`).
 
-```python
-@register_collate("<name>")
-def collate(input_ids, tokenizer, **_):
-    return {"input_ids": input_ids, "attention_mask": (input_ids != tokenizer.pad_token_id).long(), ...}
-
-@register_variant("<name>")
-class MyLM(nn.Module):
-    def __init__(self, vocab_size, cfg):
-        super().__init__()
-        self.backbone = build_backbone(vocab_size, cfg.model)
-    def forward(self, batch): ...
-
-@register_loss("<name>")
-def my_loss(model, batch) -> torch.Tensor: ...          # use ha_llm.losses.model_token_nll
-
-@register_sampler("<name>")
-@torch.no_grad()
-def sample(model, tokenizer, prompt_ids, max_new_tokens, temperature=1.0, sampling_steps=None, return_history=False, **_): ...
-```
-
-   Optional: `metrics.py` with `@register_metric`. `loss.py` and `sample.py` re-export.
-2. Add one import in `src/ha_llm/models/__init__.py`.
-3. `variant` is a free string resolved through the registries, so no schema change is needed.
-4. `configs/<name>/small.yaml` with `inherits: ../base.yaml`.
-5. Tests: a shape test and an overfit sanity case in `tests/integration/test_overfit_sanity.py`
-   (the loss must drop on the overfit text).
-6. If the sampler returns `history`, the visualiser can render GIFs. Return
-   `(x, [(t, x_t, meta), ...])`.
-
-## Finishing MTP
-
-`models_mtp/model.py` builds `n_mtp_heads - 1` extra heads but only returns and trains the
-main head. To complete it: return `[main, *extra]` logits, add a loss term
-`Σ_k CE(logits_k[:, :-k-1], input_ids[:, k+1:])`, and write a sampler that drafts k tokens
-and verifies them with the main head.
-
-## Invariants
-
-- Diffusion-family losses weight masked-position CE by the ELBO factor (1/t for α_t = 1 − t)
-  and normalise by the number of loss positions.
-- Never let the model predict `[MASK]`: samplers set `logits[..., mask_id] = -inf`.
-- Block diffusion requires `seq_len % block_size == 0`, and the backbone gets
-  `block_size` through `build_backbone(..., block_size=...)`.
+The reference is `models/models_autoregressive/`, which registers two variants from one class.

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from hale_core.registry import NamedRegistry
+from hale_llm.registry import NamedRegistry
 
 from hale_llm.tokenizer.vocab.vocab_size_policy import VocabSizePolicy
 

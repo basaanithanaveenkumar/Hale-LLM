@@ -1,6 +1,6 @@
 import pytest
 
-from hale_llm.core.registry import NamedRegistry, VariantRegistry
+from hale_llm.registry import NamedRegistry, VariantRegistry
 
 
 def test_named_registry_rejects_duplicates():

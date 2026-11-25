@@ -10,7 +10,6 @@ from hale_llm.config.sections import (
     ModelConfig,
     SampleConfig,
     TrainConfig,
-    VizConfig,
 )
 
 __all__ = [
@@ -21,7 +20,6 @@ __all__ = [
     "DataConfig",
     "SampleConfig",
     "EvalConfig",
-    "VizConfig",
     "LoggingConfig",
     "ExperimentConfig",
 ]

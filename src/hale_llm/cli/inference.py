@@ -2,7 +2,7 @@
 
 Examples::
 
-    hale-llm-infer --config configs/block_diffusion/small.yaml --prompt "The history of"
+    hale-llm-infer --config configs/autoregressive/small.yaml --prompt "The history of"
     hale-llm-infer --config configs/autoregressive/small.yaml --prompt-file prompts.txt --json
 """
 
@@ -50,7 +50,6 @@ def main(argv: list[str] | None = None) -> None:
                 prompt,
                 max_new_tokens=args.max_new_tokens,
                 temperature=args.temperature,
-                sampling_steps=args.steps,
             )
             if args.json:
                 print(json.dumps({"prompt": result.prompt, "text": result.text}))

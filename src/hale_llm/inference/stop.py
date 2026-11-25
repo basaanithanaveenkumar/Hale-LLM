@@ -8,7 +8,7 @@ import torch
 def cut_at_stop(token_ids: torch.Tensor, prompt_len: int, stop_id: int | None) -> torch.Tensor:
     """Drop everything from the first ``stop_id`` after the prompt onwards.
 
-    Autoregressive sampling stops by itself, but the diffusion samplers always fill
+    Autoregressive sampling stops by itself, but the sampler can fill
     the whole output length, so the text after an end-of-text token is cut here.
 
     Args:

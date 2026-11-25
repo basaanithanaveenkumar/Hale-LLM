@@ -15,8 +15,6 @@ model:
   n_layers: 24
   d_ff: 4096
   dropout: 0.0
-  attn_impl: gqa
-  n_kv_heads: 4
   norm_type: rms
   pos_encoding: rope
   rope_theta: 100000

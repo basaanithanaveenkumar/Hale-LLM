@@ -13,7 +13,6 @@ _HELP = """\
 /history          print every turn so far
 /temp VALUE       set sampling temperature (> 0)
 /tokens N         set max new tokens per reply
-/steps N          set diffusion sampling steps
 /quit             leave (also /exit, Ctrl-D)"""
 
 
@@ -29,7 +28,6 @@ class ChatCommands:
             "history": lambda _: CommandResult(self._history()),
             "temp": self._set_temperature,
             "tokens": self._set_tokens,
-            "steps": self._set_steps,
             "quit": lambda _: CommandResult("bye", exit_requested=True),
             "exit": lambda _: CommandResult("bye", exit_requested=True),
         }
@@ -68,6 +66,3 @@ class ChatCommands:
         self._chat.max_new_tokens = int(argument)
         return CommandResult(f"max new tokens = {self._chat.max_new_tokens}")
 
-    def _set_steps(self, argument: str) -> CommandResult:
-        self._chat.sampling_steps = int(argument)
-        return CommandResult(f"sampling steps = {self._chat.sampling_steps}")

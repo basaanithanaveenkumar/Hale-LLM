@@ -1,24 +1,21 @@
 # Training backends
 
-`hale-llm-train` runs one of three backends, chosen by `train.trainer` in the YAML (or
+`hale-llm-train` runs one of two backends, chosen by `train.trainer` in the YAML (or
 `--trainer` on the command line).
 
 | `train.trainer` | What it is | Use it for |
 |---|---|---|
 | `lean` (default) | One readable file, `src/hale_llm/training/lean_trainer.py`, in the nanochat / modded-nanogpt style | Single-device runs: laptop, one GPU |
-| `full` | The original trainer: Ray, DDP/FSDP, W&B, resume, GIF visualisation | Distributed runs and visual debugging |
 | `torchtitan` | Launches [TorchTitan](https://github.com/pytorch/torchtitan) with `torchrun` | NVIDIA GPU boxes, multi-GPU/multi-node, FSDP2 / TP / PP |
 
 ```mermaid
 flowchart LR
   CLI["hale-llm-train --config X.yaml"] --> R{"train.trainer"}
   R -- lean --> L["lean_trainer.train_lean<br/>one device"]
-  R -- full --> F["Trainer<br/>Ray · DDP · FSDP · W&B · GIFs"]
   R -- torchtitan --> G{"CUDA + torchtitan?"}
   G -- no --> E["TorchTitanUnavailableError"]
   G -- yes --> T["torchrun -m torchtitan.train<br/>--module M --config C"]
   L --> C["checkpoint → hale-llm-chat / sample"]
-  F --> C
 ```
 
 Add a backend: subclass `TrainerBackend`, decorate it with `@register_trainer_backend("name")`,
@@ -29,11 +26,10 @@ import it in `hale_llm/training/backends/__init__.py`.
 `train_lean(cfg)` is a plain function you can read top to bottom:
 
 1. **Config and device.** Seed, pick the device. bf16 autocast is used on CUDA only.
-2. **Data.** The same `DataModule` as the full trainer. `endless()` restarts the loader so the
+2. **Data.** `DataModule` builds the loaders. `endless()` restarts the loader so the
    loop never has to think about epochs. Total steps come from `train.steps`, or
    `train.epochs x batches per epoch`.
-3. **Model.** Built from the variant registry, so autoregressive, diffusion, block diffusion and
-   flow matching all work. `lean.compile: true` wraps it in `torch.compile`; the checkpoint is
+3. **Model.** Built from the variant registry (`autoregressive` or `autoregressive_moe`). `lean.compile: true` wraps it in `torch.compile`; the checkpoint is
    still saved from the plain module so chat can load it.
 4. **Optimizer.** From the registry (`adamw` by default, or `muon`). Each parameter group's
    learning rate is remembered as its *base* rate.
@@ -44,8 +40,7 @@ import it in `hale_llm/training/backends/__init__.py`.
    `accum_steps`, so the summed gradient equals the gradient of the mean over the big batch.
    Effective batch = `batch_size x accum_steps`.
 7. **Clip and update.** Global gradient norm is clipped to `train.grad_clip`, then the optimizer steps.
-8. **Validate and save.** Validation loss every `eval_every` steps. The checkpoint format matches the
-   full trainer, so `hale-llm-chat`, `hale-llm-sample` and `hale-llm-eval` load it.
+8. **Validate and save.** Validation loss every `eval_every` steps. `hale-llm-chat`, `hale-llm-sample` and `hale-llm-eval` load the checkpoint.
 
 ```yaml
 train:
@@ -60,8 +55,7 @@ train:
     compile: false
 ```
 
-The lean trainer has no resume, W&B or GIF output, and it refuses Ray / `parallel_strategy`
-settings with a message pointing to `trainer: full`.
+The lean trainer runs on one device and has no resume support. For several GPUs use `trainer: torchtitan`.
 
 ## TorchTitan (NVIDIA GPUs only)
 

@@ -15,7 +15,7 @@ def test_bad_key_fails():
 
 def test_resolve_schedule_epochs_wins():
     from hale_llm.config.schema import RunConfig
-    from hale_llm.training.trainer import resolve_schedule
+    from hale_llm.training.schedule import resolve_schedule
 
     cfg = RunConfig(variant="autoregressive", train={"epochs": 3, "steps": 999})
     n_epochs, total_steps = resolve_schedule(cfg, n_batches=10)
@@ -25,7 +25,7 @@ def test_resolve_schedule_epochs_wins():
 
 def test_resolve_schedule_steps_only():
     from hale_llm.config.schema import RunConfig
-    from hale_llm.training.trainer import resolve_schedule
+    from hale_llm.training.schedule import resolve_schedule
 
     cfg = RunConfig(variant="autoregressive", train={"epochs": None, "steps": 25})
     n_epochs, total_steps = resolve_schedule(cfg, n_batches=10)
@@ -38,8 +38,7 @@ def test_yaml_inherit():
     cfg = load_config(repo / "configs/autoregressive/small.yaml")
     assert cfg.variant == "autoregressive"
     assert cfg.model.d_model == 384
-    assert cfg.model.attn_type == "causal"
-    assert cfg.model.attn_impl == "mha"
+    assert cfg.model.pos_encoding == "rope"
     assert cfg.model.ffn_type == "mlp"
     assert cfg.logging.tensorboard is True
     assert cfg.logging.level == "INFO"
@@ -58,8 +57,5 @@ def test_yaml_inherit():
     assert cfg.device == "mps"
     assert "loss" in cfg.eval.metrics
     assert cfg.eval.every_n_epochs == 10
-    assert cfg.viz.enabled is False  # GIF output is opt-in (--viz)
-    assert cfg.viz.prompt_source == "dataset"
-    assert cfg.viz.every_n_epochs is None
     assert cfg.experiment.enabled is True
     assert cfg.experiment.source_yaml.endswith("configs/autoregressive/small.yaml")

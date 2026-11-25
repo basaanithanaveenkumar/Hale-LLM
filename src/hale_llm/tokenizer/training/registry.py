@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from hale_core.registry import NamedRegistry
+from hale_llm.registry import NamedRegistry
 
 from hale_llm.config.sections.tokenizer import TokenizerConfig
 from hale_llm.tokenizer.training.tokenizer_trainer import TokenizerTrainer

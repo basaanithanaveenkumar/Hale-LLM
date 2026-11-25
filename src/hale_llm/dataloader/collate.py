@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from hale_llm.core.registry import NamedRegistry
+from hale_llm.registry import NamedRegistry
 
 COLLATE_REGISTRY = NamedRegistry("collate")
 COLLATES: dict[str, Callable[..., dict[str, Any]]] = COLLATE_REGISTRY.items

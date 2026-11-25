@@ -6,14 +6,16 @@ from collections.abc import Iterable
 
 from torch import nn
 
-# 2-D parameters whose name contains one of these are lookup tables (token
-# embeddings, tied output head), not hidden-layer transforms.
-_LOOKUP_NAME_HINTS = ("emb", "head")
+# 2-D parameters with one of these as a name segment are not plain hidden-layer
+# transforms: lookup tables (token embeddings, tied output head, learned positions) and
+# the MoE routers, which are trained with AdamW. Whole segments are matched, because the
+# attention heads live under ``heads.<i>`` and must stay on Muon.
+_NON_HIDDEN_SEGMENTS = frozenset({"token_emb", "lm_head", "positional", "gate", "noise_gate"})
 
 
 def is_hidden_matrix(name: str, param: nn.Parameter) -> bool:
-    """True for 2-D weights inside the transformer blocks (attention, FFN projections)."""
-    return param.ndim == 2 and not any(hint in name for hint in _LOOKUP_NAME_HINTS)
+    """True for 2-D weights inside the transformer blocks (attention and FFN projections)."""
+    return param.ndim == 2 and _NON_HIDDEN_SEGMENTS.isdisjoint(name.split("."))
 
 
 def split_parameters(

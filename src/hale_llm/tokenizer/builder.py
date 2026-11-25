@@ -9,7 +9,7 @@ from transformers import PreTrainedTokenizerFast
 
 from hale_llm.config.schema import RunConfig
 from hale_llm.tokenizer.compression import bytes_per_token
-from hale_llm.tokenizer.special_tokens import EOS_TOKEN, MASK_TOKEN
+from hale_llm.tokenizer.special_tokens import EOS_TOKEN
 from hale_llm.tokenizer.store import TokenizerStore
 from hale_llm.tokenizer.training import build_tokenizer_trainer
 from hale_llm.tokenizer.vocab import estimate_non_embedding_params, get_vocab_policy
@@ -25,9 +25,8 @@ class TokenizerBuilder:
     tokenizer it was trained with.
     """
 
-    def __init__(self, cfg: RunConfig, *, with_mask: bool) -> None:
+    def __init__(self, cfg: RunConfig) -> None:
         self._cfg = cfg
-        self._with_mask = with_mask
         self._settings = cfg.tokenizer
 
     def resolve_vocab_size(self) -> int:
@@ -49,7 +48,6 @@ class TokenizerBuilder:
         directory = self._settings.path
         if TokenizerStore.exists(directory):
             tokenizer = TokenizerStore.load(directory)
-            self._check_mask(tokenizer, directory)
             logger.info("loaded tokenizer from {} ({:,} tokens)", directory, len(tokenizer))
             return tokenizer
         if not allow_training:
@@ -62,9 +60,8 @@ class TokenizerBuilder:
     def _train_and_save(self, directory: str) -> PreTrainedTokenizerFast:
         documents = self.documents(self._cfg.data.train_split)
         vocab_size = self.resolve_vocab_size()
-        specials = [EOS_TOKEN] + ([MASK_TOKEN] if self._with_mask else [])
-        raw = build_tokenizer_trainer(self._settings).train(documents, vocab_size, specials)
-        tokenizer = TokenizerStore.wrap(raw, with_mask=self._with_mask)
+        raw = build_tokenizer_trainer(self._settings).train(documents, vocab_size, [EOS_TOKEN])
+        tokenizer = TokenizerStore.wrap(raw)
 
         sample = documents[:2000]
         ratio = bytes_per_token(tokenizer, sample)
@@ -100,11 +97,3 @@ class TokenizerBuilder:
         if not documents:
             raise ValueError(f"no text in split {split!r} to learn a tokenizer from")
         return documents
-
-    def _check_mask(self, tokenizer: PreTrainedTokenizerFast, directory: str) -> None:
-        """A loaded tokenizer must have [MASK] exactly when the variant corrupts text with it."""
-        if self._with_mask and tokenizer.mask_token is None:
-            raise ValueError(
-                f"tokenizer in {directory} has no {MASK_TOKEN} token but variant "
-                f"{self._cfg.variant!r} needs one; train a new run"
-            )

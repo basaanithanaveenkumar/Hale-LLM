@@ -1,53 +1,33 @@
 ---
 name: hale-llm-dev
-description: Set up, navigate and test HALE-LLM (`ha_llm`), which compares autoregressive, masked diffusion, block diffusion, flow matching and multi-token prediction on one transformer backbone. Use when starting work in this repo, touching core/ components or a models_* paradigm, or when tests fail to import.
+description: Set up, navigate and test HALE-LLM (`hale_llm`), a small decoder-only transformer codebase with a dense and a mixture-of-experts variant, a tokenizer trained on the data, and a lean trainer. Use when starting work in this repo, touching nn/ blocks, a models_* variant, the tokenizer or the trainer, or when tests fail to import.
 ---
 
 # HALE-LLM development
 
-Default branch: `masked_diffusion_llm`. Package: `ha_llm` (Python ≥ 3.12).
+Package: `hale_llm` (Python >= 3.12). There is no external block library: the registries, the
+checkpoint store and the optimizer base live in this repo.
 
 ```bash
 uv sync --extra dev
-uv run pytest tests/unit -q
-```
-
-## Test status (checked 2026-09)
-
-`tests/unit`: 53 pass. Three tests still import the old package name
-`halodiffusionllm` and fail at import (`test_import.py`, `test_block_mask.py`,
-`test_embeddings.py`). Port them to `ha_llm` (the mask is now
-`ha_llm.core.components.attention.masks.build_attn_mask("block_causal", ...)`; the time
-embedding is in `ha_llm.core.components.embeddings`) rather than deleting them. Until then,
-run:
-
-```bash
-uv run pytest tests/unit -q --ignore=tests/unit/test_block_mask.py --ignore=tests/unit/test_embeddings.py
+uv run pytest tests -q
 ```
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `core/components/` | attention (`mha`, `gqa`, `mqa`, RoPE, masks, window), FFN (`mlp`, `geglu`, `moe`), `RMSNorm`, embeddings, `TransformerLayer`, `DiTBlock` |
-| `core/transformers/` | `GPTStack`, `LGTStack`, `DiTStack` over hidden states `(B, S, D)` |
-| `core/backbones/` | GPT / LGT / DiT token LMs (ids → logits), `build_backbone` |
-| `core/registry.py` | `register_variant`, `register_loss`, `register_sampler`, `register_metric` |
-| `models/models_<paradigm>/` | `autoregressive`, `diffusion`, `block_diffusion`, `flow_matching`, `mtp` (stub): model, loss, sample, metrics |
-| `losses/` | token losses `ce`, `focal`, `label_smoothing`, `kl` |
-| `metrics/llm/` | loss, perplexity, bits/token, token accuracy, top-k |
-| `dataloader/` | trained SuperBPE tokenizer (`tokenizer/`, +`[MASK]` for diffusion variants), non-overlapping context windows (`data.context_window`, EOS between documents), HF / overfit sources, per-variant collate registry |
-| `training/`, `evaluation/`, `inference/`, `visualization/` | trainer, evaluator, `load_session`/`generate`, unmasking GIFs |
-| `cli/` | `ha-llm-train`, `ha-llm-sample`, `ha-llm-eval`, `ha-llm-viz` |
-| `src/masked_diffusion/` | early standalone prototype (not used by `ha_llm`) |
+| `nn/attention`, `nn/blocks`, `nn/moe`, `nn/backbones` | `HeadAttention`, `MultiHeadAttention`, `TransformerBlock`, `FeedForward`, routers, `Expert`, `DeepseekMoE`, `DecoderTransformer`, `TransformerBackbone` |
+| `nn/positional`, `nn/norm` | RoPE (+ linear / YaRN scaling) and learned positions; LayerNorm, RMSNorm; each behind a registry |
+| `models/models_autoregressive/` | variants `autoregressive` and `autoregressive_moe`: model, loss, sampler, collate |
+| `registry/` | `NamedRegistry`, `VariantRegistry`, `register_variant/loss/sampler/metric` |
+| `runtime/` | `CheckpointStore`, `count_parameters`, `log_model_summary`, `move_batch_to_device` |
+| `optim/` | `adam`, `adamw` (LLM recipe), `sgd`, `muon` |
+| `losses/`, `metrics/` | token losses (`ce`, `focal`, `label_smoothing`, `kl`); loss, perplexity, bits/token, accuracy, generation metrics |
+| `tokenizer/`, `dataloader/` | trained SuperBPE/BPE tokenizer and vocab policy; non-overlapping context windows with EOS between documents |
+| `training/`, `inference/`, `chat/`, `cli/` | lean trainer + TorchTitan launcher, `load_session`, chat loop, CLIs |
 
-`core/` mirrors HaleBlocks' `hale_core.nn` but is vendored. It has no HaleBlocks
-dependency.
+**Rule:** shared code never imports a `models_*` package by name. Variants plug in through the
+registries plus one import in `models/__init__.py`.
 
-**Rule:** shared code never imports a `models_*` package by name. Paradigms plug in via
-registries, plus one import in `models/__init__.py`.
-
-## Sizes (measured, `configs/base.yaml` model, GPT-2 vocab 50,258)
-
-AR GPT backbone: 47.7M. Diffusion / flow-matching LGT backbone (GQA n_kv = 2, GeGLU, time
-conditioning): 63.2M.
+Docs: `docs/architecture.md` (diagrams), `docs/config.md`, `docs/tokenizer.md`, `docs/context_length.md`.

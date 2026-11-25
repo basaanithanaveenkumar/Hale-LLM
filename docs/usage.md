@@ -2,14 +2,14 @@
 
 ```bash
 uv sync
-uv run hale-llm-train --config configs/block_diffusion/small.yaml --no-resume --viz
-uv run hale-llm-sample --config configs/block_diffusion/small.yaml
-uv run hale-llm-eval --config configs/block_diffusion/small.yaml
-uv run hale-llm-viz --config configs/block_diffusion/small.yaml
+uv run hale-llm-train --config configs/autoregressive/small.yaml --no-resume          # dense transformer
+uv run hale-llm-train --config configs/autoregressive_moe/nano.yaml --no-resume       # mixture of experts
+uv run hale-llm-sample --config configs/autoregressive/small.yaml
+uv run hale-llm-eval --config configs/autoregressive/small.yaml
 tensorboard --logdir data/experiments
 ```
 
-Configs inherit [`configs/base.yaml`](../configs/base.yaml). Full parameter list: [config.md](config.md).
+Configs inherit with `inherits:`. Full parameter list: [config.md](config.md).
 
 ## Try a trained model: `hale-llm-infer` and `hale-llm-chat`
 
@@ -18,7 +18,7 @@ Both commands load the same checkpoint the other CLIs use (`latest` run of the v
 
 ```bash
 # one or many prompts; --json prints one JSON object per prompt
-uv run hale-llm-infer --config configs/block_diffusion/small.yaml --prompt "The history of"
+uv run hale-llm-infer --config configs/autoregressive/small.yaml --prompt "The history of"
 uv run hale-llm-infer --config configs/autoregressive/small.yaml --prompt-file prompts.txt --json
 
 # interactive terminal chat
@@ -27,7 +27,7 @@ uv run hale-llm-chat --config configs/autoregressive/small.yaml --max-new-tokens
 
 The checkpoints are base language models trained on TinyStories, not instruction-tuned, so a
 chat reply is a continuation of the conversation so far. Inside `hale-llm-chat`:
-`/help`, `/reset`, `/history`, `/temp V`, `/tokens N`, `/steps N`, `/quit`.
+`/help`, `/reset`, `/history`, `/temp V`, `/tokens N`, `/quit`.
 
 ```mermaid
 flowchart LR
