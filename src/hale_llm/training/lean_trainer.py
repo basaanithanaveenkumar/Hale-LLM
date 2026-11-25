@@ -23,6 +23,7 @@ from __future__ import annotations
 import contextlib
 import math
 import time
+from pathlib import Path
 from collections.abc import Callable, Iterator
 
 import torch
@@ -38,6 +39,7 @@ from hale_llm.optim import build_optimizer
 from hale_llm.utils.device import get_device
 from hale_llm.training.context_schedule import ContextSchedule
 from hale_llm.training.context_stage_plan import ContextStagePlan
+from hale_llm.tokenizer.store import TokenizerStore
 from hale_llm.training.schedule import TrainSchedule
 from hale_llm.training.training_logger import TrainingLogger
 
@@ -100,6 +102,19 @@ def stage_loaders(cfg: RunConfig, plan: ContextStagePlan, tokenizer):
     return data, data.train_loader(), data.val_loader()
 
 
+def _keep_tokenizer_copy(cfg: RunConfig) -> None:
+    """Put a copy of the tokenizer in the run folder when the run uses a shared one.
+
+    The checkpoint then stays usable (chat, sample, eval look for ``<run>/tokenizer`` first)
+    even if the shared tokenizer is later replaced.
+    """
+    if not cfg.experiment.enabled or cfg.tokenizer.source != "trained":
+        return
+    run_copy = Path(cfg.train.checkpoint_path).resolve().parent.parent / "tokenizer"
+    if Path(cfg.tokenizer.path).resolve() != run_copy and not TokenizerStore.exists(run_copy):
+        TokenizerStore.copy(cfg.tokenizer.path, run_copy)
+
+
 def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | None = None) -> list[float]:
     """Run the whole training loop and return the per-step training losses.
 
@@ -124,6 +139,7 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
     schedule = ContextSchedule.from_config(cfg, total_steps)
     current_plan = schedule.plan_at(0)
     val_loader = data.val_loader()
+    _keep_tokenizer_copy(cfg)
 
     logger.info(
         "lean trainer | variant={} device={} steps={} micro-batch={} accum={} "

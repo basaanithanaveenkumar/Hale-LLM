@@ -51,6 +51,28 @@ class TokenizerStore:
         logger.info("saved tokenizer to {}", directory)
 
     @classmethod
+    def metadata(cls, directory: str | Path) -> dict:
+        """What the tokenizer was trained with (kind, dataset, requested vocabulary...); ``{}`` if unknown."""
+        path = Path(directory) / "hale_tokenizer.json"
+        return json.loads(path.read_text()) if path.is_file() else {}
+
+    @classmethod
+    def copy(cls, source: str | Path, destination: str | Path) -> None:
+        """Copy a tokenizer folder (atomically, like :meth:`save`) so a run keeps its own copy."""
+        destination = Path(destination)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        staging = destination.with_name(f"{destination.name}.tmp{os.getpid()}")
+        shutil.rmtree(staging, ignore_errors=True)
+        shutil.copytree(source, staging)
+        try:
+            os.rename(staging, destination)
+        except OSError:
+            shutil.rmtree(staging, ignore_errors=True)
+            if not cls.exists(destination):
+                raise
+        logger.info("copied tokenizer {} -> {}", source, destination)
+
+    @classmethod
     def load(cls, directory: str | Path) -> PreTrainedTokenizerFast:
         if not cls.exists(directory):
             raise FileNotFoundError(f"no tokenizer in {directory}")

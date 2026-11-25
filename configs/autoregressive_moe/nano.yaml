@@ -11,3 +11,8 @@ model:
   moe_router: noisy_topk    # topk | noisy_topk
   moe_activation: swiglu    # swiglu | gelu
   moe_aux_loss_coef: 0.01   # weight of the load-balancing loss
+
+experiment:
+  enabled: true
+  root: data/experiments
+  name: baseline_moe

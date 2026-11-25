@@ -58,3 +58,37 @@ def test_pipeline_entry_point_trains_for_a_new_run_folder(tmp_path):
     tok = build_tokenizer_for(cfg)
     assert tok is build_tokenizer_for(cfg)  # memoised within the process
     assert (tmp_path / "tok" / "tokenizer.json").is_file()
+
+
+def test_a_shared_tokenizer_is_trained_once_and_reused_by_other_runs(tmp_path, monkeypatch):
+    first = TokenizerBuilder(_cfg(tmp_path)).build(allow_training=True)
+    monkeypatch.setattr(
+        superbpe_module.SuperBpeTokenizerTrainer, "train",
+        lambda *a, **k: pytest.fail("a second run must reuse the shared tokenizer"),
+    )
+    second_cfg = _cfg(tmp_path)  # another run, same shared path
+    second_cfg.variant = "autoregressive_moe"
+    second = TokenizerBuilder(second_cfg).build(allow_training=True)
+    assert first.get_vocab() == second.get_vocab()
+
+
+def test_reusing_a_tokenizer_of_another_kind_is_an_error_not_a_silent_swap(tmp_path):
+    TokenizerBuilder(_cfg(tmp_path, kind="superbpe")).build(allow_training=True)
+    with pytest.raises(ValueError, match="kind"):
+        TokenizerBuilder(_cfg(tmp_path, kind="bpe")).build(allow_training=True)
+
+
+def test_reusing_a_tokenizer_with_another_explicit_vocab_size_is_an_error(tmp_path):
+    TokenizerBuilder(_cfg(tmp_path, vocab_size=300)).build(allow_training=True)
+    with pytest.raises(ValueError, match="requested_vocab_size"):
+        TokenizerBuilder(_cfg(tmp_path, vocab_size=400)).build(allow_training=True)
+    # No explicit size in the config: whatever the shared tokenizer has is accepted.
+    TokenizerBuilder(_cfg(tmp_path, vocab_size=None)).build(allow_training=True)
+
+
+def test_reusing_a_tokenizer_trained_on_another_dataset_is_an_error(tmp_path):
+    TokenizerBuilder(_cfg(tmp_path)).build(allow_training=True)
+    other = _cfg(tmp_path)
+    other.data.dataset = "some/other-dataset"
+    with pytest.raises(ValueError, match="dataset"):
+        TokenizerBuilder(other).build(allow_training=True)

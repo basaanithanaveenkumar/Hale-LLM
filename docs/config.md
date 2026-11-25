@@ -269,7 +269,7 @@ Sample / eval attach to `latest` unless `--experiment` is set. They do not creat
 | `tokenizer.vocab_size` | `null` | `null` = chosen from the model size (32,768 under 500M parameters). |
 | `tokenizer.vocab_policy` | `by_model_size` | Registry of sizing rules. |
 | `tokenizer.transition_fraction` / `stage2_max_tokens` / `min_frequency` | `0.8` / `2000000` / `2` | SuperBPE stage split and limits. |
-| `tokenizer.path` | `data/tokenizer` | Experiment runs set it to `<run>/tokenizer`. |
+| `tokenizer.path` | `data/tokenizer` | Leave it at the default and every run gets its own `<run>/tokenizer`. Set it (as `configs/base.yaml` does: `data/tokenizers/tinystories_superbpe_shared`) and all runs share that one tokenizer: trained by the first run, reused by the rest. See [tokenizer.md](tokenizer.md). |
 | `data.long_doc_fraction` / `long_doc_min_tokens` | `0` / `null` | Share of windows from naturally long documents. |
 | `train.context_stages` | `[]` | Context-extension schedule; see [context_length.md](context_length.md). |
 | `model.rope_scaling` / `rope_scaling_factor` / `rope_original_length` | `none` / `1.0` / `4096` | `none`, `linear` or `yarn`. |

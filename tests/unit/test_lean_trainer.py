@@ -138,3 +138,33 @@ def test_tensorboard_can_be_switched_off(tiny_tokenizer, tmp_path):
     cfg.logging.tensorboard, cfg.logging.tensorboard_dir = False, str(tmp_path / "tb")
     train_lean(cfg, tokenizer=tiny_tokenizer)
     assert not (tmp_path / "tb").exists()
+
+
+def test_each_run_keeps_a_copy_of_the_shared_tokenizer(tmp_path):
+    """Chat/sample/eval load <run>/tokenizer first, so the checkpoint survives a changed shared tokenizer."""
+    import hale_llm.models  # noqa: F401
+    from hale_llm.config.experiment import apply_experiment_layout
+    from hale_llm.tokenizer.store import TokenizerStore
+
+    cfg = load_config("configs/autoregressive/nano.yaml")
+    cfg.experiment.enabled, cfg.experiment.root = True, str(tmp_path / "experiments")
+    cfg.tokenizer.path, cfg.tokenizer.vocab_size = str(tmp_path / "shared_tok"), 300
+    cfg.tokenizer.kind = "bpe"
+    cfg.data.overfit_text, cfg.data.n_overfit_copies = "hello world hello world", 16
+    cfg.train.steps, cfg.train.epochs, cfg.train.batch_size = 2, None, 4
+    cfg.train.lean.eval_every = 0
+    cfg.model.d_model, cfg.model.n_heads, cfg.model.n_layers, cfg.model.d_ff = 32, 4, 1, 64
+    cfg.set_context_window(16)
+    cfg.device, cfg.logging.tensorboard, cfg.logging.log_file = "cpu", False, None
+    run_dir = apply_experiment_layout(cfg, create=True, name="r1")
+
+    train_lean(cfg)
+    assert TokenizerStore.exists(tmp_path / "shared_tok")  # trained once, shared
+    assert TokenizerStore.exists(run_dir / "tokenizer")  # and copied into the run
+
+    # Replace the shared tokenizer; the run still loads the tokenizer it was trained with.
+    import shutil
+
+    shutil.rmtree(tmp_path / "shared_tok")
+    session = load_session(cfg, require_checkpoint=True)
+    assert session.cfg.tokenizer.path == str(run_dir / "tokenizer")

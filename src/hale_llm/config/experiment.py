@@ -49,6 +49,18 @@ def _dump_resolved_config(cfg: RunConfig, run_dir: Path) -> None:
     (run_dir / "config.yaml").write_text(yaml.safe_dump(payload, sort_keys=False))
 
 
+def _tokenizer_is_shared(cfg: RunConfig) -> bool:
+    """True when the YAML names its own ``tokenizer.path`` (one tokenizer for many runs).
+
+    The default path means "give each run its own tokenizer folder". A path that is already
+    ``<run folder>/tokenizer`` was set by an earlier call to this module, so it is not shared.
+    """
+    path = Path(cfg.tokenizer.path)
+    default = Path(type(cfg.tokenizer).model_fields["path"].default)
+    bound_to_a_run = path.name == "tokenizer" and path.parent.parent == variant_root(cfg)
+    return path != default and not bound_to_a_run
+
+
 def _bind_paths(cfg: RunConfig, run_dir: Path, *, dump_config: bool = True) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "checkpoints").mkdir(exist_ok=True)
@@ -57,7 +69,10 @@ def _bind_paths(cfg: RunConfig, run_dir: Path, *, dump_config: bool = True) -> N
     cfg.train.checkpoint_path = str(run_dir / "checkpoints" / "last.pt")
     cfg.logging.log_file = str(run_dir / "logs" / "train.log")
     cfg.logging.tensorboard_dir = str(run_dir / "tb")
-    cfg.tokenizer.path = str(run_dir / "tokenizer")
+    if _tokenizer_is_shared(cfg):
+        logger.info("shared tokenizer {} (not per run)", cfg.tokenizer.path)
+    else:
+        cfg.tokenizer.path = str(run_dir / "tokenizer")
     cfg.experiment.name = run_dir.name
     if dump_config:
         _dump_resolved_config(cfg, run_dir)

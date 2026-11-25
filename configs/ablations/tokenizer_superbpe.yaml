@@ -4,3 +4,4 @@ inherits: ../long_context/300m_4k_to_32k.yaml
 
 tokenizer:
   kind: superbpe
+  path: data/tokenizers/ablation_superbpe   # its own tokenizer, not the shared one

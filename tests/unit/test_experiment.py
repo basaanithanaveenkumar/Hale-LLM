@@ -83,3 +83,21 @@ def test_copies_source_yaml_chain(tmp_path):
     assert "autoregressive" in dumped
     parsed = yaml.safe_load(dumped)
     assert "source_yaml" not in parsed.get("experiment", {})
+
+
+def test_default_tokenizer_path_is_per_run(tmp_path):
+    cfg = _cfg(tmp_path)
+    run_dir = apply_experiment_layout(cfg, create=True, name="run_1")
+    assert cfg.tokenizer.path == str(run_dir / "tokenizer")
+    # Attaching the same config object to another run moves the tokenizer with it.
+    other = apply_experiment_layout(cfg, create=True, name="run_2")
+    assert cfg.tokenizer.path == str(other / "tokenizer")
+
+
+def test_an_explicit_tokenizer_path_is_shared_by_every_run(tmp_path):
+    shared = str(tmp_path / "tokenizers" / "shared")
+    for name in ("run_1", "run_2"):
+        cfg = _cfg(tmp_path)
+        cfg.tokenizer.path = shared
+        apply_experiment_layout(cfg, create=True, name=name)
+        assert cfg.tokenizer.path == shared

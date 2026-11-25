@@ -4,3 +4,4 @@ inherits: ../long_context/300m_4k_to_32k.yaml
 
 tokenizer:
   kind: bpe
+  path: data/tokenizers/ablation_bpe   # its own tokenizer, not the shared one

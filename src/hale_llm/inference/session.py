@@ -122,7 +122,7 @@ def load_session(
     path = checkpoint_path or cfg.train.checkpoint_path
     # A checkpoint lives in <run>/checkpoints/; its tokenizer in <run>/tokenizer/.
     beside_checkpoint = Path(path).resolve().parent.parent / "tokenizer"
-    if checkpoint_path and TokenizerStore.exists(beside_checkpoint):
+    if TokenizerStore.exists(beside_checkpoint):
         cfg.tokenizer.path = str(beside_checkpoint)
     # Inference must never train a tokenizer: it has to be the one the model was trained with.
     tokenizer = tokenizer or build_tokenizer_for(cfg, allow_training=False)

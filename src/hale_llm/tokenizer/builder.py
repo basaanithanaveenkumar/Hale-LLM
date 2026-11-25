@@ -47,6 +47,7 @@ class TokenizerBuilder:
         """Load the run's tokenizer; train it first when missing and ``allow_training``."""
         directory = self._settings.path
         if TokenizerStore.exists(directory):
+            self._check_matches_config(directory)
             tokenizer = TokenizerStore.load(directory)
             logger.info("loaded tokenizer from {} ({:,} tokens)", directory, len(tokenizer))
             return tokenizer
@@ -83,7 +84,8 @@ class TokenizerBuilder:
                 "dataset": self._cfg.data.dataset,
             },
         )
-        return tokenizer
+        # Load what was saved: if another process saved first, everyone must use that file.
+        return TokenizerStore.load(directory)
 
     def documents(self, split: str) -> Sequence[str]:
         """The documents of one split (the training split is what the tokenizer learns from)."""
@@ -97,3 +99,19 @@ class TokenizerBuilder:
         if not documents:
             raise ValueError(f"no text in split {split!r} to learn a tokenizer from")
         return documents
+
+    def _check_matches_config(self, directory: str) -> None:
+        """A tokenizer reused from ``directory`` (for example a shared one) must be the kind of
+        tokenizer the config asks for; otherwise a run would silently use the wrong one."""
+        saved = TokenizerStore.metadata(directory)
+        wanted = {
+            "kind": self._settings.kind,
+            "dataset": self._cfg.data.dataset,
+            "requested_vocab_size": self._settings.vocab_size,  # None = no explicit request
+        }
+        for key, value in wanted.items():
+            if value is not None and key in saved and saved[key] != value:
+                raise ValueError(
+                    f"the tokenizer in {directory} was trained with {key}={saved[key]!r} but this config "
+                    f"has {key}={value!r}. Use another tokenizer.path, or delete {directory} to retrain it."
+                )

@@ -43,6 +43,9 @@ data:
   overfit_text: null
   n_overfit_copies: 64
 tokenizer:
+  # One tokenizer for every run that inherits this file: trained on the first run, reused after.
+  # Each run folder also keeps a copy. Use another path (or delete this folder) to change it.
+  path: data/tokenizers/tinystories_superbpe_shared
   source: trained        # trained = learn a byte-level tokenizer from this run's data | pretrained = data.tokenizer_name
   kind: superbpe         # superbpe | bpe
   vocab_size: null       # null = chosen from the model size (32,768 under 500M params)

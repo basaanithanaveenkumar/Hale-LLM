@@ -20,7 +20,8 @@ flowchart LR
 
 | Situation | What happens |
 |---|---|
-| New training run | Tokenizer is trained on the training split and saved to `<run>/tokenizer/` |
+| New training run, default `tokenizer.path` | Tokenizer is trained on the training split and saved to `<run>/tokenizer/` |
+| New training run, explicit `tokenizer.path` (the shared setup in `base.yaml`) | The first run trains it there; every later run loads it, so dense and MoE runs see identical tokens. Each run also keeps a copy in `<run>/tokenizer/` |
 | Resume, evaluate, sample, chat | The saved tokenizer is loaded; **inference never trains one** |
 | `tokenizer.source: pretrained` | Download `data.tokenizer_name` (e.g. `gpt2`) instead |
 | Several processes | The tokenizer is saved atomically (staging folder, then rename), so a reader never sees a half-written one |
@@ -98,3 +99,20 @@ the compression half were run.
 | Train-or-load logic | `tokenizer/builder.py`, `tokenizer/store.py` |
 
 SuperBPE: Liu et al., 2025. Tokenizer training uses Hugging Face `tokenizers` (Apache-2.0).
+
+## One tokenizer for every run
+
+`configs/base.yaml` sets `tokenizer.path: data/tokenizers/tinystories_superbpe_shared`, so every
+config that inherits it uses the same tokenizer. That keeps runs comparable: dense and MoE models see
+the same token ids, and `val/loss` is measured in the same units.
+
+* The first run trains the tokenizer into that folder; later runs only load it.
+* A reused tokenizer must match the config. If its `kind`, `dataset` or an explicit `vocab_size` differs
+  (the saved values are in `hale_tokenizer.json`), the run stops with an error instead of silently
+  using the wrong one. Pick another `tokenizer.path`, or delete the folder to retrain.
+* Each run folder keeps its own copy (`<run>/tokenizer/`). `hale-llm-chat`, `-sample` and `-eval` look
+  there first, so a checkpoint stays usable even if the shared tokenizer is later replaced.
+* The tokenizer learns from whichever run creates it first (`data.train_size` of that run). Delete the
+  folder to relearn it from a different amount of data.
+* The BPE vs SuperBPE ablation configs set their own paths (`data/tokenizers/ablation_*`).
+* `--dry-run` always uses a temporary tokenizer and never touches the shared one.
