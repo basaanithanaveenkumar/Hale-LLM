@@ -211,9 +211,20 @@ Used by `hale-llm-sample`, `hale-llm-infer` and `hale-llm-chat`.
 | `tensorboard` | bool | `true` | Write scalars. |
 | `tensorboard_dir` | string | `runs` | Redirected to the run `tb/`. `tensorboard --logdir data/experiments`. |
 
-`hale-llm-eval` writes `eval/*` scalars.
+The lean trainer writes TensorBoard logs to `<run>/tb/` (`tensorboard --logdir data/experiments`):
 
----
+| Group | Tags | When |
+|---|---|---|
+| `train/` | `loss` (optimised), `ce_loss` (next-token loss alone), `perplexity`, `bits_per_token`, `grad_norm`, `grad_clipped`, `lr` (`lr_group1` for Muon), `lr_scale`, `tokens_seen`, `tokens_per_sec`, `step_seconds`, `epoch` | every optimizer step |
+| `train/` | `moe_balance_loss` (mean over layers; 1.0 = perfectly even routing) | every step, MoE only |
+| `val/` | `loss`, `perplexity`, `bits_per_token` | at step 0, every `train.lean.eval_every` steps, and the last step |
+| `moe/` | `expert_share_max`, `expert_share_min`, and the same per layer (`layerN/...`) | every `train.log_every` steps, MoE only |
+| `model/`, `system/` | `parameters`, `weight_norm`, `gpu_memory_gb` (CUDA) | `parameters` once, the rest every `log_every` steps |
+| `context/` | `window` | every step |
+
+The full resolved config is stored as text under `run/config`. `moe/expert_share_*` is the fraction of routing
+decisions an expert received: with `E` experts an even split is `1/E`, so a max far above that or a min near 0
+means the router is collapsing. `hale-llm-eval` writes `eval/*` scalars.
 
 ## `experiment`
 

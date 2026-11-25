@@ -40,6 +40,8 @@ class DeepseekMoE(nn.Module):
         self.n_routed_experts = n_routed_experts
         # Set on every forward: the balancing loss in training mode, zero in eval mode.
         self.aux_loss: torch.Tensor | None = None
+        # Set on every forward: [E] share of the routing decisions each expert received.
+        self.expert_share: torch.Tensor | None = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """``x`` is ``[B, S, D]``; ``T = B * S`` tokens, ``E`` routed experts."""
@@ -66,15 +68,19 @@ class DeepseekMoE(nn.Module):
             expert_output = expert(tokens[token_ids]) * gate  # [n, D]
             output.index_add_(0, token_ids, expert_output.to(output.dtype))  # add to those tokens
 
-        # 5. Load-balancing loss (Switch Transformer form): E * sum(share_i * mean_prob_i).
+        # 5. How the tokens were spread over the experts: share[e] is the fraction of all
+        #    routing decisions that went to expert e (1 / E each when perfectly even).
+        chosen = torch.zeros_like(routing.probs).scatter(-1, routing.indices, 1.0)  # [T, E]
+        share = chosen.mean(dim=0) / routing.indices.size(-1)  # [E]
+        self.expert_share = share.detach()
+
+        # 6. Load-balancing loss (Switch Transformer form): E * sum(share_i * mean_prob_i).
         #    It is 1.0 when tokens are spread evenly and grows when a few experts take most.
         if self.training:
-            chosen = torch.zeros_like(routing.probs).scatter(-1, routing.indices, 1.0)  # [T, E]
-            share = chosen.mean(dim=0) / routing.indices.size(-1)  # [E] share of all picks
             mean_prob = routing.probs.mean(dim=0)  # [E]
             self.aux_loss = self.n_routed_experts * torch.sum(share * mean_prob)
         else:
             self.aux_loss = tokens.new_zeros(())
 
-        # 6. Back to [B, S, D].
+        # 7. Back to [B, S, D].
         return output.view(B, S, D)

@@ -9,7 +9,7 @@ on one device needs, so you can follow a whole run from top to bottom:
     4. build the optimizer from the registry (adamw or muon)
     5. define the learning-rate schedule: linear warmup, flat, linear warmdown
     6. loop: accumulate gradients over micro-batches, clip, update, log
-    7. every N steps: measure validation loss
+    7. every N steps (and at the start and end): measure validation loss; log everything to TensorBoard
     8. save a checkpoint that ``hale-llm-chat`` and ``hale-llm-sample`` can load
 
 Every registered variant works because the loss comes from the loss registry.
@@ -39,6 +39,7 @@ from hale_llm.utils.device import get_device
 from hale_llm.training.context_schedule import ContextSchedule
 from hale_llm.training.context_stage_plan import ContextStagePlan
 from hale_llm.training.schedule import TrainSchedule
+from hale_llm.training.training_logger import TrainingLogger
 
 
 def lr_multiplier(step: int, total_steps: int, warmup_steps: int, warmdown_frac: float) -> float:
@@ -165,62 +166,101 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
     store = CheckpointStore()
     losses: list[float] = []
     started = time.time()
+    tokens_seen = 0
+    balance_coef = cfg.model.moe_aux_loss_coef if getattr(plain_model, "uses_moe", False) else 0.0
 
-    for step in range(total_steps):
-        # 5a. Entering a new context stage: longer window, larger RoPE base, fresh loaders.
-        plan = schedule.plan_at(step)
-        if plan is not current_plan:
-            logger.info("step {}: entering context stage '{}' (window {})", step, plan.name, plan.context_window)
-            apply_stage_to_model(plain_model, cfg, plan)
-            data, train_loader, val_loader = stage_loaders(cfg, plan, data.tokenizer)
-            train_batches = endless(train_loader)
-            current_plan = plan
-            logger.info(
-                "stage data: {:,} context windows of {} tokens",
-                len(train_loader.dataset), plan.context_window,
-            )
+    with TrainingLogger(cfg) as tb:
+        tb.log_run_start(cfg, plain_model, total_steps, n_windows)
+        if eval_every:  # the untrained model's validation loss is the starting point of the curve
+            tb.log_validation(0, validation_loss(model, loss_fn, val_loader, device, eval_batches))
 
-        # 5b. Learning rate for this step: every group keeps its own base lr, scaled.
-        scale = lr_multiplier(step, total_steps, warmup_steps, warmdown_frac)
-        for group in optimizer.param_groups:
-            group["lr"] = group["base_lr"] * scale
+        for step in range(total_steps):
+            # 5a. Entering a new context stage: longer window, larger RoPE base, fresh loaders.
+            plan = schedule.plan_at(step)
+            if plan is not current_plan:
+                logger.info("step {}: entering context stage '{}' (window {})", step, plan.name, plan.context_window)
+                apply_stage_to_model(plain_model, cfg, plan)
+                data, train_loader, val_loader = stage_loaders(cfg, plan, data.tokenizer)
+                train_batches = endless(train_loader)
+                current_plan = plan
+                logger.info(
+                    "stage data: {:,} context windows of {} tokens",
+                    len(train_loader.dataset), plan.context_window,
+                )
+            step_started = time.perf_counter()
 
-        # 6. Accumulate gradients. Each micro-batch loss is divided by ``accum`` so the
-        #    summed gradient equals the gradient of the mean over the big batch.
-        optimizer.zero_grad(set_to_none=True)
-        step_loss = 0.0
-        for _ in range(accum):
-            batch = move_batch_to_device(next(train_batches), device)
-            autocast = (
-                torch.autocast(device_type="cuda", dtype=torch.bfloat16)
-                if use_bf16
-                else contextlib.nullcontext()
-            )
-            with autocast:
-                loss = loss_fn(model, batch) / accum
-            loss.backward()
-            step_loss += loss.item()
-        if not math.isfinite(step_loss):
-            raise FloatingPointError(f"non-finite loss at step {step}: {step_loss}")
+            # 5b. Learning rate for this step: every group keeps its own base lr, scaled.
+            scale = lr_multiplier(step, total_steps, warmup_steps, warmdown_frac)
+            for group in optimizer.param_groups:
+                group["lr"] = group["base_lr"] * scale
 
-        # 7. Clip the global gradient norm, then update every parameter.
-        grad_norm = torch.nn.utils.clip_grad_norm_(plain_model.parameters(), cfg.train.grad_clip)
-        optimizer.step()
-        losses.append(step_loss)
-        if on_step is not None:
-            on_step(step)
+            # 6. Accumulate gradients. Each micro-batch loss is divided by ``accum`` so the
+            #    summed gradient equals the gradient of the mean over the big batch.
+            optimizer.zero_grad(set_to_none=True)
+            step_loss = 0.0
+            balance_loss = 0.0  # MoE load-balancing term, averaged over the micro-batches
+            for _ in range(accum):
+                batch = move_batch_to_device(next(train_batches), device)
+                autocast = (
+                    torch.autocast(device_type="cuda", dtype=torch.bfloat16)
+                    if use_bf16
+                    else contextlib.nullcontext()
+                )
+                with autocast:
+                    loss = loss_fn(model, batch) / accum
+                loss.backward()
+                step_loss += loss.item()
+                if balance_coef:
+                    balance_loss += float(plain_model.backbone.auxiliary_loss().detach()) / accum
+            if not math.isfinite(step_loss):
+                raise FloatingPointError(f"non-finite loss at step {step}: {step_loss}")
 
-        if step % cfg.train.log_every == 0 or step == total_steps - 1:
-            elapsed = time.time() - started
-            logger.info(
-                "step {}/{} loss={:.4f} lr_scale={:.3f} grad_norm={:.3f} {:.1f}s",
-                step + 1, total_steps, step_loss, scale, float(grad_norm), elapsed,
-            )
-        if eval_every and (step + 1) % eval_every == 0:
-            logger.info(
-                "step {} validation loss = {:.4f}",
-                step + 1, validation_loss(model, loss_fn, val_loader, device, eval_batches),
-            )
+            # 7. Clip the global gradient norm, then update every parameter.
+            grad_norm = float(torch.nn.utils.clip_grad_norm_(plain_model.parameters(), cfg.train.grad_clip))
+            optimizer.step()
+            losses.append(step_loss)
+            if on_step is not None:
+                on_step(step)
+
+            # 7b. Record the step. ``ce_loss`` is the next-token loss alone: the optimised loss
+            #     also contains the MoE balancing term, which validation does not.
+            step_seconds = time.perf_counter() - step_started
+            step_tokens = current_plan.batch_size * accum * current_plan.context_window
+            tokens_seen += step_tokens
+            ce_loss = step_loss - balance_coef * balance_loss
+            scalars = {
+                "train/loss": step_loss,
+                "train/ce_loss": ce_loss,
+                "train/perplexity": math.exp(min(ce_loss, 20.0)),
+                "train/bits_per_token": ce_loss / math.log(2),
+                "train/grad_norm": grad_norm,
+                "train/grad_clipped": float(grad_norm > cfg.train.grad_clip),
+                "train/lr_scale": scale,
+                "train/tokens_seen": tokens_seen,
+                "train/tokens_per_sec": step_tokens / step_seconds,
+                "train/step_seconds": step_seconds,
+                "train/epoch": (step + 1) * accum / len(train_loader),
+                "context/window": current_plan.context_window,
+            }
+            for index, group in enumerate(optimizer.param_groups):
+                scalars["train/lr" if index == 0 else f"train/lr_group{index}"] = group["lr"]
+            if balance_coef:
+                # The optimised term sums the layers; log the per-layer mean, where 1.0 = even routing.
+                scalars["train/moe_balance_loss"] = balance_loss / cfg.model.n_layers
+            tb.log_step(step + 1, scalars)
+
+            last_step = step == total_steps - 1
+            if step % cfg.train.log_every == 0 or last_step:
+                tb.log_slow_stats(step + 1, plain_model, device)
+                logger.info(
+                    "step {}/{} loss={:.4f} lr_scale={:.3f} grad_norm={:.3f} {:.0f} tok/s {:.1f}s",
+                    step + 1, total_steps, step_loss, scale, grad_norm,
+                    scalars["train/tokens_per_sec"], time.time() - started,
+                )
+            if eval_every and ((step + 1) % eval_every == 0 or last_step):
+                val_loss = validation_loss(model, loss_fn, val_loader, device, eval_batches)
+                tb.log_validation(step + 1, val_loss)
+                logger.info("step {} validation loss = {:.4f} (perplexity {:.1f})", step + 1, val_loss, math.exp(min(val_loss, 20.0)))
 
     # 8. Save a checkpoint that chat / sample / eval can load.
     store.save(

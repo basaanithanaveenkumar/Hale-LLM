@@ -93,3 +93,48 @@ def test_a_checkpoint_of_another_variant_is_rejected(tiny_tokenizer, tmp_path):
     other.variant, other.model.ffn_type = "autoregressive_moe", "moe"
     with pytest.raises(ValueError, match="variant"):
         load_session(other, tokenizer=tiny_tokenizer, require_checkpoint=True)
+
+
+def _read_tensorboard(directory):
+    from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+
+    acc = EventAccumulator(str(directory), size_guidance={"scalars": 0, "tensors": 0})
+    acc.Reload()
+    return acc
+
+
+@pytest.mark.parametrize("variant", ["autoregressive", "autoregressive_moe"])
+def test_training_writes_tensorboard_scalars(variant, tiny_tokenizer, tmp_path):
+    cfg = _cfg(tmp_path, "adamw")
+    cfg.variant = variant
+    cfg.model.ffn_type = "moe" if variant == "autoregressive_moe" else "mlp"
+    cfg.train.steps, cfg.train.lean.eval_every, cfg.train.log_every = 6, 3, 2
+    cfg.logging.tensorboard, cfg.logging.tensorboard_dir = True, str(tmp_path / "tb")
+    losses = train_lean(cfg, tokenizer=tiny_tokenizer)
+
+    acc = _read_tensorboard(tmp_path / "tb")
+    tags = set(acc.Tags()["scalars"])
+    expected = {
+        "train/loss", "train/ce_loss", "train/perplexity", "train/grad_norm", "train/lr",
+        "train/tokens_seen", "train/tokens_per_sec", "val/loss", "val/perplexity",
+        "model/parameters", "model/weight_norm",
+    }
+    assert expected <= tags, expected - tags
+    assert ("moe/expert_share_max" in tags) == (variant == "autoregressive_moe")
+    assert ("train/moe_balance_loss" in tags) == (variant == "autoregressive_moe")
+    if variant == "autoregressive_moe":  # a per-layer mean sits near 1.0 (even routing), not near n_layers
+        assert 0.9 < acc.Scalars("train/moe_balance_loss")[0].value < 2.0
+
+    train_events = acc.Scalars("train/loss")
+    assert [e.step for e in train_events] == list(range(1, 7))  # one point per optimizer step
+    assert [e.value for e in train_events] == pytest.approx(losses, rel=1e-5)
+    assert [e.step for e in acc.Scalars("val/loss")] == [0, 3, 6]  # start, every 3, end
+    assert acc.Scalars("train/tokens_seen")[-1].value == 6 * 8 * 2 * 32  # steps x batch x accum x window
+
+
+def test_tensorboard_can_be_switched_off(tiny_tokenizer, tmp_path):
+    cfg = _cfg(tmp_path, "adamw")
+    cfg.train.steps = 2
+    cfg.logging.tensorboard, cfg.logging.tensorboard_dir = False, str(tmp_path / "tb")
+    train_lean(cfg, tokenizer=tiny_tokenizer)
+    assert not (tmp_path / "tb").exists()
