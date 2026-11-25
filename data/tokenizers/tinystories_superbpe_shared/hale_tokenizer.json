@@ -1,0 +1,8 @@
+{
+  "kind": "superbpe",
+  "vocab_size": 32768,
+  "requested_vocab_size": 32768,
+  "bytes_per_token": 7.88246503367128,
+  "documents": 99983,
+  "dataset": "roneneldan/TinyStories"
+}

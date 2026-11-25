@@ -22,3 +22,7 @@ data/viz/
 
 # Project page preview copies (populated by the Pages workflow)
 project-page/static/
+
+# Tokenizers: only the shared one used by every run is tracked (2.3 MB); ablation or experimental ones are not.
+data/tokenizers/*
+!data/tokenizers/tinystories_superbpe_shared/
