@@ -5,6 +5,8 @@ description: Set up, navigate and test HALE-LLM (`hale_llm`), a small decoder-on
 
 # HALE-LLM development
 
+**Working rules:** follow the behavioral guidelines in `/CLAUDE.md` (think before coding, simplicity first, surgical changes, goal-driven execution) on every task.
+
 Package: `hale_llm` (Python >= 3.12). There is no external block library: the registries, the
 checkpoint store and the optimizer base live in this repo.
 
