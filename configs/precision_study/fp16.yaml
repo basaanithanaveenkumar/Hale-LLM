@@ -1,0 +1,9 @@
+# fp16 run of the precision study (see base.yaml).
+inherits: ./base.yaml
+
+train:
+  lean:
+    precision: fp16
+
+experiment:
+  name: precision_fp16

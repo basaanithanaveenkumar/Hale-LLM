@@ -1,0 +1,9 @@
+# bf16 run of the precision study (see base.yaml).
+inherits: ./base.yaml
+
+train:
+  lean:
+    precision: bf16
+
+experiment:
+  name: precision_bf16

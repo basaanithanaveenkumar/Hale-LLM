@@ -1,0 +1,9 @@
+# fp32 run of the precision study (see base.yaml).
+inherits: ./base.yaml
+
+train:
+  lean:
+    precision: fp32
+
+experiment:
+  name: precision_fp32

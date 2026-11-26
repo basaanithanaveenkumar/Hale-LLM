@@ -1,0 +1,44 @@
+# Precision study: the same ~110M-parameter dense model trained three times, differing ONLY in
+# `train.lean.precision`. Same seed, data and batches, so the curves are directly comparable.
+#
+# Sized so the fp32 run (the one that needs the most memory) fills about 80% of a 24 GB GPU (A30).
+# On a bigger GPU raise `train.batch_size` until the dry run reports ~85-90% peak memory.
+inherits: ../base.yaml
+variant: autoregressive
+device: cuda
+
+model:
+  d_model: 768
+  n_heads: 12
+  n_layers: 12
+  d_ff: 3072
+  dropout: 0.0              # standard for pretraining; keeps the three runs deterministic in shape
+  pos_encoding: rope
+  norm_type: rms
+
+data:
+  context_window: 1024      # tokens per example = model context length
+  train_size: 100000
+  val_size: 1000
+
+train:
+  steps: null              # about 33M tokens at the batch below
+  epochs: 7
+  batch_size: 16            # 16 x 1024 = 16,384 tokens per step
+  lr: 0.0006
+  weight_decay: 0.1
+  grad_clip: 1.0
+  log_every: 50
+  seed: 0                   # identical in all three runs
+  lean:
+    accum_steps: 1
+    warmup_steps: 100
+    warmdown_frac: 0.2
+    eval_every: 250
+    eval_batches: 20
+    keep_best: 5
+    best_by: loss
+    compile: false
+
+logging:
+  tensorboard: true
