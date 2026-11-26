@@ -18,12 +18,14 @@ class ModelConfig(StrictModel):
 
     # Feed-forward network: a dense MLP, or the DeepSeek-style mixture of experts.
     ffn_type: Literal["mlp", "moe"] = "mlp"
+    # Activation of the dense `mlp` feed-forward: gelu | relu | silu | swiglu | geglu | reglu (gated ones add a matrix).
+    ffn_activation: str = "gelu"
     moe_num_experts: int = 4  # routed experts
     moe_top_k: int = 2  # routed experts used per token
     moe_num_shared: int = 1  # shared experts every token passes through
     moe_hidden_dim: int | None = None  # None = d_ff
     moe_router: str = "noisy_topk"  # topk | noisy_topk (see hale_llm.nn.moe)
-    moe_activation: Literal["swiglu", "gelu"] = "swiglu"
+    moe_activation: str = "swiglu"  # activation of every expert (see hale_llm.nn.activation)
     # Weight of the load-balancing loss that keeps tokens spread over the experts.
     moe_aux_loss_coef: float = 0.01
 

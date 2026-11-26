@@ -75,7 +75,8 @@ One decoder-only transformer. The blocks are pre-norm: `x + attention(norm(x))`,
 | `moe_num_shared` | int | `1` | Shared experts every token passes through. |
 | `moe_hidden_dim` | int \| `null` | `null` | Expert hidden width; `null` = `d_ff`. |
 | `moe_router` | string | `noisy_topk` | `topk` or `noisy_topk` (Gaussian noise while training). Registry: `hale_llm.nn.moe`. |
-| `moe_activation` | `swiglu` \| `gelu` | `swiglu` | Expert activation. SwiGLU has a third gate matrix. |
+| `ffn_activation` | `gelu` \| `relu` \| `silu` \| `swiglu` \| `geglu` \| `reglu` | `gelu` | Activation of the dense `mlp`. The gated ones (`*glu`) add a third matrix (`ffn.gate`), so the layer is 1.5x larger at the same `d_ff`. |
+| `moe_activation` | same names | `swiglu` | Activation of every expert, same options; gated ones have a third matrix `w3`. |
 | `moe_aux_loss_coef` | float | `0.01` | Weight of the load-balancing loss added to the training loss (training only). |
 
 ---
@@ -300,3 +301,15 @@ EOS as padding would make the model ignore the stop token.
 **Context length.** `data.context_window` is the only place to set it. gpt-oss similarly keeps the
 model's native context in its config (`initial_context_length: 4096`, used for RoPE scaling) and
 takes the runtime context from `--context-length`.
+
+## Mixture of experts: how it differs from DeepSeek-V3
+
+`DeepseekMoE` follows the DeepSeek layout (always-on shared experts plus routed experts, the expert-level
+balance loss `E * sum(share_i * mean_prob_i)` of DeepSeek-V2), and it is checked against an independent
+per-token computation in `tests/unit/test_feed_forward_activations.py`. Differences from the V3 paper, none of them bugs:
+
+- the router weights are a softmax over the chosen top-k scores (Mixtral style); V3 uses sigmoid scores
+  normalised over the chosen experts;
+- balancing uses the auxiliary loss (`moe_aux_loss_coef`); V3 balances with a bias that is adjusted without a loss;
+- every layer is a mixture of experts (V3 keeps its first three layers dense), and padding tokens are routed and
+  counted in the balance loss like any other token.
