@@ -108,3 +108,22 @@ The same error is raised when `torchtitan` is not installed, the recipe director
 **Status.** The command construction and every guard are unit-tested. The launch itself has not
 been run: it needs NVIDIA GPUs and a PyTorch nightly, which the development machine (a Mac) lacks.
 TorchTitan is BSD-3-Clause licensed; the other dependencies are MIT/Apache.
+
+
+## Best checkpoints
+
+Besides `checkpoints/last.pt` (the final weights plus optimizer state), the lean trainer keeps the
+**N best checkpoints by validation score** in `<run>/checkpoints/best/`, named like
+`step0000500_loss_1.2345.pt`. Each time validation runs (`eval_every`), the checkpoint is saved if it ranks
+in the top N, and the one it pushes out is deleted.
+
+```yaml
+train:
+  lean:
+    keep_best: 5          # 0 disables
+    best_by: loss         # loss (lower is better) | token_accuracy (higher is better)
+```
+
+Best files hold the model weights and config but not the optimizer state (smaller; they are for
+picking and loading a model, not for resuming). Load one with `load_session(cfg, checkpoint_path=...)`.
+Ranking uses `eval_batches` validation batches, so close scores can swap order between runs.

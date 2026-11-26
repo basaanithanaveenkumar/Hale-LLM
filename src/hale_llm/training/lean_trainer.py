@@ -9,13 +9,14 @@ on one device needs, so you can follow a whole run from top to bottom:
     4. build the optimizer from the registry (adamw or muon)
     5. define the learning-rate schedule: linear warmup, flat, linear warmdown
     6. loop: accumulate gradients over micro-batches, clip, update, log
-    7. every N steps (and at the start and end): measure validation loss; log everything to TensorBoard
+    7. every N steps (and at the start and end): measure validation loss; log everything to TensorBoard;
+       keep the best N checkpoints by validation score (``keep_best``, ``best_by``)
     8. save a checkpoint that ``hale-llm-chat`` and ``hale-llm-sample`` can load
 
 Every registered variant works because the loss comes from the loss registry.
 
 Settings live under ``train.lean`` in the YAML (accum_steps, warmup_steps, warmdown_frac,
-eval_every, eval_batches, compile). It has no resume support.
+eval_every, eval_batches, keep_best, best_by, compile). It has no resume support.
 """
 
 from __future__ import annotations
@@ -41,7 +42,10 @@ from hale_llm.training.context_schedule import ContextSchedule
 from hale_llm.training.context_stage_plan import ContextStagePlan
 from hale_llm.tokenizer.store import TokenizerStore
 from hale_llm.training.schedule import TrainSchedule
+from hale_llm.training.top_k_checkpoints import TopKCheckpoints
 from hale_llm.training.training_logger import TrainingLogger
+from hale_llm.metrics.base import MetricContext
+from hale_llm.metrics.llm.accuracy import TokenAccuracyMetric
 
 
 def lr_multiplier(step: int, total_steps: int, warmup_steps: int, warmdown_frac: float) -> float:
@@ -76,6 +80,20 @@ def validation_loss(model, loss_fn, loader, device: str, max_batches: int) -> fl
         losses.append(loss_fn(model, move_batch_to_device(batch, device)).item())
     model.train()
     return sum(losses) / max(len(losses), 1)
+
+
+@torch.no_grad()
+def validation_accuracy(model, loss_fn, loader, device: str, max_batches: int) -> float:
+    """Greedy next-token accuracy over at most ``max_batches`` validation batches."""
+    model.eval()
+    metric = TokenAccuracyMetric()
+    for i, batch in enumerate(loader):
+        if i >= max_batches:
+            break
+        batch = move_batch_to_device(batch, device)
+        metric.update(MetricContext(model=model, batch=batch, loss=loss_fn(model, batch), variant=""))
+    model.train()
+    return metric.compute()["token_accuracy"]
 
 
 def apply_stage_to_model(model, cfg: RunConfig, plan: ContextStagePlan) -> None:
@@ -125,6 +143,7 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
     lean = cfg.train.lean
     accum, warmup_steps, warmdown_frac = lean.accum_steps, lean.warmup_steps, lean.warmdown_frac
     eval_every, eval_batches, compile_model = lean.eval_every, lean.eval_batches, lean.compile
+    keep_best, best_by = lean.keep_best, lean.best_by
     torch.manual_seed(cfg.train.seed)
     device = get_device(cfg.device)
     use_bf16 = device == "cuda"  # bf16 autocast is reliable on CUDA; MPS/CPU stay fp32
@@ -180,6 +199,21 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
         group["base_lr"] = group["lr"]
 
     store = CheckpointStore()
+    best = TopKCheckpoints(
+        Path(cfg.train.checkpoint_path).parent / "best", keep_best, best_by,
+        higher_is_better=best_by != "loss",
+    )
+
+    def checkpoint_state(step: int, with_optimizer: bool = True) -> dict:
+        """Everything chat / sample / eval need; the best-N files skip the optimizer to stay small."""
+        state = dict(
+            model_state_dict=plain_model.state_dict(), variant=cfg.variant,
+            vocab_size=len(data.tokenizer), epoch=0, step=step, config=cfg.model_dump(),
+        )
+        if with_optimizer:
+            state["optimizer_state_dict"] = optimizer.state_dict()
+        return state
+
     losses: list[float] = []
     started = time.time()
     tokens_seen = 0
@@ -277,17 +311,17 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
                 val_loss = validation_loss(model, loss_fn, val_loader, device, eval_batches)
                 tb.log_validation(step + 1, val_loss)
                 logger.info("step {} validation loss = {:.4f} (perplexity {:.1f})", step + 1, val_loss, math.exp(min(val_loss, 20.0)))
+                # Rank this checkpoint by the chosen validation score; keep only the best N.
+                score = val_loss
+                if best_by == "token_accuracy":
+                    score = validation_accuracy(model, loss_fn, val_loader, device, eval_batches)
+                    tb.log_step(step + 1, {"val/token_accuracy": score})
+                    logger.info("step {} validation token accuracy = {:.4f}", step + 1, score)
+                state = checkpoint_state(step + 1, with_optimizer=False)
+                state.pop("step")  # offer() records the step itself
+                best.offer(score, step + 1, **state)
 
     # 8. Save a checkpoint that chat / sample / eval can load.
-    store.save(
-        cfg.train.checkpoint_path,
-        model_state_dict=plain_model.state_dict(),
-        optimizer_state_dict=optimizer.state_dict(),
-        variant=cfg.variant,
-        vocab_size=len(data.tokenizer),
-        epoch=0,
-        step=total_steps,
-        config=cfg.model_dump(),
-    )
+    store.save(cfg.train.checkpoint_path, **checkpoint_state(total_steps))
     logger.info("saved checkpoint to {}", cfg.train.checkpoint_path)
     return losses

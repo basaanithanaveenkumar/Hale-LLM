@@ -168,3 +168,16 @@ def test_each_run_keeps_a_copy_of_the_shared_tokenizer(tmp_path):
     shutil.rmtree(tmp_path / "shared_tok")
     session = load_session(cfg, require_checkpoint=True)
     assert session.cfg.tokenizer.path == str(run_dir / "tokenizer")
+
+
+@pytest.mark.parametrize("best_by", ["loss", "token_accuracy"])
+def test_only_the_best_checkpoints_are_kept_and_they_load(best_by, tiny_tokenizer, tmp_path):
+    cfg = _cfg(tmp_path, "adamw")
+    cfg.train.steps = 40
+    cfg.train.lean.eval_every, cfg.train.lean.keep_best, cfg.train.lean.best_by = 10, 2, best_by
+    train_lean(cfg, tokenizer=tiny_tokenizer)
+    kept = sorted((tmp_path / "best").glob("*.pt"))
+    assert len(kept) == 2  # validation ran 4 times, only the top 2 remain
+    import torch
+    state = torch.load(kept[0], weights_only=False)
+    assert best_by in state and "optimizer_state_dict" not in state and state["variant"] == cfg.variant
