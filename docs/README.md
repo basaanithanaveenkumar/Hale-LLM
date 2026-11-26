@@ -3,6 +3,7 @@
 - [Architecture](architecture.md): the transformer block, the mixture of experts and the package layout
 - [Configuration reference](config.md): every YAML key, defaults and recipes
 - [Training backends](training.md): lean (default) and TorchTitan
+- [Jarvislabs cloud training](jarvislabs.md): rent an India GPU and train with one command
 - [Tokenizer](tokenizer.md): trained SuperBPE/BPE, vocabulary sized to the model, ablation
 - [Context length](context_length.md): 4k pretrain, 32k extension, YaRN
 - [Usage](usage.md): CLI recap, chat and inference

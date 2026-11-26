@@ -21,6 +21,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+cloud = ["jarvislabs>=0.2"]
 dev = [
     "pytest>=8.0",
     "ruff>=0.8",
@@ -34,6 +35,7 @@ hale-llm-eval = "hale_llm.cli.eval:main"
 hale-llm-tokenizer-ablation = "hale_llm.cli.tokenizer_ablation:main"
 hale-llm-infer = "hale_llm.cli.inference:main"
 hale-llm-chat = "hale_llm.cli.chat:main"
+hale-llm-cloud = "hale_llm.cli.cloud:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hale_llm"]

@@ -1,0 +1,8 @@
+# Instance settings for `hale-llm-cloud`. IN1 has RTX-PRO6000; IN2 has L4, A30, A100, A100-80GB, H100, H200.
+gpu_type: A100
+num_gpus: 1
+region: IN2
+storage_gb: 100
+template: pytorch
+name_prefix: hale
+remote_dir: /home/hale-llm
