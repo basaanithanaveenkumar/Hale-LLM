@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from loguru import logger
@@ -13,6 +14,7 @@ from hale_llm.cloud.jarvislabs.jl_cli import JlCli
 from hale_llm.cloud.jarvislabs.remote_training_job import RemoteTrainingJob
 from hale_llm.cloud.jarvislabs.settings import JarvisSettings
 from hale_llm.cloud.jarvislabs.spot_supervisor import SpotSupervisor
+from hale_llm.training.duration import format_duration
 
 DEFAULT_SETTINGS = "configs/cloud/jarvislabs.yaml"
 
@@ -64,6 +66,23 @@ def _train_args(config: str, extra: list[str], spot: bool = False) -> list[str]:
     return args
 
 
+def training_times(results: Path) -> list[tuple[str, float]]:
+    """``(run folder, seconds)`` for every finished run in a downloaded results folder.
+
+    The trainer writes the total training time into ``training_complete.json`` when a run ends; runs from
+    before that was recorded, or unreadable files, are skipped.
+    """
+    times = []
+    for record in sorted(results.rglob("training_complete.json")):
+        try:
+            seconds = json.loads(record.read_text())["elapsed_seconds"]
+        except (OSError, ValueError, KeyError) as error:
+            logger.warning("no training time in {} ({})", record, error)
+            continue
+        times.append((str(record.parent.relative_to(results)), float(seconds)))
+    return times
+
+
 def _finish(manager: InstanceManager, job: RemoteTrainingJob, machine_id: int, poll_seconds: float,
             supervisor: SpotSupervisor | None = None) -> None:
     """Wait for training to end, download the results, and always pause so billing stops.
@@ -81,6 +100,8 @@ def _finish(manager: InstanceManager, job: RemoteTrainingJob, machine_id: int, p
         print("training finished with exit code 0")
         where = job.fetch(machine_id, Path("data/cloud_runs") / str(machine_id))
         print(f"downloaded to {where}" if where else "no results folder to download (was this a dry run?)")
+        for run, seconds in training_times(where) if where else []:
+            print(f"training time of {run}: {format_duration(seconds)} ({seconds:.0f} s)")
     finally:  # pausing keeps the disk, so it is safe even if training or the download failed
         manager.pause_if_running(supervisor.machine_id if supervisor else machine_id)
 

@@ -206,3 +206,16 @@ variant's `latest` folder. `resume.pt` holds weights plus optimizer state (about
 fp32), so it is written to disk in about a second for a 100M model. Only the latest one is kept.
 The step, loss and best-checkpoint files continue from the resume point: the returned loss list covers only
 the steps run after it, and TensorBoard hides the redone part of the earlier attempt.
+
+## How long a run took
+
+When training ends, the trainer logs one line, locally and on a cloud instance alike:
+
+```
+training finished: 2000 steps, 131,072,000 tokens in 1 h 02 min 05 s (3725.4 s)
+```
+
+The time is the total training time of the whole run. The seconds already trained are stored in `resume.pt`, so a run
+resumed after a spot interruption adds up all its sessions (the line then ends with `; this session 12 min 03 s`), and
+the resume message shows the time trained so far. Time spent waiting for a new instance is not counted. The same number
+is written to `training_complete.json` (`elapsed_seconds`); `hale-llm-cloud finish` prints it after downloading the results.
