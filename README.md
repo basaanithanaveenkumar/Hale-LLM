@@ -67,6 +67,15 @@ Model strategy
 33. Looped transformers
 34. class or cluster based expert selection so , based on propmt it loads a series of experts should be easier for inference
 35. need to find a better light weight tokenizer , ann register it and also study more about tokenizers, should I pick a preexisting tokenizer or should i train it from scratch
+36 YaRN
+37 soft softmax
+38. by default use focal loss and compare with normall loss
+39 look for best activation function change
+40 . run the cobtrolled experiments step by step
+41. losses that make model to generalize
+42. add more number of losses
+43. how next lat works and how is it improving speculative decoding
+44 router based layers, router based residual connection should be on or off , router based mhc connection
 
 
 
