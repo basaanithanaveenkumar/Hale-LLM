@@ -78,6 +78,15 @@ class MixedPrecision:
         self.step_skipped = self.scaler.get_scale() < scale_before
         return grad_norm
 
+    def state_dict(self) -> dict:
+        """Loss-scaler state (empty unless fp16), saved in the resume checkpoint."""
+        return self.scaler.state_dict()
+
+    def load_state_dict(self, state: dict) -> None:
+        """Restore the loss scale. Ignored when scaling is off or the saved run did not use it."""
+        if self.scaler.is_enabled() and state:
+            self.scaler.load_state_dict(state)
+
     @property
     def loss_scale(self) -> float:
         """Current fp16 loss scale (1.0 when scaling is off)."""

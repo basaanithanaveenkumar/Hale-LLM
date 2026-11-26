@@ -75,6 +75,39 @@ class InstanceManager:
             logger.info("waiting for SSH on {} (status: {})", machine_id, instance.status)
             time.sleep(poll_seconds)
 
+    def resume(self, machine_id: int, poll_seconds: float = 30.0) -> int:
+        """Resume a paused instance (as spot when the settings say so) and return its machine id.
+
+        A spot instance that Jarvislabs paused has no GPU until one is free again, so this retries
+        until it gets one or ``resume_wait_minutes`` run out. The id can change on resume.
+        """
+        from jarvislabs.exceptions import APIError, ValidationError  # the errors "no free GPU" and "still pausing" raise
+
+        deadline = time.monotonic() + self.settings.resume_wait_minutes * 60
+        while True:
+            try:
+                instance = self.client.instances.resume(machine_id, is_spot=self.settings.spot)
+                break
+            except (ValidationError, APIError) as error:
+                if time.monotonic() >= deadline:
+                    raise CloudError(f"could not resume {machine_id} within {self.settings.resume_wait_minutes} minutes: {error}") from error
+                logger.info("cannot resume {} yet ({}); retrying in {:.0f}s", machine_id, error, poll_seconds)
+                time.sleep(poll_seconds)
+        logger.info("resumed {} as {}", machine_id, instance.machine_id)
+        self.wait_until_ssh_ready(instance.machine_id)
+        return instance.machine_id
+
+    def pause_if_running(self, machine_id: int) -> None:
+        """Pause to stop billing, but never raise: this runs while another error may be propagating."""
+        try:
+            status = self.get(machine_id).status
+            if status == "Running":
+                self.pause(machine_id)
+            else:
+                logger.info("instance {} is already {}; nothing to pause", machine_id, status)
+        except Exception as error:  # noqa: BLE001 - must not hide the error that got us here
+            logger.error("could not pause {}: {}. Pause or destroy it yourself to stop billing.", machine_id, error)
+
     def pause(self, machine_id: int) -> None:
         """Stop compute billing; the disk is kept."""
         self.client.instances.pause(machine_id)

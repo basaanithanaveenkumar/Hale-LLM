@@ -1,10 +1,15 @@
-# Precision study: the same ~110M-parameter dense model trained three times, differing ONLY in
-# `train.lean.precision`. Same seed, data and batches, so the curves are directly comparable.
+# Precision study: the same mixture-of-experts model (478M parameters, about 308M active per token)
+# trained three times, differing ONLY in `train.lean.precision`. Same seed, data and batches, so the
+# curves are directly comparable.
 #
-# Sized so the fp32 run (the one that needs the most memory) fills about 80% of a 24 GB GPU (A30).
-# On a bigger GPU raise `train.batch_size` until the dry run reports ~85-90% peak memory.
+# Memory (24 GB A30, fp32 is the run that needs the most): the fp32 weights, gradients and AdamW state
+# alone take 7.7 GB, and each MoE layer saves 2.8x the activations of a dense layer. Estimated peak
+# (calibrated on the measured dense run: micro-batch 8 = 16.6 GB, micro-batch 16 = out of memory):
+#   micro-batch 1 -> ~12 GB | 2 -> ~16-17 GB (about 68%) | 3 -> ~20-22 GB | 4 -> ~25-27 GB (too big)
+# So each step is 2 sequences x 8 accumulation steps = 16 x 1024 tokens. Check with `--dry-run` on
+# the GPU (it prints peak CUDA memory); batch_size x accum_steps must stay 16.
 inherits: ../base.yaml
-variant: autoregressive
+variant: autoregressive_moe
 device: cuda
 
 model:
@@ -22,16 +27,16 @@ data:
   val_size: 1000
 
 train:
-  steps: null              # about 33M tokens at the batch below
-  epochs: 7
-  batch_size: 16            # 16 x 1024 = 16,384 tokens per step
+  steps: null               # run length comes from epochs below
+  epochs: 4
+  batch_size: 2             # micro-batch; with accum_steps below, 16 x 1024 = 16,384 tokens per step
   lr: 0.0006
   weight_decay: 0.1
   grad_clip: 1.0
   log_every: 50
   seed: 0                   # identical in all three runs
   lean:
-    accum_steps: 1
+    accum_steps: 8            # micro-batches per optimizer step (effective batch = batch_size x this = 16)
     warmup_steps: 100
     warmdown_frac: 0.2
     eval_every: 250

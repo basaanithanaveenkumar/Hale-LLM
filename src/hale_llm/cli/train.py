@@ -53,7 +53,7 @@ def main() -> None:
         dest="resume",
         action="store_true",
         default=None,
-        help="Resume from train.checkpoint_path if it exists (default from config)",
+        help="Continue an interrupted run from its resume.pt if one exists (default from config)",
     )
     resume.add_argument(
         "--no-resume",

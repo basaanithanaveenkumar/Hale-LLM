@@ -74,9 +74,10 @@ Reuse a paused or running instance (skips renting; re-uploads the code):
 `configs/precision_study/` trains the same ~110M-parameter dense model three times
 (`fp32.yaml`, `bf16.yaml`, `fp16.yaml`). They inherit `base.yaml` and differ only in
 `train.lean.precision` and the run name, with the same seed, so the curves are comparable.
-`base.yaml` is sized so the fp32 run (the most memory-hungry) fills about 80% of a 24 GB GPU: 768 wide,
-12 layers, context 1024, batch 16. On a bigger GPU raise `train.batch_size` in `base.yaml` until the dry
-run reports about 85 to 90% peak CUDA memory. The three runs must keep the same batch size to stay comparable.
+`base.yaml` uses micro-batch 8 with 2 accumulation steps (16 x 1024 = 16,384 tokens per step). A first
+version with micro-batch 16 ran out of memory in the fp32 run on a 24 GB A30. Run the fp32 dry run on the
+GPU first (it prints peak CUDA memory), then raise `batch_size` and lower `accum_steps` together, keeping
+their product at 16, until the peak is about 85 to 90%. All three runs must use the same values.
 
 `hale-llm-cloud launch` always adds `--device cuda`: the shared configs say `device: mps` for the Mac, and
 on a CUDA machine that would silently fall back to the CPU.
@@ -86,11 +87,21 @@ on a CUDA machine that would silently fall back to the CPU.
 Set `spot: true` in the cloud YAML (or copy it to `configs/cloud/jarvislabs_spot.yaml` and pass
 `--cloud`). Check spot prices and free spot GPUs with `uv run jl gpus`.
 
-**Spot caveat:** Jarvislabs can pause a spot instance when demand rises. The lean trainer cannot resume,
-and `last.pt` is written only at the end, so a paused run loses its progress; only the files in
-`checkpoints/best/` survive on the disk. `finish` also fails when the instance is paused. Use spot for short
-runs, ablations and dry experiments; use on-demand for long runs until the trainer can resume.
-`hale-llm-cloud fetch <machine_id>` still downloads whatever best checkpoints exist.
+**Spot interruptions are survived.** Jarvislabs can pause a spot instance when demand rises. With `spot: true`:
+
+* `launch` adds `--resume` to the training command (spot only; on-demand runs keep the config's setting),
+  and the trainer writes `resume.pt` every `train.lean.save_every` steps (default 2000).
+* With `--auto-pause`, a supervisor watches the run. If the instance is paused underneath it, it **resumes the
+  instance as spot** (waiting up to `resume_wait_minutes` for a free GPU), re-uploads the code, and restarts
+  training, which continues from `resume.pt`. An interruption costs at most `save_every` steps. The instance
+  id can change on resume; the supervisor follows it and prints the final one.
+* It gives up after `max_restarts` interruptions, and it will not restart an instance that is not spot.
+* After an interruption you can also do it by hand: `hale-llm-cloud launch --config ... --machine-id <id>`
+  resumes a paused instance and continues from its checkpoint.
+* Recovery needs the `--auto-pause` process to keep running on your machine. `hale-llm-cloud finish <id>` only waits
+  and downloads; it cannot restart training because it does not know the arguments.
+
+Settings in the cloud YAML: `max_restarts` (default 10) and `resume_wait_minutes` (default 180).
 
 ## What gets uploaded
 

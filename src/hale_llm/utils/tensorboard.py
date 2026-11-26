@@ -9,7 +9,9 @@ from loguru import logger
 from torch.utils.tensorboard import SummaryWriter
 
 
-def make_writer(log_dir: str | None, enabled: bool = True, run_name: str | None = None) -> SummaryWriter | None:
+def make_writer(
+    log_dir: str | None, enabled: bool = True, run_name: str | None = None, purge_step: int | None = None
+) -> SummaryWriter | None:
     if not enabled:
         return None
     if not log_dir:
@@ -19,7 +21,9 @@ def make_writer(log_dir: str | None, enabled: bool = True, run_name: str | None 
     if run_name:
         path = path / run_name
     path.mkdir(parents=True, exist_ok=True)
-    writer = SummaryWriter(log_dir=str(path))
+    # purge_step: after a resume, TensorBoard hides older events at or beyond this step, so the part
+    # of the run that was redone does not show up twice.
+    writer = SummaryWriter(log_dir=str(path), purge_step=purge_step)
     logger.info("tensorboard writing to {}", path.resolve())
     return writer
 

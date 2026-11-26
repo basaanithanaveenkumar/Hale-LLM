@@ -11,12 +11,13 @@ on one device needs, so you can follow a whole run from top to bottom:
     6. loop: accumulate gradients over micro-batches, clip, update, log
     7. every N steps (and at the start and end): measure validation loss; log everything to TensorBoard;
        keep the best N checkpoints by validation score (``keep_best``, ``best_by``)
-    8. save a checkpoint that ``hale-llm-chat`` and ``hale-llm-sample`` can load
+    8. every ``save_every`` steps write a rolling resume checkpoint; ``train.resume`` continues from it
+    9. save a checkpoint that ``hale-llm-chat`` and ``hale-llm-sample`` can load
 
 Every registered variant works because the loss comes from the loss registry.
 
 Settings live under ``train.lean`` in the YAML (accum_steps, warmup_steps, warmdown_frac,
-eval_every, eval_batches, keep_best, best_by, precision, compile). It has no resume support.
+eval_every, eval_batches, save_every, keep_best, best_by, precision, compile).
 """
 
 from __future__ import annotations
@@ -42,6 +43,8 @@ from hale_llm.training.context_stage_plan import ContextStagePlan
 from hale_llm.tokenizer.store import TokenizerStore
 from hale_llm.training.schedule import TrainSchedule
 from hale_llm.training.mixed_precision import MixedPrecision
+from hale_llm.training.resumable_batches import ResumableBatches
+from hale_llm.training.resume_checkpoint import ResumeCheckpoint
 from hale_llm.training.top_k_checkpoints import TopKCheckpoints
 from hale_llm.training.training_logger import TrainingLogger
 from hale_llm.metrics.base import MetricContext
@@ -61,12 +64,6 @@ def lr_multiplier(step: int, total_steps: int, warmup_steps: int, warmdown_frac:
     if step < warmdown_start:
         return 1.0
     return max(0.0, (total_steps - step) / max(total_steps - warmdown_start, 1))
-
-
-def endless(loader) -> Iterator[dict]:
-    """Yield batches forever, restarting the loader when an epoch ends."""
-    while True:
-        yield from loader
 
 
 @torch.no_grad()
@@ -143,17 +140,22 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
     lean = cfg.train.lean
     accum, warmup_steps, warmdown_frac = lean.accum_steps, lean.warmup_steps, lean.warmdown_frac
     eval_every, eval_batches, compile_model = lean.eval_every, lean.eval_batches, lean.compile
-    keep_best, best_by = lean.keep_best, lean.best_by
+    keep_best, best_by, save_every = lean.keep_best, lean.best_by, lean.save_every
     torch.manual_seed(cfg.train.seed)
     device = get_device(cfg.device)
     precision = MixedPrecision.from_setting(lean.precision, device)  # fp32 | bf16 | fp16 (+ loss scaling)
+    # 1b. The resume checkpoint lives next to the final one. A run that already finished is not redone.
+    resume = ResumeCheckpoint(Path(cfg.train.checkpoint_path).parent)
+    finished_at = resume.completed_step() if cfg.train.resume else None
+    if finished_at is not None:
+        logger.info("this run already finished at step {}; nothing to do (use --no-resume to train again)", finished_at)
+        return []
     # 2. Data. ``endless`` turns the loader into an infinite stream of micro-batches.
     #    The step count comes from train.steps, or from train.epochs x batches per epoch.
     data = DataModule(cfg, tokenizer)
     train_loader = data.train_loader()
     # One optimizer step consumes ``accum`` batches, so an epoch is len(loader) // accum steps.
     total_steps = TrainSchedule.from_config(cfg, max(len(train_loader) // accum, 1)).total_steps
-    train_batches = endless(train_loader)
     # Optional context-extension stages (empty list = one stage for the whole run).
     schedule = ContextSchedule.from_config(cfg, total_steps)
     current_plan = schedule.plan_at(0)
@@ -214,25 +216,53 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
             state["optimizer_state_dict"] = optimizer.state_dict()
         return state
 
+    # 4b. Resume an interrupted run (train.resume): weights, optimizer, loss scale, random state, step
+    #     and data position come back from resume.pt. Without it (or when none exists) start at step 0.
+    start_step, tokens_seen, start_batches = 0, 0, 0
+    state = resume.load() if cfg.train.resume else None
+    resumed = state is not None
+    if resumed:
+        resume.apply(state, model=plain_model, optimizer=optimizer, precision=precision,
+                     variant=cfg.variant, vocab_size=len(data.tokenizer))
+        start_step, tokens_seen, start_batches = state["step"], state["tokens_seen"], state["stream_batches"]
+        best.restore_from_disk(max_step=start_step)
+        logger.info("resumed from {} at step {}/{} ({:,} tokens already seen)",
+                    resume.path, start_step, total_steps, tokens_seen)
+        if state["total_steps"] != total_steps:
+            logger.warning("the run was {} steps long when saved, now {}: the lr schedule changes", state["total_steps"], total_steps)
+        del state  # the optimizer state is large; free the CPU copy
+    else:
+        if cfg.train.resume:
+            logger.info("resume requested but {} does not exist: starting from step 0", resume.path)
+        resume.clear()  # a fresh start must not leave an old resume.pt for a later restart to pick up
+
+    # The data position was saved inside the stage that was running when the checkpoint was written.
+    position_plan = schedule.plan_at(max(start_step - 1, 0))
+
+    def batch_stream(loader, plan) -> ResumableBatches:
+        """Reproducible batch stream for a stage; a resumed run continues inside its own stage."""
+        return ResumableBatches(loader, cfg.train.seed, start_batches if plan is position_plan else 0)
+
+    train_batches = batch_stream(train_loader, current_plan)
+
     losses: list[float] = []
     started = time.time()
-    tokens_seen = 0
     balance_coef = cfg.model.moe_aux_loss_coef if getattr(plain_model, "uses_moe", False) else 0.0
 
-    with TrainingLogger(cfg) as tb:
+    with TrainingLogger(cfg, purge_from_step=start_step + 1 if resumed else None) as tb:
         tb.log_run_start(cfg, plain_model, total_steps, n_windows)
-        if eval_every:  # the untrained model's validation loss is the starting point of the curve
+        if eval_every and not resumed:  # the untrained model's validation loss is the starting point of the curve
             with precision.autocast():
                 tb.log_validation(0, validation_loss(model, loss_fn, val_loader, device, eval_batches))
 
-        for step in range(total_steps):
+        for step in range(start_step, total_steps):
             # 5a. Entering a new context stage: longer window, larger RoPE base, fresh loaders.
             plan = schedule.plan_at(step)
             if plan is not current_plan:
                 logger.info("step {}: entering context stage '{}' (window {})", step, plan.name, plan.context_window)
                 apply_stage_to_model(plain_model, cfg, plan)
                 data, train_loader, val_loader = stage_loaders(cfg, plan, data.tokenizer)
-                train_batches = endless(train_loader)
+                train_batches = batch_stream(train_loader, plan)
                 current_plan = plan
                 logger.info(
                     "stage data: {:,} context windows of {} tokens",
@@ -322,7 +352,15 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
                 state.pop("step")  # offer() records the step itself
                 best.offer(score, step + 1, **state)
 
-    # 8. Save a checkpoint that chat / sample / eval can load.
+            # 8. Rolling resume checkpoint, so an interruption (a spot instance being paused)
+            #    costs at most ``save_every`` steps instead of the whole run.
+            if save_every and (step + 1) % save_every == 0 and not last_step:
+                resume.save(step=step + 1, tokens_seen=tokens_seen, stream_batches=train_batches.consumed,
+                            total_steps=total_steps, variant=cfg.variant, vocab_size=len(data.tokenizer),
+                            model=plain_model, optimizer=optimizer, precision=precision)
+
+    # 9. Save a checkpoint that chat / sample / eval can load, then record that the run is finished.
     store.save(cfg.train.checkpoint_path, **checkpoint_state(total_steps))
+    resume.mark_complete(total_steps)
     logger.info("saved checkpoint to {}", cfg.train.checkpoint_path)
     return losses

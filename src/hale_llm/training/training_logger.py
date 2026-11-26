@@ -32,8 +32,11 @@ from hale_llm.utils.tensorboard import log_scalars, make_writer
 class TrainingLogger:
     """A thin wrapper around a TensorBoard ``SummaryWriter`` (or nothing, if disabled)."""
 
-    def __init__(self, cfg: RunConfig) -> None:
-        self._writer = make_writer(cfg.logging.tensorboard_dir, enabled=cfg.logging.tensorboard)
+    def __init__(self, cfg: RunConfig, purge_from_step: int | None = None) -> None:
+        """``purge_from_step`` is the first step a resumed run will log again (None for a fresh run)."""
+        self._writer = make_writer(
+            cfg.logging.tensorboard_dir, enabled=cfg.logging.tensorboard, purge_step=purge_from_step
+        )
 
     @property
     def enabled(self) -> bool:

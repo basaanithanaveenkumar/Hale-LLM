@@ -74,3 +74,21 @@ def test_bf16_on_an_unsupported_gpu_is_a_clear_error(monkeypatch):
     with pytest.raises(ValueError, match="fp16"):
         MixedPrecision.from_setting("bf16", "cuda")
     assert MixedPrecision.from_setting("auto", "cuda").name == "fp32"
+
+
+def test_the_loss_scale_survives_a_save_and_load():
+    first = MixedPrecision.from_setting("fp16", "cpu")
+    weight, optimizer = _tiny_problem()
+    first.backward((weight * float("inf")).sum())
+    first.clip_and_step(optimizer, [weight], max_norm=1.0)  # overflow: the scale is halved
+    lowered = first.loss_scale
+    assert lowered < 65536.0
+    second = MixedPrecision.from_setting("fp16", "cpu")
+    second.load_state_dict(first.state_dict())
+    assert second.loss_scale == lowered
+
+
+def test_loading_a_scaler_state_into_a_non_fp16_run_is_ignored():
+    fp16_state = MixedPrecision.from_setting("fp16", "cpu").state_dict()
+    MixedPrecision.from_setting("bf16", "cpu").load_state_dict(fp16_state)  # must not raise
+    MixedPrecision.from_setting("fp16", "cpu").load_state_dict({})  # a checkpoint saved without scaling

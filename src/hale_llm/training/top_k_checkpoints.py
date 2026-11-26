@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +56,28 @@ class TopKCheckpoints:
             evicted.unlink(missing_ok=True)
             logger.info("dropped checkpoint {} (no longer in the top {})", evicted.name, self.keep)
         return path
+
+    def restore_from_disk(self, max_step: int) -> None:
+        """Rebuild the leaderboard from the files already in the folder (used when resuming a run).
+
+        The score and step are read back from the file names. Files from steps after ``max_step``
+        belong to the part of the run that was interrupted and will be redone, so they are deleted.
+        """
+        pattern = re.compile(rf"step(\d+)_{re.escape(self.score_name)}_(-?\d+\.\d+)\.pt$")
+        self._kept = []
+        for path in sorted(self.directory.glob("*.pt")):
+            match = pattern.match(path.name)
+            if match is None:
+                continue
+            if int(match.group(1)) > max_step:
+                path.unlink()
+                logger.info("removed {} (from after the resume point)", path.name)
+                continue
+            self._kept.append((float(match.group(2)), path))
+        self._kept.sort(key=lambda item: self._rank_key(item[0]), reverse=True)
+        while len(self._kept) > self.keep:  # keep_best may have been lowered since the last run
+            self._kept.pop()[1].unlink(missing_ok=True)
+        logger.info("restored {} best checkpoints from {}", len(self._kept), self.directory)
 
     @property
     def paths(self) -> list[Path]:

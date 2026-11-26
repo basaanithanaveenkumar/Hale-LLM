@@ -76,6 +76,8 @@ Model strategy
 42. add more number of losses
 43. how next lat works and how is it improving speculative decoding
 44 router based layers, router based residual connection should be on or off , router based mhc connection
+45.QK normalization, logit softcapping, squared ReLU.
+46.Training uses the Muon optimizer from Microsoft's Dion library for hidden layers and AdamW for embeddings, on FineWeb10B same as modded-nanogpt.
 
 
 

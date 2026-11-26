@@ -93,7 +93,7 @@ One decoder-only transformer. The blocks are pre-norm: `x + attention(norm(x))`,
 | `grad_clip` | float | `1.0` | Global grad-norm clip. `0` or very large disables in practice if you change code; keep `1.0`. |
 | `seed` | int | `0` | `torch.manual_seed`. |
 | `checkpoint_path` | string | `checkpoints/last.pt` | Overwritten by the experiment layout to `.../checkpoints/last.pt`. |
-| `resume` | bool | `true` / `false` | Attach to the `latest` run folder of the variant instead of creating a new one. CLI `--resume` / `--no-resume`. The lean trainer starts from scratch either way. |
+| `resume` | bool | `true` / `false` | Continue an interrupted run: attach to the `latest` run folder (or `experiment.name`) and load its `resume.pt` if there is one; otherwise start from step 0. CLI `--resume` / `--no-resume`. See `docs/training.md`. |
 | `loss_type` | `ce` \| `focal` \| `label_smoothing` | `ce` | Registered token loss. Add more with `@register_token_loss`. |
 | `focal_gamma` | float | `2.0` | Focal focusing (`loss_type: focal`). |
 | `focal_alpha` | float | `1.0` | Focal class weight. |

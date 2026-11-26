@@ -12,6 +12,7 @@ from hale_llm.cloud.jarvislabs.instance_manager import InstanceManager
 from hale_llm.cloud.jarvislabs.jl_cli import JlCli
 from hale_llm.cloud.jarvislabs.remote_training_job import RemoteTrainingJob
 from hale_llm.cloud.jarvislabs.settings import JarvisSettings
+from hale_llm.cloud.jarvislabs.spot_supervisor import SpotSupervisor
 
 DEFAULT_SETTINGS = "configs/cloud/jarvislabs.yaml"
 
@@ -47,20 +48,32 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def _train_args(config: str, extra: list[str]) -> list[str]:
-    """Arguments for ``hale-llm-train`` on the instance: the config, the user's flags, and CUDA.
+def _train_args(config: str, extra: list[str], spot: bool = False) -> list[str]:
+    """Arguments for ``hale-llm-train`` on the instance.
 
-    The instance is a CUDA box but the shared configs say ``device: mps`` (for the Mac); without
-    ``--device cuda`` training would quietly fall back to the instance's CPU.
+    * ``--device cuda``: the instance is a CUDA box but the shared configs say ``device: mps`` (for
+      the Mac); without it training would quietly fall back to the instance's CPU.
+    * ``--resume`` on a spot instance only: it can be paused at any time, and the trainer then
+      continues from its last checkpoint. On-demand runs keep the config's own setting.
     """
     args = ["--config", config, *extra]
-    return args if "--device" in extra else [*args, "--device", "cuda"]
+    if "--device" not in extra:
+        args += ["--device", "cuda"]
+    if spot and "--resume" not in extra and "--no-resume" not in extra:
+        args += ["--resume"]
+    return args
 
 
-def _finish(manager: InstanceManager, job: RemoteTrainingJob, machine_id: int, poll_seconds: float) -> None:
-    """Wait for training to end, download the results, and always pause so billing stops."""
+def _finish(manager: InstanceManager, job: RemoteTrainingJob, machine_id: int, poll_seconds: float,
+            supervisor: SpotSupervisor | None = None) -> None:
+    """Wait for training to end, download the results, and always pause so billing stops.
+
+    With a ``supervisor`` (``launch --auto-pause``) a spot interruption is recovered from; the instance id
+    may then change, so the final id is read back from the supervisor.
+    """
     try:
-        code = job.wait_until_finished(machine_id, poll_seconds)
+        code = supervisor.run() if supervisor else job.wait_until_finished(machine_id, poll_seconds)
+        machine_id = supervisor.machine_id if supervisor else machine_id
         if code != 0:
             # Show why it failed instead of trying to download results that were never written.
             print(f"training FAILED with exit code {code}. Last log lines:\n{job.logs(machine_id, 40)}")
@@ -69,7 +82,7 @@ def _finish(manager: InstanceManager, job: RemoteTrainingJob, machine_id: int, p
         where = job.fetch(machine_id, Path("data/cloud_runs") / str(machine_id))
         print(f"downloaded to {where}" if where else "no results folder to download (was this a dry run?)")
     finally:  # pausing keeps the disk, so it is safe even if training or the download failed
-        manager.pause(machine_id)
+        manager.pause_if_running(supervisor.machine_id if supervisor else machine_id)
 
 
 def main() -> None:
@@ -88,10 +101,13 @@ def main() -> None:
                 raise CloudError(f"training config not found: {args.config}")
             manager.ensure_ssh_key()  # before renting: no key means no SSH, and the instance would bill for nothing
             machine_id = args.machine_id or manager.create(Path(args.config).stem).machine_id
+            train_args = _train_args(args.config, extra, spot=settings.spot)
             try:
+                if args.machine_id and manager.get(machine_id).status in ("Paused", "Pausing"):
+                    machine_id = manager.resume(machine_id)  # e.g. an instance Jarvislabs paused: the run continues from its checkpoint
                 manager.wait_until_ssh_ready(machine_id)
                 job.deploy(machine_id)
-                job.start(machine_id, _train_args(args.config, extra))
+                job.start(machine_id, train_args)
             except CloudError:
                 # The instance exists and bills by the hour; say how to reuse or stop it.
                 logger.error(
@@ -102,7 +118,8 @@ def main() -> None:
                 raise
             print(f"machine_id={machine_id}\nnext: hale-llm-cloud logs {machine_id}")
             if args.auto_pause:
-                _finish(manager, job, machine_id, 60.0)
+                supervisor = SpotSupervisor(manager, job, settings, machine_id, train_args)
+                _finish(manager, job, machine_id, 60.0, supervisor)
         elif args.command == "finish":
             _finish(manager, job, args.machine_id, args.poll_seconds)
         elif args.command == "status":

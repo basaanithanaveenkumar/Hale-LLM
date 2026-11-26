@@ -55,7 +55,7 @@ train:
     compile: false
 ```
 
-The lean trainer runs on one device and has no resume support. For several GPUs use `trainer: torchtitan`.
+The lean trainer runs on one device and can resume an interrupted run (see below). For several GPUs use `trainer: torchtitan`.
 
 ## TorchTitan (NVIDIA GPUs only)
 
@@ -163,3 +163,46 @@ TensorBoard adds `train/loss_scale` and `train/step_skipped` in fp16 mode. A few
 training are normal while the scale settles; many skipped steps in a row mean the run is unstable, so try
 `bf16`. Validation runs under the same autocast. Use `bf16` on A100, H100, H200, L4 and RTX-PRO6000;
 fp16 is for GPUs without bf16 support.
+
+
+## Resuming an interrupted run
+
+A run can be interrupted at any time, for example when a spot instance is paused. The lean trainer writes a
+rolling checkpoint, `<run>/checkpoints/resume.pt`, every `save_every` steps, and continues from it instead of
+retraining from scratch.
+
+```yaml
+train:
+  resume: true            # check for resume.pt at start and continue from it (CLI: --resume / --no-resume)
+  lean:
+    save_every: 2000      # steps between resume checkpoints; 0 disables
+```
+
+```mermaid
+flowchart LR
+  S["start with --resume"] --> Q{"resume.pt exists?"}
+  Q -- yes --> R["restore weights, optimizer,<br/>loss scale, random state,<br/>step and data position"] --> L["continue the loop"]
+  Q -- no --> N["start at step 0"] --> L
+  L -->|"every save_every steps"| W["write resume.pt<br/>(temp file, then rename)"] --> L
+  L -->|"finished"| D["save last.pt, write training_complete.json,<br/>delete resume.pt"]
+```
+
+What makes the resumed run identical to one that never stopped:
+
+* **Everything is restored**: model, optimizer (both groups for Muon), the fp16 loss scale, the random state (dropout and
+  router noise), the step, tokens seen, and the position in the data. The best-5 leaderboard is rebuilt from the
+  files in `best/`; any from after the resume point (the part that is redone) are deleted.
+* **The data order is reproducible**: each epoch's shuffle depends only on `(train.seed, epoch)`, and resuming
+  skips by index without loading the skipped data, so it is instant even deep into an epoch.
+* **Saves are atomic**: a file is written under a temporary name and renamed into place, so an interruption
+  during a save keeps the previous `resume.pt`.
+* **A finished run is not redone**: with `--resume`, a folder that already holds `training_complete.json`
+  exits immediately. Use `--no-resume` to train again; a fresh run also deletes any stale `resume.pt`.
+* **Checked, not assumed**: a `resume.pt` from another variant or vocabulary size is refused with a clear error.
+  If `epochs`/`steps` changed, the learning-rate schedule changes too, and a warning says so.
+
+Resuming needs the same run folder: set `experiment.name`, or leave it empty and `--resume` reuses the
+variant's `latest` folder. `resume.pt` holds weights plus optimizer state (about 12 bytes per parameter in
+fp32), so it is written to disk in about a second for a 100M model. Only the latest one is kept.
+The step, loss and best-checkpoint files continue from the resume point: the returned loss list covers only
+the steps run after it, and TensorBoard hides the redone part of the earlier attempt.

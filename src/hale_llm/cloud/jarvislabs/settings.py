@@ -22,6 +22,8 @@ class JarvisSettings(BaseModel):
     spot: bool = False  # cheaper GPU that Jarvislabs may pause when demand rises (containers only)
     name_prefix: str = "hale"
     remote_dir: str = "/home/hale-llm"  # where the code is unpacked on the instance
+    max_restarts: int = 10  # spot interruptions survived per launch before giving up
+    resume_wait_minutes: int = 180  # how long to wait for a GPU when resuming an interrupted instance
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> "JarvisSettings":

@@ -122,6 +122,7 @@ class DryRun:
         small.logging.tensorboard = False
         small.train.steps, small.train.epochs = DRY_RUN_STEPS, None
         small.train.lean.eval_every = 0
+        small.train.resume, small.train.lean.save_every = False, 0  # a dry run never resumes or leaves resume files
         if small.train.context_stages:
             small.train.context_stages = []
             notes.append("train.context_stages skipped; only the first stage was exercised")

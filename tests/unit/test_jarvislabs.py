@@ -194,7 +194,7 @@ def test_finish_pauses_even_when_the_download_fails(tmp_path):
         def fetch(self, *a): raise CloudError("download failed")
 
     paused = []
-    manager = SimpleNamespace(pause=paused.append)
+    manager = SimpleNamespace(pause_if_running=paused.append)
     with pytest.raises(CloudError):
         _finish(manager, Job(), 3, 0)
     assert paused == [3]
@@ -223,7 +223,7 @@ def test_a_failed_training_shows_the_log_and_still_pauses(tmp_path, capsys):
 
     paused = []
     with pytest.raises(CloudError, match="exit code 1"):
-        _finish(SimpleNamespace(pause=paused.append), Job(), 4, 0)
+        _finish(SimpleNamespace(pause_if_running=paused.append), Job(), 4, 0)
     assert paused == [4] and "FileNotFoundError" in capsys.readouterr().out
 
 

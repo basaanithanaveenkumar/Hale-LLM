@@ -20,7 +20,11 @@ class CheckpointStore:
         parent = os.path.dirname(path)
         if parent:
             os.makedirs(parent, exist_ok=True)
-        torch.save(state, path)
+        # Write next to the target and rename: the rename is atomic, so a spot interruption in the
+        # middle of a save leaves the previous file intact instead of a truncated one.
+        temp_path = f"{path}.tmp"
+        torch.save(state, temp_path)
+        os.replace(temp_path, path)
         logger.info("saved checkpoint {}", path)
 
     def load(self, path: str, map_location: str | torch.device = "cpu") -> dict[str, Any]:

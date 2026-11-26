@@ -11,6 +11,7 @@ class LeanConfig(StrictModel):
     warmdown_frac: float = 0.2  # last fraction of steps in which lr decays linearly to 0
     eval_every: int = 250  # validation every N steps; 0 disables
     eval_batches: int = 20  # validation batches per evaluation
+    save_every: int = 2000  # rolling resume checkpoint every N steps (resume.pt, overwritten); 0 disables
     keep_best: int = 5  # keep this many best checkpoints in <run>/checkpoints/best; 0 disables
     best_by: Literal["loss", "token_accuracy"] = "loss"  # validation score that ranks them
     precision: Literal["auto", "fp32", "bf16", "fp16"] = "auto"  # auto = bf16 on CUDA GPUs that support it, else fp32
