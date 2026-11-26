@@ -2,6 +2,7 @@
 
 - [Architecture](architecture.md): the transformer block, the mixture of experts and the package layout
 - [Configuration reference](config.md): every YAML key, defaults and recipes
+- [Multi-token prediction](mtp.md): DeepSeek-V3 style MTP training and speculative decoding
 - [Training backends](training.md): lean (default) and TorchTitan
 - [Jarvislabs cloud training](jarvislabs.md): rent an India GPU and train with one command
 - [Tokenizer](tokenizer.md): trained SuperBPE/BPE, vocabulary sized to the model, ablation

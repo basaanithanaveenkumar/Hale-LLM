@@ -173,6 +173,7 @@ def _interrupt_after(step_index):
         ("autoregressive", "adamw", "fp32"),
         ("autoregressive", "muon", "fp16"),        # optimizer state of both groups + the loss scaler
         ("autoregressive_moe", "adamw", "fp32"),   # the router noise depends on the restored random state
+        ("autoregressive_mtp", "adamw", "fp32"),   # the MTP modules are part of the model and the optimizer
     ],
 )
 def test_an_interrupted_run_resumes_to_exactly_the_uninterrupted_result(variant, optimizer, precision, tiny_tokenizer, tmp_path):

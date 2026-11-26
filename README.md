@@ -16,14 +16,18 @@
 
 ## TODO
 Data strategy
+0. data loading dividing the context window among the paragraphs and adding the padding , so the pretraining is not scrap
+
 1. web scale dataset filtering  and mixtures
 2. streaming datsaets
 3. web dataset
 4. Mid trainning strategies
 5. Post trianing dataset curation 
 8. Check the hugging face blog on training llms with data and model strategy
-9. 
-10. 
+9. https://huggingface.co/spaces/HuggingFaceFW/blogpost-fineweb-v1
+10. https://huggingface.co/spaces/OpenEvals/evaluation-guidebook#basics-of-tokenization-why-and-how-do-we-tokenize-text
+11. https://huggingface.co/papers/2506.05209 -- Open licenced text for pretraining
+12. https://huggingface.co/papers/2306.11644
 
 
 
@@ -78,6 +82,12 @@ Model strategy
 44 router based layers, router based residual connection should be on or off , router based mhc connection
 45.QK normalization, logit softcapping, squared ReLU.
 46.Training uses the Muon optimizer from Microsoft's Dion library for hidden layers and AdamW for embeddings, on FineWeb10B same as modded-nanogpt.
+47. Exponential Moving average weights what does it do does it improve the performane 
+48. https://huggingface.co/papers/2502.16982 - Moun
+49. Use the sliding window like inkling style
+50 use the looped transformers only for reasoning in the mid layers
+51. check different varientients and adaptive varients of looped transformers
+52. looped transformers and MTP should not exceep 8 , safer  is 4
 
 
 
@@ -85,6 +95,8 @@ Metrics:
 1. come up with prper metrics 
 
 Infracture
+https://huggingface.co/spaces/nanotron/ultrascale-playbook?section=high-level_overview
+
 0. Docker support, Off-instance copies. Sync checkpoints and W&B artifacts to HF Hub (private),
 1. Jarvislabs Intrgeation (Use a GPU VM, not a template, easy for tweaking)
 2. lets use a modded trainier script from nano chat
@@ -138,3 +150,41 @@ See [docs/](docs/README.md) for the architecture, configuration and tokenizer no
 The model is a base language model trained on short children's stories, not an assistant: expect
 simple story-style sentences that drift. Lower `--temperature` for steadier text, raise it for
 variety. Inside the chat, `/help` lists the commands and `/reset` clears the conversation.
+
+
+1. MTP with transformer block per token
+2. MTP with transformer block per token which has looped
+3. FP8 training (look at deepseek paper)
+4. Fp4 training
+5.  Next Latent world model
+6. Soft-MTP ("Multi-Token Prediction Done Right", MIT, Oct 2026). This is the most directly relevant to you. It keeps the DeepSeek sequential design and changes only the gradient. The paper finds that the MTP loss gradient has two parts:
+
+a useful KL self-distillation term, which pulls each MTP head toward the model's own next-token distribution;
+a residual that carries about 80% of the MTP gradient reaching the shared trunk but has a signal-to-noise ratio roughly 4 to 4.6 times lower than the KL term. It also pushes against next-token learning, and the problem grows with scale.
+Caveat: it was tested only at 167M, 332M, 689M, and 1.2B parameters, all LLaMA-style, trained on FineWeb-Edu. The gains are small, and the paper is very new.
+7. Token order prediction
+8. MTP-D (Tencent, AACL 2026). It adds self-distillation and a looped extension to the MTP heads, aimed at higher acceptance rates with more heads.
+AdaMTP (Aug 2026). On Llama-3.1-8B, Qwen-2.5-7B, and Gemma-3-12B, it consistently outperforms standard MTP in both task performance and inference speedup.
+9. Soft-MTP table shows MTP losing to NTP at ≤332M too.
+10. Add the positional information to the deep seek MTP style does having the position of number of tokens predicted addes anything
+
+# Topics completed
+1. Deepseek v3Style MTP with DraftMTP =1
+2. 
+
+# baseline -- use the hyper parametes from hugging fae playbook, qwen model and inkling model
+1. Autoregressive MOE
+2. Autoregressive MOE_MTP
+
+
+Referenes:
+1. https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook#introduction
+
+MTP
+1.Deepseek v3 style -λ is the knob that sets how much the extra MTP signal counts compared with the main loss. A schedule makes λ a function of training progress instead of a constant.
+
+DeepSeek-V3 used a step schedule: λ is 0.3 for the first 10T training tokens and 0.1 for the remaining 4.8T. That means a switch about two-thirds of the way through (10 / 14.8 ≈ 0.68, my arithmetic)
+2.Add the position to it so it can be extended like context window (new)
+3. Soft MTP
+4. MTP done right (minor tweak)
+5. Tensenet MTP paper

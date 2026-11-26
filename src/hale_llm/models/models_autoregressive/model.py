@@ -54,6 +54,11 @@ class AutoregressiveLM(nn.Module):
     def forward(self, batch: dict) -> torch.Tensor:
         return self.backbone(batch["input_ids"], attention_mask=batch.get("attention_mask"))
 
+    @staticmethod
+    def initial_loss_scale(cfg) -> float:
+        """A fresh model's loss is about ``ln(vocab)`` times this (the ``--dry-run`` sanity check uses it)."""
+        return 1.0
+
 
 @register_variant(MOE_VARIANT)
 class MoEAutoregressiveLM(AutoregressiveLM):

@@ -1,0 +1,6 @@
+# 2B baseline WITHOUT multi-token prediction (the reference to compare mtp.yaml against).
+inherits: ./base.yaml
+variant: autoregressive
+
+experiment:
+  name: baseline_2b

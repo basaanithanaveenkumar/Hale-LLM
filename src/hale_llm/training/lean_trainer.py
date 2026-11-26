@@ -25,7 +25,7 @@ from __future__ import annotations
 import math
 import time
 from pathlib import Path
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 
 import torch
 from loguru import logger
@@ -270,7 +270,11 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
                 )
             step_started = time.perf_counter()
 
-            # 5b. Learning rate for this step: every group keeps its own base lr, scaled.
+            # 5b. A model whose loss depends on how far training has come (the MTP loss weight) is told.
+            if hasattr(plain_model, "set_training_progress"):
+                plain_model.set_training_progress(step / total_steps)
+
+            # 5c. Learning rate for this step: every group keeps its own base lr, scaled.
             scale = lr_multiplier(step, total_steps, warmup_steps, warmdown_frac)
             for group in optimizer.param_groups:
                 group["lr"] = group["base_lr"] * scale
@@ -280,12 +284,15 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
             optimizer.zero_grad(set_to_none=True)
             step_loss = 0.0
             balance_loss = 0.0  # MoE load-balancing term, averaged over the micro-batches
+            part_sums: dict[str, torch.Tensor] = {}  # pieces of the loss a model reports (e.g. MTP), averaged the same way
             for _ in range(accum):
                 batch = move_batch_to_device(next(train_batches), device)
                 with precision.autocast():
                     loss = loss_fn(model, batch) / accum
                 precision.backward(loss)  # fp16: the loss is scaled up first
                 step_loss += loss.item()
+                for name, value in getattr(plain_model, "loss_parts", {}).items():
+                    part_sums[name] = part_sums.get(name, 0.0) + value / accum
                 if balance_coef:
                     balance_loss += float(plain_model.backbone.auxiliary_loss().detach()) / accum
             if not math.isfinite(step_loss):
@@ -304,6 +311,8 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
             step_tokens = current_plan.batch_size * accum * current_plan.context_window
             tokens_seen += step_tokens
             ce_loss = step_loss - balance_coef * balance_loss
+            if "ntp_loss" in part_sums:  # the model reports its next-token loss directly (MTP variant)
+                ce_loss = float(part_sums["ntp_loss"])
             scalars = {
                 "train/loss": step_loss,
                 "train/ce_loss": ce_loss,
@@ -318,6 +327,8 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
                 "train/epoch": (step + 1) * accum / len(train_loader),
                 "context/window": current_plan.context_window,
             }
+            for name, value in part_sums.items():
+                scalars[f"train/{name}"] = float(value)
             for index, group in enumerate(optimizer.param_groups):
                 scalars["train/lr" if index == 0 else f"train/lr_group{index}"] = group["lr"]
             if precision.scaler.is_enabled():

@@ -9,7 +9,8 @@ from loguru import logger
 from torch import nn
 
 from hale_llm.nn.backbones.decoder_transformer import DecoderTransformer
-from hale_llm.nn.blocks import FeedForward, build_ffn
+from hale_llm.nn.blocks import build_ffn
+from hale_llm.nn.blocks.residual_init import init_linear_and_embedding, scale_residual_outputs
 from hale_llm.nn.positional import build_positional_encoding
 
 
@@ -66,26 +67,13 @@ class TransformerBackbone(nn.Module):
           output, expert output) are scaled by 1 / sqrt(2 * n_layers). Each block adds two
           such terms, so without this the stream grows with depth.
         """
-        for module in self.modules():
-            if isinstance(module, (nn.Linear, nn.Embedding)):
-                nn.init.normal_(module.weight, mean=0.0, std=0.02)
-            if isinstance(module, nn.Linear) and module.bias is not None:
-                nn.init.zeros_(module.bias)
-
+        init_linear_and_embedding(self)
         residual_std = 0.02 / math.sqrt(2 * n_layers)
         for layer in self.stack.layers:
-            nn.init.normal_(layer.attn.proj.weight, std=residual_std)
-            ffn = layer.ffn
-            if isinstance(ffn, FeedForward):
-                nn.init.normal_(ffn.down.weight, std=residual_std)
-            else:  # mixture of experts: every expert's output matrix
-                for expert in [*ffn.shared_experts, *ffn.routed_experts]:
-                    nn.init.normal_(expert.w2.weight, std=residual_std)
+            scale_residual_outputs(layer, residual_std)
 
-    def forward(
-        self, token_ids: torch.Tensor, attention_mask: torch.Tensor | None = None
-    ) -> torch.Tensor:
-        """``token_ids`` is ``[B, S]``; returns logits ``[B, S, vocab]``.
+    def encode(self, token_ids: torch.Tensor, attention_mask: torch.Tensor | None = None) -> torch.Tensor:
+        """``token_ids`` is ``[B, S]``; returns the final hidden states ``[B, S, D]`` (after the last norm).
 
         ``attention_mask`` is 1 for real tokens and 0 for padding.
         """
@@ -102,10 +90,14 @@ class TransformerBackbone(nn.Module):
         positions = torch.arange(S, device=token_ids.device)  # [S]
 
         # 3. Run the transformer blocks.
-        hidden = self.stack(hidden, positions, key_padding)  # [B, S, D]
+        return self.stack(hidden, positions, key_padding)  # [B, S, D]
 
+    def forward(
+        self, token_ids: torch.Tensor, attention_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        """``token_ids`` is ``[B, S]``; returns logits ``[B, S, vocab]``."""
         # 4. Project every position to a score for each vocabulary token.
-        return self.lm_head(hidden)  # [B, S, vocab]
+        return self.lm_head(self.encode(token_ids, attention_mask))  # [B, S, vocab]
 
     def auxiliary_loss(self) -> torch.Tensor:
         """Extra training loss from the layers (MoE load balancing); zero when dense."""

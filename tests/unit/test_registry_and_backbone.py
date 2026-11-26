@@ -8,8 +8,8 @@ from hale_llm.registry import MODELS, get_variant
 from hale_llm.runtime import format_model_summary
 
 
-def test_registry_has_both_variants():
-    assert set(MODELS) == {"autoregressive", "autoregressive_moe"}
+def test_registry_has_all_variants():
+    assert set(MODELS) == {"autoregressive", "autoregressive_moe", "autoregressive_mtp"}
 
 
 def test_get_variant_unknown_lists_options():

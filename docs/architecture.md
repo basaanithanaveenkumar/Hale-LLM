@@ -1,12 +1,15 @@
 # Architecture
 
-One decoder-only transformer, in two flavours: a dense feed-forward network, or a DeepSeek-style
-mixture of experts. Both are model *variants* chosen by `variant:` in the YAML.
+One decoder-only transformer, in three flavours: a dense feed-forward network, a DeepSeek-style
+mixture of experts, or either of them with DeepSeek-V3 style multi-token prediction on top
+([mtp.md](mtp.md)). All are model *variants* chosen by `variant:` in the YAML.
 
 ```mermaid
 flowchart LR
   V{"variant"} -- autoregressive --> D["AutoregressiveLM<br/>ffn = model.ffn_type (mlp)"]
   V -- autoregressive_moe --> M["MoEAutoregressiveLM<br/>ffn = moe"]
+  V -- autoregressive_mtp --> P["MTPAutoregressiveLM<br/>trunk + mtp_depth MTP modules"]
+  P --> B
   D --> B["TransformerBackbone"]
   M --> B
   B --> L["registered loss<br/>next-token NLL (+ MoE balance loss)"]

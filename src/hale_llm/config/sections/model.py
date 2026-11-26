@@ -27,6 +27,31 @@ class ModelConfig(StrictModel):
     # Weight of the load-balancing loss that keeps tokens spread over the experts.
     moe_aux_loss_coef: float = 0.01
 
+    # Multi-token prediction (DeepSeek-V3 style), used by the `autoregressive_mtp` variant.
+    #
+    # How many tokens are predicted at once: at every position i the main head predicts the next token
+    # t_{i+1}, and each MTP depth k = 1..mtp_depth predicts one token further ahead, t_{i+k+1}. With the
+    # default mtp_depth = 1 each position predicts 1 + 1 = 2 tokens: t+1 (main head) and t+2 (MTP depth 1).
+    # mtp_depth = 4 would predict 5: t+1 (main) and t+2, t+3, t+4, t+5 (depths 1-4). The extra depths cost
+    # training compute and parameters and are only needed for training and for speculative decoding.
+    mtp_depth: int = 1  # extra tokens predicted per position (1 -> the model predicts 2 tokens at a time)
+
+    # Loss: total = next_token + lambda * (1 / mtp_depth) * sum(loss of each depth). Lambda follows a step
+    # schedule like DeepSeek-V3 (0.3 for the first 10T of 14.8T tokens, then 0.1): `mtp_loss_weight` until
+    # `mtp_switch_fraction` of the training steps, `mtp_loss_weight_final` after. The 1 / mtp_depth factor keeps
+    # the total MTP weight comparable between runs with different depths. Set `mtp_loss_weight_final: null`
+    # for a constant lambda.
+    mtp_loss_weight: float = 0.3
+    mtp_loss_weight_final: float | None = 0.1
+    mtp_switch_fraction: float = 0.68  # 10 / 14.8 in DeepSeek-V3
+
+    # The transformer block(s) inside each MTP depth. The width and the number of heads are the trunk's (the depth
+    # reads the trunk's hidden states and shares its rotary positions); the rest defaults to the trunk's values, as
+    # when None. DeepSeek-V3 uses one block per depth.
+    mtp_n_layers: int = 1  # blocks per MTP depth
+    mtp_d_ff: int | None = None  # None = d_ff (the expert width for a mixture of experts)
+    mtp_ffn_type: Literal["mlp", "moe"] | None = None  # None = ffn_type
+
     # Name of a registered positional encoding (see hale_llm.nn.positional): rope | learned.
     pos_encoding: str = "rope"
     # Name of a registered norm layer (see hale_llm.nn.norm): layer | rms.
@@ -47,4 +72,23 @@ class ModelConfig(StrictModel):
             raise ValueError(
                 f"moe_top_k={self.moe_top_k} cannot exceed moe_num_experts={self.moe_num_experts}"
             )
+        if self.mtp_depth < 1:
+            raise ValueError(f"mtp_depth={self.mtp_depth} must be at least 1")
+        if self.mtp_loss_weight < 0 or (self.mtp_loss_weight_final is not None and self.mtp_loss_weight_final < 0):
+            raise ValueError("mtp_loss_weight and mtp_loss_weight_final cannot be negative")
+        if not 0.0 < self.mtp_switch_fraction < 1.0:
+            raise ValueError(f"mtp_switch_fraction={self.mtp_switch_fraction} must be between 0 and 1")
+        if self.mtp_n_layers < 1:
+            raise ValueError(f"mtp_n_layers={self.mtp_n_layers} must be at least 1")
+        if self.mtp_d_ff is not None and self.mtp_d_ff < 1:
+            raise ValueError(f"mtp_d_ff={self.mtp_d_ff} must be at least 1")
         return self
+
+    def mtp_block_config(self) -> "ModelConfig":
+        """The settings the MTP blocks are built with: the trunk's, except where an ``mtp_*`` override is set."""
+        update: dict = {}
+        if self.mtp_ffn_type is not None:
+            update["ffn_type"] = self.mtp_ffn_type
+        if self.mtp_d_ff is not None:
+            update["d_ff"] = update["moe_hidden_dim"] = self.mtp_d_ff
+        return self.model_copy(update=update)
