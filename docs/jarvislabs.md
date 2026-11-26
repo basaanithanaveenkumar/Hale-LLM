@@ -6,7 +6,7 @@
 ```mermaid
 flowchart LR
   L["hale-llm-cloud launch"] --> C["create instance<br/>(SDK, region IN2)"]
-  C --> U["upload git-tracked code<br/>(jl upload, .tgz)"]
+  C --> U["upload project files<br/>(jl upload, .tgz)"]
   U --> I["uv sync on the instance"]
   I --> T["nohup hale-llm-train<br/>writes train.log"]
   T --> F["logs / status"]
@@ -65,13 +65,38 @@ Reuse a paused or running instance (skips renting; re-uploads the code):
 | `gpu_type` | A30, L4, A100, A100-80GB, H100, H200, RTX-PRO6000 |
 | `num_gpus` | GPUs on the instance (the lean trainer uses one) |
 | `region` | `IN2` (L4, A30, A100, A100-80GB, H100, H200) or `IN1` (RTX-PRO6000); `null` lets Jarvislabs pick |
+| `spot` | `true` rents a cheaper spot GPU (container templates only); default `false` is on-demand |
 | `storage_gb` | Disk size |
 | `remote_dir` | Where the code is unpacked on the instance |
 
+## Precision study: fp32 vs bf16 vs fp16
+
+`configs/precision_study/` trains the same ~110M-parameter dense model three times
+(`fp32.yaml`, `bf16.yaml`, `fp16.yaml`). They inherit `base.yaml` and differ only in
+`train.lean.precision` and the run name, with the same seed, so the curves are comparable.
+`base.yaml` is sized so the fp32 run (the most memory-hungry) fills about 80% of a 24 GB GPU: 768 wide,
+12 layers, context 1024, batch 16. On a bigger GPU raise `train.batch_size` in `base.yaml` until the dry
+run reports about 85 to 90% peak CUDA memory. The three runs must keep the same batch size to stay comparable.
+
+`hale-llm-cloud launch` always adds `--device cuda`: the shared configs say `device: mps` for the Mac, and
+on a CUDA machine that would silently fall back to the CPU.
+
+## Spot instances
+
+Set `spot: true` in the cloud YAML (or copy it to `configs/cloud/jarvislabs_spot.yaml` and pass
+`--cloud`). Check spot prices and free spot GPUs with `uv run jl gpus`.
+
+**Spot caveat:** Jarvislabs can pause a spot instance when demand rises. The lean trainer cannot resume,
+and `last.pt` is written only at the end, so a paused run loses its progress; only the files in
+`checkpoints/best/` survive on the disk. `finish` also fails when the instance is paused. Use spot for short
+runs, ablations and dry experiments; use on-demand for long runs until the trainer can resume.
+`hale-llm-cloud fetch <machine_id>` still downloads whatever best checkpoints exist.
+
 ## What gets uploaded
 
-Only git-tracked files, with your working-tree edits (so commit new files or `git add` them first).
-`ext_pkgs/` and `assets/` are skipped. The shared tokenizer under `data/tokenizers/` is tracked, so the
+Every file git does not ignore: tracked files with your working-tree edits, plus new files you have not
+committed yet. `.gitignore`d files (virtualenv, checkpoints, `data/experiments/`) and `ext_pkgs/`, `assets/`,
+`technical_report/`, `project-page/` and `data/cloud_runs/` are skipped. The shared tokenizer under `data/tokenizers/` is tracked, so the
 instance uses the same token ids as your machine.
 
 ## Costs and cautions
@@ -83,6 +108,8 @@ instance uses the same token ids as your machine.
 * Check prices with `uv run jl gpus`.
 * `uv sync` on the instance installs the locked PyTorch build, which is a large download on first launch.
 * The lean trainer is single-GPU. TorchTitan multi-GPU runs are not wired into this command.
+* If training fails, `launch --auto-pause` / `finish` print the last log lines, skip the download, and still
+  pause the instance. Fix the problem, then relaunch with `--machine-id` to reuse the same instance.
 * The log is `<remote_dir>/train.log` on the instance; `logs` reads it. The training exit code is written to
   `train.exit` next to it, which is how the tool knows training has ended.
 

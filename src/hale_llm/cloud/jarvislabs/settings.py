@@ -19,6 +19,7 @@ class JarvisSettings(BaseModel):
     region: Literal["IN1", "IN2"] | None = "IN2"  # India regions; None lets Jarvislabs choose
     storage_gb: int = 100
     template: str = "pytorch"
+    spot: bool = False  # cheaper GPU that Jarvislabs may pause when demand rises (containers only)
     name_prefix: str = "hale"
     remote_dir: str = "/home/hale-llm"  # where the code is unpacked on the instance
 

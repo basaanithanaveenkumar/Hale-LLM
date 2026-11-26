@@ -81,8 +81,17 @@ class RemoteTrainingJob:
         logger.info("training on {} finished with exit code {}", machine_id, code)
         return code
 
-    def fetch(self, machine_id: int, destination: Path) -> Path:
-        """Copy the remote ``data/experiments`` folder (checkpoints, TensorBoard) to ``destination``."""
+    def fetch(self, machine_id: int, destination: Path) -> Path | None:
+        """Copy the remote ``data/experiments`` folder (checkpoints, TensorBoard) to ``destination``.
+
+        Returns None, and downloads nothing, when the instance has no such folder (a dry run, or
+        training that failed before creating its run folder).
+        """
+        remote = f"{self.settings.remote_dir}/data/experiments"
+        exists = self.jl.exec(machine_id, f"test -d {shlex.quote(remote)} && echo yes || echo no", capture=True)
+        if not exists.strip().endswith("yes"):
+            logger.warning("nothing to download: {} does not exist on {}", remote, machine_id)
+            return None
         destination.mkdir(parents=True, exist_ok=True)
-        self.jl.download(machine_id, f"{self.settings.remote_dir}/data/experiments", str(destination))
+        self.jl.download(machine_id, remote, str(destination))
         return destination

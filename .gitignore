@@ -19,6 +19,7 @@ data/experiments/
 data/checkpoints/
 data/logs/
 data/viz/
+data/cloud_runs/
 
 # Project page preview copies (populated by the Pages workflow)
 project-page/static/
