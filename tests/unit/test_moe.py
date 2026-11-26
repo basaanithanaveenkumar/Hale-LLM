@@ -36,16 +36,16 @@ def test_noise_only_during_training():
     assert not torch.equal(first, second)
 
 
-@pytest.mark.parametrize("activation, n_matrices", [("swiglu", 3), ("gelu", 2)])
+@pytest.mark.parametrize("activation, n_matrices", [("swiglu", 3), ("geglu", 3), ("reglu", 3), ("gelu", 2), ("relu", 2), ("silu", 2)])
 def test_expert_parameter_count(activation, n_matrices):
     expert = Expert(8, 16, activation=activation)
     assert sum(p.numel() for p in expert.parameters()) == n_matrices * 8 * 16
     assert expert(torch.randn(3, 8)).shape == (3, 8)
 
 
-def test_unknown_activation_is_rejected():
-    with pytest.raises(ValueError):
-        Expert(8, 16, activation="relu")
+def test_unknown_activation_is_rejected_and_names_the_options():
+    with pytest.raises(KeyError, match="registered=.*swiglu"):
+        Expert(8, 16, activation="nope")
 
 
 def _moe(**kwargs):

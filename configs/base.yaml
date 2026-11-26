@@ -5,6 +5,7 @@ model:
   d_ff: 1536
   dropout: 0.1
   ffn_type: mlp
+  ffn_activation: gelu      # gelu | relu | silu | swiglu | geglu | reglu
   moe_num_experts: 4
   moe_top_k: 2
   moe_num_shared: 1

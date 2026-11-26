@@ -25,7 +25,7 @@ def register_ffn(name: str) -> Callable[[Callable[..., nn.Module]], Callable[...
 
 @register_ffn("mlp")
 def build_mlp(model_cfg) -> nn.Module:
-    return FeedForward(model_cfg.d_model, model_cfg.d_ff, model_cfg.dropout)
+    return FeedForward(model_cfg.d_model, model_cfg.d_ff, model_cfg.dropout, model_cfg.ffn_activation)
 
 
 @register_ffn("moe")
