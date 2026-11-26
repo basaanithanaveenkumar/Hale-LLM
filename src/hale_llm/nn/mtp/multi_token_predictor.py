@@ -7,6 +7,7 @@ import math
 import torch
 from torch import nn
 
+from hale_llm.nn.attention import cross_document_mask
 from hale_llm.nn.blocks.residual_init import init_linear_and_embedding, scale_residual_outputs
 from hale_llm.nn.mtp.mtp_module import MTPModule
 from hale_llm.nn.positional.positional_encoding import PositionalEncoding
@@ -46,6 +47,7 @@ class MultiTokenPredictor(nn.Module):
         attention_mask: torch.Tensor | None,
         token_emb: nn.Module,
         lm_head: nn.Module,
+        document_ids: torch.Tensor | None = None,
     ) -> list[torch.Tensor]:
         """Logits of every depth, for training.
 
@@ -59,6 +61,7 @@ class MultiTokenPredictor(nn.Module):
                 f"mtp_depth={self.depth} needs sequences of at least {self.depth + 2} tokens, got {T}"
             )
         previous = trunk_hidden  # [B, T, D]
+        document_mask = cross_document_mask(document_ids) if document_ids is not None else None  # [B, T, T]
         all_logits = []
         for k, module in enumerate(self.depths, start=1):
             length = T - k  # the positions that still have a token k steps ahead
@@ -70,7 +73,8 @@ class MultiTokenPredictor(nn.Module):
             key_padding = (attention_mask[:, :length] == 0) if attention_mask is not None else None
             positions = torch.arange(length, device=token_ids.device)
             # 4. One MTP depth, then the shared head.
-            hidden = module(hidden_in, embedded, positions, key_padding)  # [B, T-k, D]
+            depth_document_mask = document_mask[:, :length, :length] if document_mask is not None else None
+            hidden = module(hidden_in, embedded, positions, key_padding, depth_document_mask)  # [B, T-k, D]
             all_logits.append(module.logits(hidden, lm_head))  # [B, T-k, V]
             previous = hidden
         return all_logits

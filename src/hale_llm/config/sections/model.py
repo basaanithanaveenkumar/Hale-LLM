@@ -27,6 +27,11 @@ class ModelConfig(StrictModel):
     # Weight of the load-balancing loss that keeps tokens spread over the experts.
     moe_aux_loss_coef: float = 0.01
 
+    # Packed windows hold several documents (separated by the end-of-text token). With document_masking a token
+    # only attends to tokens of its own document, as in Llama 3 and SmolLM3 (DeepSeek-V3 does not mask). Off by
+    # default: GPT-2 style training lets all documents of a window see each other. Costs a [B, S, S] mask per step.
+    document_masking: bool = False
+
     # Multi-token prediction (DeepSeek-V3 style), used by the `autoregressive_mtp` variant.
     #
     # How many tokens are predicted at once: at every position i the main head predicts the next token

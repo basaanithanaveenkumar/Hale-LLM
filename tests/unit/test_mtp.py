@@ -217,3 +217,17 @@ def test_the_depth_heads_learn_to_predict_further_ahead():
             predicted = logits[:, :-1].argmax(-1)  # position j predicts t_{j+k+1}
             accuracy = (predicted == ids[:, k + 1 :]).float().mean().item()
             assert accuracy > 0.95, f"depth {k} accuracy {accuracy:.2f}"
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
+def test_the_mtp_blocks_keep_the_residual_stream_in_the_trunks_precision_under_autocast(dtype):
+    """The trunk's residual stream stays fp32 under autocast; the MTP blocks must not quietly drop to half precision."""
+    cfg = _cfg(depth=1)
+    model = _model(cfg).train()
+    streams: dict[str, torch.dtype] = {}
+    model.backbone.layers[0].register_forward_hook(lambda m, a, o: streams.update(trunk=o.dtype))
+    model.mtp.depths[0].blocks[0].register_forward_hook(lambda m, a, o: streams.update(mtp=o.dtype))
+    ids = torch.randint(0, VOCAB, (2, T))
+    with torch.autocast("cpu", dtype=dtype):
+        loss = get_loss(cfg.variant)(model, _batch(ids))
+    assert streams == {"trunk": torch.float32, "mtp": torch.float32} and torch.isfinite(loss)

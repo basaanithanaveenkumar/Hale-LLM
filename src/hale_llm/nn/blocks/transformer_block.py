@@ -38,10 +38,11 @@ class TransformerBlock(nn.Module):
         inputs: torch.Tensor,
         positions: torch.Tensor | None = None,
         key_padding_mask: torch.Tensor | None = None,
+        document_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """``[B, S, D]`` in and out."""
         # 1. Attention block, with a residual connection.
-        attn_output = self.attn(self.norm1(inputs), positions, key_padding_mask)  # [B, S, D]
+        attn_output = self.attn(self.norm1(inputs), positions, key_padding_mask, document_mask)  # [B, S, D]
         x = inputs + attn_output
 
         # 2. Feed-forward block, with a residual connection.

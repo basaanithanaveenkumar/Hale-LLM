@@ -42,16 +42,19 @@ class MTPModule(nn.Module):
         embedded: torch.Tensor,
         positions: torch.Tensor,
         key_padding_mask: torch.Tensor | None = None,
+        document_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """``previous_hidden`` and ``embedded`` are both ``[B, L, D]``; returns ``[B, L, D]``."""
         # 1. Normalise both inputs, put them side by side, and project back to the model width.
         merged = torch.cat(
             [self.hidden_norm(previous_hidden), self.embed_norm(embedded)], dim=-1
         )  # [B, L, 2D]
-        merged = self.proj(merged)  # [B, L, D]
+        # Under mixed precision the Linear outputs bf16/fp16; cast back so the residual stream of these blocks stays
+        # in the trunk's precision (fp32), as it does in the trunk's own blocks.
+        merged = self.proj(merged).to(previous_hidden.dtype)  # [B, L, D]
         # 2. The causal transformer block(s) over the L positions of this depth.
         for block in self.blocks:
-            merged = block(merged, positions, key_padding_mask)  # [B, L, D]
+            merged = block(merged, positions, key_padding_mask, document_mask)  # [B, L, D]
         return merged
 
     def logits(self, hidden: torch.Tensor, lm_head: nn.Module) -> torch.Tensor:

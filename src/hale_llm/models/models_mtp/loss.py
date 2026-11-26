@@ -24,7 +24,8 @@ def mtp_loss(model, batch: dict) -> torch.Tensor:
 
     # 1. Trunk: hidden states [B, T, D], logits [B, T, V], and the usual next-token loss.
     #    labels[i] is the token after position i (-100 where there is nothing to predict).
-    hidden = backbone.encode(ids, attention_mask=mask)
+    document_ids = batch.get("document_ids")  # only when model.document_masking is on
+    hidden = backbone.encode(ids, attention_mask=mask, document_ids=document_ids)
     trunk_logits = backbone.lm_head(hidden)
     ntp_loss = model_token_nll(
         model, trunk_logits[:, :-1], labels[:, :-1], ignore_index=-100, reduction="mean"
@@ -33,7 +34,7 @@ def mtp_loss(model, batch: dict) -> torch.Tensor:
         return ntp_loss
 
     # 2. MTP depths. Depth k returns [B, T-k, V]; its position j predicts t_{j+k+1} = labels[j+k].
-    depth_logits = model.mtp(hidden, ids, mask, backbone.token_emb, backbone.lm_head)
+    depth_logits = model.mtp(hidden, ids, mask, backbone.token_emb, backbone.lm_head, document_ids)
     depth_losses = []
     for k, logits in enumerate(depth_logits, start=1):
         # Drop the last position (no target): [B, T-k-1, V] against labels[k .. T-2] = t_{k+1 .. T-1}.

@@ -8,6 +8,7 @@ import torch
 from loguru import logger
 from torch import nn
 
+from hale_llm.nn.attention import cross_document_mask
 from hale_llm.nn.blocks import build_blocks
 from hale_llm.nn.blocks.residual_init import init_linear_and_embedding, scale_residual_outputs
 from hale_llm.nn.norm import build_norm
@@ -76,10 +77,16 @@ class TransformerBackbone(nn.Module):
         for block in self.layers:
             scale_residual_outputs(block, residual_std)
 
-    def encode(self, token_ids: torch.Tensor, attention_mask: torch.Tensor | None = None) -> torch.Tensor:
+    def encode(
+        self,
+        token_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        document_ids: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         """``token_ids`` is ``[B, S]``; returns the final hidden states ``[B, S, D]`` (after the last norm).
 
-        ``attention_mask`` is 1 for real tokens and 0 for padding.
+        ``attention_mask`` is 1 for real tokens and 0 for padding. ``document_ids`` (``[B, S]``, optional) says which
+        document of a packed window each token is in; tokens then only attend within their own document.
         """
         B, S = token_ids.shape
         if S > self.max_length:
@@ -92,18 +99,24 @@ class TransformerBackbone(nn.Module):
         # 2. Which keys are padding, and the position of every token.
         key_padding = (attention_mask == 0) if attention_mask is not None else None  # [B, S]
         positions = torch.arange(S, device=token_ids.device)  # [S]
+        document_mask = cross_document_mask(document_ids) if document_ids is not None else None  # [B, S, S]
 
         # 3. The transformer blocks, each keeping the shape [B, S, D].
         for block in self.layers:
-            hidden = block(hidden, positions, key_padding)
+            hidden = block(hidden, positions, key_padding, document_mask)
 
         # 4. The final norm.
         return self.norm(hidden)  # [B, S, D]
 
-    def forward(self, token_ids: torch.Tensor, attention_mask: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(
+        self,
+        token_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        document_ids: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         """``token_ids`` is ``[B, S]``; returns logits ``[B, S, vocab]``."""
         # 5. A score for every vocabulary token at every position.
-        return self.lm_head(self.encode(token_ids, attention_mask))  # [B, S, vocab]
+        return self.lm_head(self.encode(token_ids, attention_mask, document_ids))  # [B, S, vocab]
 
 
 def _rename_old_stack_keys(state_dict, prefix, *_) -> None:

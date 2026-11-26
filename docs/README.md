@@ -5,6 +5,7 @@
 - [Multi-token prediction](mtp.md): DeepSeek-V3 style MTP training and speculative decoding
 - [Training backends](training.md): lean (default) and TorchTitan
 - [Jarvislabs cloud training](jarvislabs.md): rent an India GPU and train with one command
+- [Data cutting and special tokens](data_and_special_tokens.md): how documents become windows, padding, and what open models do
 - [Tokenizer](tokenizer.md): trained SuperBPE/BPE, vocabulary sized to the model, ablation
 - [Context length](context_length.md): 4k pretrain, 32k extension, YaRN
 - [Usage](usage.md): CLI recap, chat and inference

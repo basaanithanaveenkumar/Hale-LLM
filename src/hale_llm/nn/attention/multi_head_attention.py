@@ -36,10 +36,11 @@ class MultiHeadAttention(nn.Module):
         inputs: torch.Tensor,
         positions: torch.Tensor | None = None,
         key_padding_mask: torch.Tensor | None = None,
+        document_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """``[B, S, D]`` in and out."""
         # 1. Every head attends on its own.
-        head_outputs = [head(inputs, positions, key_padding_mask) for head in self.heads]  # n x [B, S, H]
+        head_outputs = [head(inputs, positions, key_padding_mask, document_mask) for head in self.heads]  # n x [B, S, H]
 
         # 2. Concatenate the heads back to the model width.
         concat_output = torch.cat(head_outputs, dim=-1)  # [B, S, D]

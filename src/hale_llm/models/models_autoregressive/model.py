@@ -14,26 +14,35 @@ import torch
 import torch.nn as nn
 
 from hale_llm.dataloader.collate import register_collate
+from hale_llm.dataloader.document_ids import document_ids_from_eos
 from hale_llm.dataloader.padding import pad_positions
 from hale_llm.models.models_autoregressive.variants import ALL_VARIANTS, DENSE_VARIANT, MOE_VARIANT
 from hale_llm.nn.backbones import TransformerBackbone
 from hale_llm.registry import register_variant
 
 
-def collate_autoregressive(input_ids: torch.Tensor, tokenizer, **_):
-    """Shifted next-token targets. Pad positions are ignored in the loss via labels=-100."""
+def collate_autoregressive(input_ids: torch.Tensor, tokenizer, document_masking: bool = False, **_):
+    """Shifted next-token targets. Pad positions are ignored in the loss via labels=-100.
+
+    With ``document_masking`` the batch also carries ``document_ids`` so attention can stay inside each document.
+    """
     pad_id = tokenizer.pad_token_id
     pad = pad_positions(input_ids, pad_id)  # all False for packed windows (no pad token)
     labels = input_ids.clone()
     labels[:, :-1] = input_ids[:, 1:]
     labels[:, -1] = -100
     labels[pad] = -100
-    return {
+    batch = {
         "input_ids": input_ids,
         "attention_mask": (~pad).long(),
         "labels": labels,
         "pad_token_id": pad_id,
     }
+    if document_masking:
+        if tokenizer.eos_token_id is None:
+            raise ValueError("model.document_masking needs a tokenizer with an end-of-text token to mark documents")
+        batch["document_ids"] = document_ids_from_eos(input_ids, tokenizer.eos_token_id)
+    return batch
 
 
 for _name in ALL_VARIANTS:
@@ -52,7 +61,11 @@ class AutoregressiveLM(nn.Module):
         self.uses_moe = cfg.model.ffn_type == "moe"
 
     def forward(self, batch: dict) -> torch.Tensor:
-        return self.backbone(batch["input_ids"], attention_mask=batch.get("attention_mask"))
+        return self.backbone(
+            batch["input_ids"],
+            attention_mask=batch.get("attention_mask"),
+            document_ids=batch.get("document_ids"),  # present only when model.document_masking is on
+        )
 
     @staticmethod
     def initial_loss_scale(cfg) -> float:
