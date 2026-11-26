@@ -24,12 +24,14 @@ class NoisyBestKRouter(Router):
     def forward(self, x: torch.Tensor) -> RouterOutput:
         """``x`` is ``[T, D]`` (T tokens); the weights are ``[T, E]`` for ``E`` experts."""
         # 1. One score per expert for every token.
-        logits = self.gate(x)  # [T, E]
+        #    Routing always runs in fp32: under mixed precision small score differences decide
+        #    which expert a token uses, and half precision would blur them.
+        logits = self.gate(x).float()  # [T, E]
 
         # 2. While training, add Gaussian noise whose size the model learns per token and expert.
         noisy_logits = logits
         if self.training:
-            noise_scale = F.softplus(self.noise_gate(x))  # [T, E]
+            noise_scale = F.softplus(self.noise_gate(x).float())  # [T, E]
             noisy_logits = logits + torch.randn_like(logits) * noise_scale
 
         # 3. Keep the k best experts of every token (chosen on the noisy scores).

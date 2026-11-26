@@ -96,3 +96,16 @@ def test_bfloat16_autocast_keeps_working():
     with torch.autocast("cpu", dtype=torch.bfloat16):
         out = moe(torch.randn(2, 4, 8))
     assert torch.isfinite(out.float()).all()
+
+
+@pytest.mark.parametrize("router_name", ["topk", "noisy_topk"])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
+def test_router_runs_in_fp32_under_autocast(router_name, dtype):
+    from hale_llm.nn.moe.registry import build_router
+
+    router = build_router(router_name, 16, 4, 2)
+    router.train()
+    with torch.autocast("cpu", dtype=dtype):
+        out = router(torch.randn(10, 16))
+    assert out.weights.dtype == torch.float32 and out.probs.dtype == torch.float32
+    assert torch.allclose(out.weights.sum(-1), torch.ones(10))

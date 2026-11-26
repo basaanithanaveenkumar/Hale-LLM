@@ -181,3 +181,40 @@ def test_only_the_best_checkpoints_are_kept_and_they_load(best_by, tiny_tokenize
     import torch
     state = torch.load(kept[0], weights_only=False)
     assert best_by in state and "optimizer_state_dict" not in state and state["variant"] == cfg.variant
+
+
+@pytest.mark.parametrize("optimizer", ["adamw", "muon"])
+@pytest.mark.parametrize("precision", ["bf16", "fp16"])
+def test_mixed_precision_trains_and_saves_fp32_weights(precision, optimizer, tiny_tokenizer, tmp_path):
+    cfg = _cfg(tmp_path, optimizer)
+    cfg.train.lean.precision = precision
+    losses = train_lean(cfg, tokenizer=tiny_tokenizer)
+    assert losses[-1] < losses[0] * 0.8  # still learns
+    import torch
+    state = torch.load(cfg.train.checkpoint_path, weights_only=False)
+    assert all(t.dtype == torch.float32 for t in state["model_state_dict"].values() if t.is_floating_point())
+    session = load_session(cfg, tokenizer=tiny_tokenizer, require_checkpoint=True)  # chat/sample/eval can still load it
+    assert session is not None
+
+
+@pytest.mark.parametrize("optimizer", ["adamw", "muon"])
+@pytest.mark.parametrize("precision", ["bf16", "fp16"])
+def test_mixed_precision_trains_and_saves_fp32_weights(precision, optimizer, tiny_tokenizer, tmp_path):
+    cfg = _cfg(tmp_path, optimizer)
+    cfg.train.lean.precision = precision
+    losses = train_lean(cfg, tokenizer=tiny_tokenizer)
+    assert losses[-1] < losses[0] * 0.8  # still learns
+    import torch
+    state = torch.load(cfg.train.checkpoint_path, weights_only=False)
+    assert all(t.dtype == torch.float32 for t in state["model_state_dict"].values() if t.is_floating_point())
+    session = load_session(cfg, tokenizer=tiny_tokenizer, require_checkpoint=True)  # chat/sample/eval can still load it
+    assert session is not None
+
+
+@pytest.mark.parametrize("precision", ["bf16", "fp16"])
+def test_moe_trains_under_mixed_precision(precision, tiny_tokenizer, tmp_path):
+    cfg = _cfg(tmp_path, "adamw")
+    cfg.variant, cfg.model.ffn_type, cfg.model.moe_hidden_dim = "autoregressive_moe", "moe", 64
+    cfg.train.lean.precision = precision
+    losses = train_lean(cfg, tokenizer=tiny_tokenizer)
+    assert losses[-1] < losses[0] * 0.8

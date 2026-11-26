@@ -16,12 +16,11 @@ on one device needs, so you can follow a whole run from top to bottom:
 Every registered variant works because the loss comes from the loss registry.
 
 Settings live under ``train.lean`` in the YAML (accum_steps, warmup_steps, warmdown_frac,
-eval_every, eval_batches, keep_best, best_by, compile). It has no resume support.
+eval_every, eval_batches, keep_best, best_by, precision, compile). It has no resume support.
 """
 
 from __future__ import annotations
 
-import contextlib
 import math
 import time
 from pathlib import Path
@@ -42,6 +41,7 @@ from hale_llm.training.context_schedule import ContextSchedule
 from hale_llm.training.context_stage_plan import ContextStagePlan
 from hale_llm.tokenizer.store import TokenizerStore
 from hale_llm.training.schedule import TrainSchedule
+from hale_llm.training.mixed_precision import MixedPrecision
 from hale_llm.training.top_k_checkpoints import TopKCheckpoints
 from hale_llm.training.training_logger import TrainingLogger
 from hale_llm.metrics.base import MetricContext
@@ -146,7 +146,7 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
     keep_best, best_by = lean.keep_best, lean.best_by
     torch.manual_seed(cfg.train.seed)
     device = get_device(cfg.device)
-    use_bf16 = device == "cuda"  # bf16 autocast is reliable on CUDA; MPS/CPU stay fp32
+    precision = MixedPrecision.from_setting(lean.precision, device)  # fp32 | bf16 | fp16 (+ loss scaling)
     # 2. Data. ``endless`` turns the loader into an infinite stream of micro-batches.
     #    The step count comes from train.steps, or from train.epochs x batches per epoch.
     data = DataModule(cfg, tokenizer)
@@ -162,9 +162,9 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
 
     logger.info(
         "lean trainer | variant={} device={} steps={} micro-batch={} accum={} "
-        "(effective batch {}) bf16={}",
+        "(effective batch {}) precision={}",
         cfg.variant, device, total_steps, cfg.train.batch_size, accum,
-        cfg.train.batch_size * accum, use_bf16,
+        cfg.train.batch_size * accum, precision.name,
     )
     n_windows = len(train_loader.dataset)
     logger.info(
@@ -222,7 +222,8 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
     with TrainingLogger(cfg) as tb:
         tb.log_run_start(cfg, plain_model, total_steps, n_windows)
         if eval_every:  # the untrained model's validation loss is the starting point of the curve
-            tb.log_validation(0, validation_loss(model, loss_fn, val_loader, device, eval_batches))
+            with precision.autocast():
+                tb.log_validation(0, validation_loss(model, loss_fn, val_loader, device, eval_batches))
 
         for step in range(total_steps):
             # 5a. Entering a new context stage: longer window, larger RoPE base, fresh loaders.
@@ -251,14 +252,9 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
             balance_loss = 0.0  # MoE load-balancing term, averaged over the micro-batches
             for _ in range(accum):
                 batch = move_batch_to_device(next(train_batches), device)
-                autocast = (
-                    torch.autocast(device_type="cuda", dtype=torch.bfloat16)
-                    if use_bf16
-                    else contextlib.nullcontext()
-                )
-                with autocast:
+                with precision.autocast():
                     loss = loss_fn(model, batch) / accum
-                loss.backward()
+                precision.backward(loss)  # fp16: the loss is scaled up first
                 step_loss += loss.item()
                 if balance_coef:
                     balance_loss += float(plain_model.backbone.auxiliary_loss().detach()) / accum
@@ -266,8 +262,8 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
                 raise FloatingPointError(f"non-finite loss at step {step}: {step_loss}")
 
             # 7. Clip the global gradient norm, then update every parameter.
-            grad_norm = float(torch.nn.utils.clip_grad_norm_(plain_model.parameters(), cfg.train.grad_clip))
-            optimizer.step()
+            #    fp16 also unscales the gradients first and skips the update on overflow.
+            grad_norm = precision.clip_and_step(optimizer, plain_model.parameters(), cfg.train.grad_clip)
             losses.append(step_loss)
             if on_step is not None:
                 on_step(step)
@@ -294,6 +290,9 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
             }
             for index, group in enumerate(optimizer.param_groups):
                 scalars["train/lr" if index == 0 else f"train/lr_group{index}"] = group["lr"]
+            if precision.scaler.is_enabled():
+                scalars["train/loss_scale"] = precision.loss_scale
+                scalars["train/step_skipped"] = float(precision.step_skipped)
             if balance_coef:
                 # The optimised term sums the layers; log the per-layer mean, where 1.0 = even routing.
                 scalars["train/moe_balance_loss"] = balance_loss / cfg.model.n_layers
@@ -308,13 +307,15 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
                     scalars["train/tokens_per_sec"], time.time() - started,
                 )
             if eval_every and ((step + 1) % eval_every == 0 or last_step):
-                val_loss = validation_loss(model, loss_fn, val_loader, device, eval_batches)
+                with precision.autocast():
+                    val_loss = validation_loss(model, loss_fn, val_loader, device, eval_batches)
                 tb.log_validation(step + 1, val_loss)
                 logger.info("step {} validation loss = {:.4f} (perplexity {:.1f})", step + 1, val_loss, math.exp(min(val_loss, 20.0)))
                 # Rank this checkpoint by the chosen validation score; keep only the best N.
                 score = val_loss
                 if best_by == "token_accuracy":
-                    score = validation_accuracy(model, loss_fn, val_loader, device, eval_batches)
+                    with precision.autocast():
+                        score = validation_accuracy(model, loss_fn, val_loader, device, eval_batches)
                     tb.log_step(step + 1, {"val/token_accuracy": score})
                     logger.info("step {} validation token accuracy = {:.4f}", step + 1, score)
                 state = checkpoint_state(step + 1, with_optimizer=False)

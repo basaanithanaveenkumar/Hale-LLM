@@ -127,3 +127,39 @@ train:
 Best files hold the model weights and config but not the optimizer state (smaller; they are for
 picking and loading a model, not for resuming). Load one with `load_session(cfg, checkpoint_path=...)`.
 Ranking uses `eval_batches` validation batches, so close scores can swap order between runs.
+
+
+## Mixed precision
+
+The lean trainer runs the forward pass in lower precision to go faster and use less GPU memory. Weights,
+optimizer state and checkpoints always stay fp32, so a checkpoint loads the same way whatever precision
+trained it.
+
+```yaml
+train:
+  lean:
+    precision: auto     # auto | fp32 | bf16 | fp16
+```
+
+| Value | What happens |
+|---|---|
+| `auto` (default) | bf16 on a CUDA GPU that supports it, otherwise fp32 (the behaviour before this option existed) |
+| `fp32` | No autocast. The slow reference |
+| `bf16` | Autocast to bfloat16. Same number range as fp32, so no loss scaling |
+| `fp16` | Autocast to float16 **with loss scaling**: the loss is scaled up so small gradients survive, gradients are unscaled before clipping, and a step with overflowing gradients is skipped and the scale halved |
+
+Override per run: `hale-llm-train --config ... --precision fp16`. Implementation: `training/mixed_precision.py`.
+
+```mermaid
+flowchart LR
+  B["batch"] --> A["autocast forward<br/>bf16 or fp16"] --> L["loss"]
+  L --> S["fp16 only: loss x scale"] --> BW["backward"]
+  BW --> U["unscale grads"] --> C["clip grad norm"] --> O{"grads finite?"}
+  O -- yes --> W["optimizer step on fp32 weights"]
+  O -- "no (fp16)" --> K["skip step, halve the scale"]
+```
+
+TensorBoard adds `train/loss_scale` and `train/step_skipped` in fp16 mode. A few skipped steps early in
+training are normal while the scale settles; many skipped steps in a row mean the run is unstable, so try
+`bf16`. Validation runs under the same autocast. Use `bf16` on A100, H100, H200, L4 and RTX-PRO6000;
+fp16 is for GPUs without bf16 support.

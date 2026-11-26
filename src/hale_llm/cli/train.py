@@ -35,6 +35,13 @@ def main() -> None:
         default=None,
         help="Backend: lean (default) | torchtitan. Overrides train.trainer",
     )
+    p.add_argument("--device", default=None, choices=["cuda", "mps", "cpu"], help="Overrides the config's device")
+    p.add_argument(
+        "--precision",
+        default=None,
+        choices=["auto", "fp32", "bf16", "fp16"],
+        help="Mixed precision for the lean trainer. Overrides train.lean.precision",
+    )
     p.add_argument(
         "--dry-run",
         action="store_true",
@@ -86,6 +93,10 @@ def main() -> None:
         # Logging overrides
         if args.tensorboard is not None:
             cfg.logging.tensorboard = args.tensorboard
+        if args.device is not None:
+            cfg.device = args.device
+        if args.precision is not None:
+            cfg.train.lean.precision = args.precision
         if args.trainer is not None:
             cfg.train.trainer = args.trainer
         if args.dry_run:

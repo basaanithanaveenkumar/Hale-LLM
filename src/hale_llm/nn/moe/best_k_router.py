@@ -15,7 +15,9 @@ class BestKRouter(Router):
     def forward(self, x: torch.Tensor) -> RouterOutput:
         """``x`` is ``[T, D]`` (T tokens); the weights are ``[T, E]`` for ``E`` experts."""
         # 1. One score per expert for every token.
-        logits = self.gate(x)  # [T, E]
+        #    Routing always runs in fp32: under mixed precision small score differences decide
+        #    which expert a token uses, and half precision would blur them.
+        logits = self.gate(x).float()  # [T, E]
 
         # 2. Keep the k best experts of every token.
         best_logits, indices = logits.topk(self.top_k, dim=-1)  # both [T, k]

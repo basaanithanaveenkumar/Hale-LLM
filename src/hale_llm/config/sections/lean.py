@@ -13,4 +13,5 @@ class LeanConfig(StrictModel):
     eval_batches: int = 20  # validation batches per evaluation
     keep_best: int = 5  # keep this many best checkpoints in <run>/checkpoints/best; 0 disables
     best_by: Literal["loss", "token_accuracy"] = "loss"  # validation score that ranks them
+    precision: Literal["auto", "fp32", "bf16", "fp16"] = "auto"  # auto = bf16 on CUDA GPUs that support it, else fp32
     compile: bool = False  # wrap the model in torch.compile
