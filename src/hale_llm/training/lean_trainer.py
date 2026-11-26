@@ -39,6 +39,8 @@ from hale_llm.dataloader.data_module import DataModule
 from hale_llm.nn.moe import auxiliary_loss
 from hale_llm.optim import build_optimizer
 from hale_llm.utils.device import get_device
+from hale_llm.training.duration import format_duration
+from hale_llm.training.run_timer import RunTimer
 from hale_llm.training.context_schedule import ContextSchedule
 from hale_llm.training.context_stage_plan import ContextStagePlan
 from hale_llm.tokenizer.store import TokenizerStore
@@ -219,16 +221,17 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
 
     # 4b. Resume an interrupted run (train.resume): weights, optimizer, loss scale, random state, step
     #     and data position come back from resume.pt. Without it (or when none exists) start at step 0.
-    start_step, tokens_seen, start_batches = 0, 0, 0
+    start_step, tokens_seen, start_batches, earlier_seconds = 0, 0, 0, 0.0
     state = resume.load() if cfg.train.resume else None
     resumed = state is not None
     if resumed:
         resume.apply(state, model=plain_model, optimizer=optimizer, precision=precision,
                      variant=cfg.variant, vocab_size=len(data.tokenizer))
         start_step, tokens_seen, start_batches = state["step"], state["tokens_seen"], state["stream_batches"]
+        earlier_seconds = state.get("elapsed_seconds", 0.0)  # missing in checkpoints written before this was recorded
         best.restore_from_disk(max_step=start_step)
-        logger.info("resumed from {} at step {}/{} ({:,} tokens already seen)",
-                    resume.path, start_step, total_steps, tokens_seen)
+        logger.info("resumed from {} at step {}/{} ({:,} tokens already seen, {} of training so far)",
+                    resume.path, start_step, total_steps, tokens_seen, format_duration(earlier_seconds))
         if state["total_steps"] != total_steps:
             logger.warning("the run was {} steps long when saved, now {}: the lr schedule changes", state["total_steps"], total_steps)
         del state  # the optimizer state is large; free the CPU copy
@@ -248,6 +251,7 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
 
     losses: list[float] = []
     started = time.time()
+    timer = RunTimer(earlier_seconds)  # total training time, also across interruptions
     balance_coef = cfg.model.moe_aux_loss_coef if getattr(plain_model, "uses_moe", False) else 0.0
 
     with TrainingLogger(cfg, purge_from_step=start_step + 1 if resumed else None) as tb:
@@ -369,10 +373,18 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
             if save_every and (step + 1) % save_every == 0 and not last_step:
                 resume.save(step=step + 1, tokens_seen=tokens_seen, stream_batches=train_batches.consumed,
                             total_steps=total_steps, variant=cfg.variant, vocab_size=len(data.tokenizer),
-                            model=plain_model, optimizer=optimizer, precision=precision)
+                            model=plain_model, optimizer=optimizer, precision=precision,
+                            elapsed_seconds=timer.total_seconds())
 
     # 9. Save a checkpoint that chat / sample / eval can load, then record that the run is finished.
     store.save(cfg.train.checkpoint_path, **checkpoint_state(total_steps))
-    resume.mark_complete(total_steps)
+    total_seconds = timer.total_seconds()
+    resume.mark_complete(total_steps, total_seconds)
     logger.info("saved checkpoint to {}", cfg.train.checkpoint_path)
+    # 10. How long the whole run took. After an interruption this counts the earlier sessions too.
+    logger.info(
+        "training finished: {} steps, {:,} tokens in {} ({:.1f} s){}",
+        total_steps, tokens_seen, format_duration(total_seconds), total_seconds,
+        f"; this session {format_duration(timer.session_seconds())}" if earlier_seconds else "",
+    )
     return losses

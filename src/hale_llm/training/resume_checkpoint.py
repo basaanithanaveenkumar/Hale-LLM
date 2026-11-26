@@ -17,10 +17,11 @@ class ResumeCheckpoint:
     Files in the checkpoint folder:
 
         resume.pt              rolling checkpoint, overwritten every ``save_every`` steps
-        training_complete.json written when the run finishes, so a restart does not redo it
+        training_complete.json written when the run finishes (step and total training time), so a restart
+                               does not redo it
 
     ``resume.pt`` holds the weights, optimizer, fp16 loss scaler, random-number state, the step,
-    the tokens seen and the data position. It is written through :class:`CheckpointStore`, which
+    the tokens seen, the data position and the training time so far. It is written through :class:`CheckpointStore`, which
     renames a finished temp file into place, so an interruption mid-save keeps the older file.
     """
 
@@ -42,13 +43,15 @@ class ResumeCheckpoint:
         model,
         optimizer,
         precision,
+        elapsed_seconds: float = 0.0,
     ) -> None:
-        """Write the state after ``step`` completed optimizer steps."""
+        """Write the state after ``step`` completed optimizer steps, ``elapsed_seconds`` of training in."""
         self.store.save(
             str(self.path),
             step=step,
             tokens_seen=tokens_seen,
             stream_batches=stream_batches,
+            elapsed_seconds=elapsed_seconds,
             total_steps=total_steps,
             variant=variant,
             vocab_size=vocab_size,
@@ -91,9 +94,15 @@ class ResumeCheckpoint:
             torch.cuda.set_rng_state_all(cuda_state)
 
     # ----- finishing -----
-    def mark_complete(self, step: int) -> None:
-        """Record that the run finished and drop the rolling checkpoint (the final weights are saved elsewhere)."""
-        self.complete_path.write_text(json.dumps({"step": step}))
+    def mark_complete(self, step: int, elapsed_seconds: float | None = None) -> None:
+        """Record that the run finished and drop the rolling checkpoint (the final weights are saved elsewhere).
+
+        ``elapsed_seconds`` is the total training time; it stays in the file so it can be read after a cloud download.
+        """
+        record = {"step": step}
+        if elapsed_seconds is not None:
+            record["elapsed_seconds"] = round(elapsed_seconds, 1)
+        self.complete_path.write_text(json.dumps(record))
         self.path.unlink(missing_ok=True)
 
     def completed_step(self) -> int | None:
