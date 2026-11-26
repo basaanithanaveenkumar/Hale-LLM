@@ -42,7 +42,7 @@ def test_training_reads_and_predicts_exactly_these_indices():
     embedded_ids: list[list[int]] = []
     model.backbone.token_emb.register_forward_pre_hook(lambda m, args: embedded_ids.append(args[0].flatten().tolist()))
     trunk_out: list[torch.Tensor] = []
-    model.backbone.stack.register_forward_hook(lambda m, args, out: trunk_out.append(out))
+    model.backbone.norm.register_forward_hook(lambda m, args, out: trunk_out.append(out))  # the last step of the trunk
     seen_inputs, depth_out = [], []
 
     def record_depth(module, args, output):  # returns None: a forward hook that returns a value would replace the output

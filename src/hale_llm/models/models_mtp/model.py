@@ -13,7 +13,7 @@ import torch
 from hale_llm.dataloader.collate import register_collate
 from hale_llm.models.models_autoregressive.model import AutoregressiveLM, collate_autoregressive
 from hale_llm.models.models_mtp.loss_schedule import MTPLossSchedule
-from hale_llm.models.models_mtp.variants import ALL_VARIANTS, MTP_VARIANT
+from hale_llm.models.models_mtp.variants import ALL_VARIANTS, MOE_MTP_VARIANT, MTP_VARIANT
 from hale_llm.nn.mtp import MultiTokenPredictor
 from hale_llm.registry import register_variant
 
@@ -40,11 +40,20 @@ class MTPAutoregressiveLM(AutoregressiveLM):
         """Called by the trainer before every step with ``step / total_steps``: sets the current MTP loss weight."""
         self.mtp_weight = self.loss_schedule.weight_at(progress)
 
-    def auxiliary_loss(self) -> torch.Tensor:
-        """MoE load-balancing loss of the trunk and of the MTP blocks (zero when dense)."""
-        return self.backbone.auxiliary_loss() + self.mtp.auxiliary_loss()
-
     @staticmethod
     def initial_loss_scale(cfg) -> float:
         """Every head starts near ``ln(vocab)``, so a fresh model scores ``ln(vocab) * (1 + first lambda)``."""
         return 1.0 + cfg.model.mtp_loss_weight
+
+
+@register_variant(MOE_MTP_VARIANT)
+class MoEMTPAutoregressiveLM(MTPAutoregressiveLM):
+    """The MTP model with a mixture-of-experts trunk. ``RunConfig`` sets ``model.ffn_type: moe`` for it.
+
+    The MTP blocks are mixture-of-experts too unless ``model.mtp_ffn_type`` says otherwise.
+    """
+
+    def __init__(self, vocab_size: int, cfg) -> None:
+        if cfg.model.ffn_type != "moe":
+            raise ValueError(f"variant {MOE_MTP_VARIANT} needs model.ffn_type: moe, got {cfg.model.ffn_type!r}")
+        super().__init__(vocab_size, cfg)

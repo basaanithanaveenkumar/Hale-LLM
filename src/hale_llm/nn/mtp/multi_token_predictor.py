@@ -7,7 +7,6 @@ import math
 import torch
 from torch import nn
 
-from hale_llm.nn.blocks import build_ffn
 from hale_llm.nn.blocks.residual_init import init_linear_and_embedding, scale_residual_outputs
 from hale_llm.nn.mtp.mtp_module import MTPModule
 from hale_llm.nn.positional.positional_encoding import PositionalEncoding
@@ -31,16 +30,7 @@ class MultiTokenPredictor(nn.Module):
             )
         block_cfg = model_cfg.mtp_block_config()  # the trunk's settings, plus any mtp_* overrides
         self.depths = nn.ModuleList(
-            MTPModule(
-                block_cfg.d_model,
-                block_cfg.n_heads,
-                lambda: build_ffn(block_cfg.ffn_type, block_cfg),
-                model_cfg.mtp_n_layers,
-                block_cfg.dropout,
-                block_cfg.norm_type,
-                positional,
-            )
-            for _ in range(self.depth)
+            MTPModule(block_cfg, model_cfg.mtp_n_layers, positional) for _ in range(self.depth)
         )
         # Same initialisation as the trunk's blocks.
         init_linear_and_embedding(self)
@@ -106,7 +96,3 @@ class MultiTokenPredictor(nn.Module):
         positions = torch.arange(L, device=tokens.device)
         hidden = module(previous_hidden, embedded, positions)  # [B, L, D]
         return hidden, module.logits(hidden[:, -1], lm_head)  # [B, L, D], [B, V]
-
-    def auxiliary_loss(self) -> torch.Tensor:
-        """Sum of every MTP block's extra loss (MoE load balancing); zero for dense blocks."""
-        return torch.stack([module.auxiliary_loss() for module in self.depths]).sum()

@@ -8,6 +8,7 @@ import torch.nn.functional as F
 
 import hale_llm.models  # noqa: F401  (registers the variants)
 from hale_llm.config.schema import load_config
+from hale_llm.nn.moe import auxiliary_loss
 from hale_llm.registry import get_loss, get_variant
 
 VOCAB, T = 40, 14
@@ -170,8 +171,8 @@ def test_moe_trunk_and_moe_mtp_blocks_both_feed_the_balancing_loss():
     model = _model(cfg).train()
     assert type(model.mtp.depths[0].blocks[0].ffn).__name__ == "DeepseekMoE"
     loss = get_loss(cfg.variant)(model, _batch(torch.randint(0, VOCAB, (2, T))))
-    mtp_aux = model.mtp.auxiliary_loss()
-    assert mtp_aux > 0 and torch.allclose(model.auxiliary_loss(), model.backbone.auxiliary_loss() + mtp_aux)
+    mtp_aux = auxiliary_loss(model.mtp)
+    assert mtp_aux > 0 and torch.allclose(auxiliary_loss(model), auxiliary_loss(model.backbone) + mtp_aux)
     loss.backward()
 
 

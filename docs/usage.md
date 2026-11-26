@@ -4,7 +4,8 @@
 uv sync
 uv run hale-llm-train --config configs/autoregressive/small.yaml --no-resume          # dense transformer
 uv run hale-llm-train --config configs/autoregressive_moe/nano.yaml --no-resume       # mixture of experts
-uv run hale-llm-train --config configs/autoregressive_mtp/nano.yaml --no-resume       # multi-token prediction
+uv run hale-llm-train --config configs/autoregressive_mtp/nano.yaml --no-resume       # multi-token prediction, mixture of experts
+uv run hale-llm-train --config configs/autoregressive_mtp/dense_nano.yaml --no-resume # multi-token prediction, dense
 uv run hale-llm-sample --config configs/autoregressive/small.yaml
 uv run hale-llm-eval --config configs/autoregressive/small.yaml
 tensorboard --logdir data/experiments

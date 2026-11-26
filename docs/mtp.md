@@ -1,14 +1,19 @@
 # Multi-token prediction (DeepSeek-V3 style)
 
-The `autoregressive_mtp` variant trains the normal transformer **and** `mtp_depth` small modules that
+The `autoregressive_mtp` and `autoregressive_moe_mtp` variants (dense or mixture-of-experts trunk, the MTP blocks following it) train the normal transformer **and** `mtp_depth` small modules that
 predict tokens further ahead. At depth `k` the model predicts the token `k + 1` steps ahead of each
 position. This densifies the training signal, and the same modules can draft tokens for
 speculative decoding at inference.
 
 ```bash
+# mixture-of-experts trunk and MTP blocks (autoregressive_moe_mtp)
 uv run hale-llm-train --config configs/autoregressive_mtp/nano.yaml --no-resume
 uv run hale-llm-sample --config configs/autoregressive_mtp/nano.yaml --prompt "Once upon a time" --temperature 0
+# dense trunk (autoregressive_mtp), with the documented default settings
+uv run hale-llm-train --config configs/autoregressive_mtp/dense_nano.yaml --no-resume
 ```
+
+`autoregressive_moe_mtp` forces `model.ffn_type: moe` (as `autoregressive_moe` does); `autoregressive_mtp` takes it from the config.
 
 ## Configuration
 

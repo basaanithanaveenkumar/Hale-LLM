@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 import torch
 from torch import nn
 
-from hale_llm.nn.blocks import TransformerBlock
+from hale_llm.nn.blocks import build_blocks
 from hale_llm.nn.norm import RMSNorm
 from hale_llm.nn.positional.positional_encoding import PositionalEncoding
 
@@ -28,32 +26,14 @@ class MTPModule(nn.Module):
     normalised features (the trunk ends in a final norm).
     """
 
-    def __init__(
-        self,
-        d_model: int,
-        n_heads: int,
-        ffn_factory: Callable[[], nn.Module],
-        n_layers: int,
-        dropout: float,
-        norm_type: str,
-        positional: PositionalEncoding | None,
-    ) -> None:
+    def __init__(self, block_cfg, n_layers: int, positional: PositionalEncoding | None) -> None:
+        """``block_cfg`` is the model config the blocks are built from (see ``ModelConfig.mtp_block_config``)."""
         super().__init__()
+        d_model = block_cfg.d_model
         self.hidden_norm = RMSNorm(d_model)  # on the previous depth's hidden state
         self.embed_norm = RMSNorm(d_model)  # on the embedding of the token k steps ahead
         self.proj = nn.Linear(2 * d_model, d_model, bias=False)  # [2D] -> [D]
-        self.blocks = nn.ModuleList(
-            TransformerBlock(
-                d_model,
-                n_heads,
-                ffn=ffn_factory(),
-                dropout=dropout,
-                causal=True,
-                norm_type=norm_type,
-                positional=positional,
-            )
-            for _ in range(n_layers)
-        )
+        self.blocks = build_blocks(block_cfg, n_layers, positional)  # the same helper the trunk uses
         self.head_norm = RMSNorm(d_model)  # before the shared output head
 
     def forward(
@@ -73,10 +53,6 @@ class MTPModule(nn.Module):
         for block in self.blocks:
             merged = block(merged, positions, key_padding_mask)  # [B, L, D]
         return merged
-
-    def auxiliary_loss(self) -> torch.Tensor:
-        """Sum of the blocks' extra losses (MoE load balancing); zero for dense blocks."""
-        return torch.stack([block.auxiliary_loss() for block in self.blocks]).sum()
 
     def logits(self, hidden: torch.Tensor, lm_head: nn.Module) -> torch.Tensor:
         """Vocabulary scores from this depth's hidden state, using the trunk's output head: ``[B, L, V]``."""

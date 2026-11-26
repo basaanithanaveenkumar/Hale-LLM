@@ -146,7 +146,7 @@ class DryRun:
             return total, total
         # Every block with a mixture of experts: the trunk's, and the MTP depths' when the variant has them.
         mtp_depths = getattr(getattr(model, "mtp", None), "depths", [])
-        blocks = [*model.backbone.stack.layers, *(block for depth in mtp_depths for block in depth.blocks)]
+        blocks = [*model.backbone.layers, *(block for depth in mtp_depths for block in depth.blocks)]
         routed = sum(p.numel() for block in blocks for p in block.ffn.routed_experts.parameters())
         idle_share = 1 - model_cfg.moe_top_k / model_cfg.moe_num_experts
         return total, int(total - routed * idle_share)

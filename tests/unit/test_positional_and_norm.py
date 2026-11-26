@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from hale_llm.config.sections.model import ModelConfig
-from hale_llm.nn.backbones import TransformerBackbone, build_backbone
+from hale_llm.nn.backbones import TransformerBackbone
 from hale_llm.nn.norm import NORMS, RMSNorm, build_norm
 from hale_llm.nn.positional import (
     POSITIONAL_ENCODINGS,
@@ -76,7 +76,7 @@ def _tiny_cfg(**overrides) -> ModelConfig:
 def test_rope_is_the_default_and_adds_no_position_parameters():
     cfg = _tiny_cfg()
     assert cfg.pos_encoding == "rope"
-    backbone = build_backbone(50, cfg)
+    backbone = TransformerBackbone(50, cfg)
     assert isinstance(backbone, TransformerBackbone)
     assert isinstance(backbone.positional, RotaryPositionalEncoding)
     assert not any("table" in n for n, _ in backbone.named_parameters())
@@ -87,7 +87,7 @@ def test_rope_is_the_default_and_adds_no_position_parameters():
 @pytest.mark.parametrize("ffn", ["mlp", "moe"])
 def test_backbone_forward_for_every_combination(pos, norm, ffn):
     cfg = _tiny_cfg(pos_encoding=pos, norm_type=norm, ffn_type=ffn)
-    backbone = build_backbone(50, cfg)
+    backbone = TransformerBackbone(50, cfg)
     tokens = torch.randint(0, 50, (2, 16))
     logits = backbone(tokens)
     assert logits.shape == (2, 16, 50)
@@ -95,7 +95,7 @@ def test_backbone_forward_for_every_combination(pos, norm, ffn):
 
 
 def test_causality_is_preserved_with_rope():
-    backbone = build_backbone(50, _tiny_cfg()).eval()
+    backbone = TransformerBackbone(50, _tiny_cfg()).eval()
     a = torch.randint(0, 50, (1, 12))
     b = a.clone()
     b[0, 8:] = (b[0, 8:] + 1) % 50  # change only the future
@@ -104,17 +104,17 @@ def test_causality_is_preserved_with_rope():
 
 
 def test_padded_keys_do_not_produce_nan():
-    backbone = build_backbone(50, _tiny_cfg()).eval()
+    backbone = TransformerBackbone(50, _tiny_cfg()).eval()
     tokens = torch.randint(0, 50, (1, 8))
     mask = torch.tensor([[0, 0, 0, 1, 1, 1, 1, 1]])  # left padding: row 0 sees only pads
     assert torch.isfinite(backbone(tokens, attention_mask=mask)).all()
 
 
 def test_unknown_config_names_fail_at_build_time():
-    with pytest.raises(KeyError, match="positional encoding"):
-        build_backbone(50, _tiny_cfg(pos_encoding="alibi"))
-    with pytest.raises(KeyError, match="norm"):
-        build_backbone(50, _tiny_cfg(norm_type="batch"))
+    with pytest.raises(KeyError, match="positional_encoding.*registered=.*rope"):  # the registry lists the valid names
+        TransformerBackbone(50, _tiny_cfg(pos_encoding="alibi"))
+    with pytest.raises(KeyError, match="norm.*registered=.*rms"):
+        TransformerBackbone(50, _tiny_cfg(norm_type="batch"))
 
 
 def test_initial_loss_is_close_to_uniform_guessing():
@@ -123,7 +123,7 @@ def test_initial_loss_is_close_to_uniform_guessing():
     import torch.nn.functional as F
 
     vocab = 1000
-    backbone = build_backbone(vocab, _tiny_cfg())
+    backbone = TransformerBackbone(vocab, _tiny_cfg())
     tokens = torch.randint(0, vocab, (4, 16))
     loss = F.cross_entropy(backbone(tokens).reshape(-1, vocab), tokens.reshape(-1)).item()
     assert abs(loss - math.log(vocab)) < 1.0, loss  # huge embedding init gave ~sqrt(d_model)x too much

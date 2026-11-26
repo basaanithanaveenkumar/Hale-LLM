@@ -91,7 +91,7 @@ class TrainingLogger:
         scalars: dict[str, float] = {}
         maxima, minima = [], []
         backbone = getattr(model, "backbone", None)
-        layers = backbone.stack.layers if backbone is not None else []
+        layers = backbone.layers if backbone is not None else []
         for index, layer in enumerate(layers):
             share = getattr(layer.ffn, "expert_share", None)
             if share is None:

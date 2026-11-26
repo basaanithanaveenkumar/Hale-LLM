@@ -47,8 +47,3 @@ class TransformerBlock(nn.Module):
         # 2. Feed-forward block, with a residual connection.
         ffn_output = self.ffn(self.norm2(x))  # [B, S, D]
         return x + ffn_output
-
-    def auxiliary_loss(self) -> torch.Tensor:
-        """The feed-forward network's extra training loss (MoE load balancing), else 0."""
-        aux = getattr(self.ffn, "aux_loss", None)
-        return aux if aux is not None else torch.zeros((), device=next(self.parameters()).device)

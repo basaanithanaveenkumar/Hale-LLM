@@ -16,7 +16,7 @@ import torch.nn as nn
 from hale_llm.dataloader.collate import register_collate
 from hale_llm.dataloader.padding import pad_positions
 from hale_llm.models.models_autoregressive.variants import ALL_VARIANTS, DENSE_VARIANT, MOE_VARIANT
-from hale_llm.nn.backbones import build_backbone
+from hale_llm.nn.backbones import TransformerBackbone
 from hale_llm.registry import register_variant
 
 
@@ -46,7 +46,7 @@ class AutoregressiveLM(nn.Module):
 
     def __init__(self, vocab_size: int, cfg) -> None:
         super().__init__()
-        self.backbone = build_backbone(vocab_size, cfg.model)
+        self.backbone = TransformerBackbone(vocab_size, cfg.model)
         self.vocab_size = vocab_size
         self.cfg = cfg
         self.uses_moe = cfg.model.ffn_type == "moe"

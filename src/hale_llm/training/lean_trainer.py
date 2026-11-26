@@ -36,6 +36,7 @@ from hale_llm.runtime import CheckpointStore
 from hale_llm.registry import get_loss, get_variant
 from hale_llm.runtime import move_batch_to_device
 from hale_llm.dataloader.data_module import DataModule
+from hale_llm.nn.moe import auxiliary_loss
 from hale_llm.optim import build_optimizer
 from hale_llm.utils.device import get_device
 from hale_llm.training.context_schedule import ContextSchedule
@@ -294,7 +295,7 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
                 for name, value in getattr(plain_model, "loss_parts", {}).items():
                     part_sums[name] = part_sums.get(name, 0.0) + value / accum
                 if balance_coef:
-                    balance_loss += float(plain_model.backbone.auxiliary_loss().detach()) / accum
+                    balance_loss += float(auxiliary_loss(plain_model.backbone).detach()) / accum
             if not math.isfinite(step_loss):
                 raise FloatingPointError(f"non-finite loss at step {step}: {step_loss}")
 

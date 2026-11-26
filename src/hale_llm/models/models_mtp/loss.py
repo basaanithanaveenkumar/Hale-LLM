@@ -6,6 +6,7 @@ import torch
 
 from hale_llm.losses import model_token_nll
 from hale_llm.models.models_mtp.variants import ALL_VARIANTS
+from hale_llm.nn.moe import auxiliary_loss
 from hale_llm.registry import register_loss
 
 
@@ -46,7 +47,7 @@ def mtp_loss(model, batch: dict) -> torch.Tensor:
     # 3. Combine with the current lambda. lambda * mean_k == (lambda / D) * sum_k.
     loss = ntp_loss + model.mtp_weight * mtp_loss_mean
     if model.uses_moe:
-        loss = loss + cfg.moe_aux_loss_coef * model.auxiliary_loss()
+        loss = loss + cfg.moe_aux_loss_coef * auxiliary_loss(model)
 
     # 4. Remember the pieces for logging (detached: no extra graph).
     model.loss_parts = {

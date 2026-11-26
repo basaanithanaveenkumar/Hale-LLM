@@ -9,6 +9,7 @@ import torch.nn.functional as F
 import hale_llm.models  # noqa: F401
 from hale_llm.config.schema import load_config
 from hale_llm.config.sections.model import ModelConfig
+from hale_llm.nn.moe import auxiliary_loss
 from hale_llm.registry import get_loss, get_variant
 
 VOCAB, T = 40, 14
@@ -56,20 +57,20 @@ def test_each_extra_block_adds_exactly_one_blocks_worth_of_parameters():
 def test_the_feed_forward_width_can_differ_from_the_trunk_but_the_heads_cannot():
     model = _model(_cfg(mtp_d_ff=96))
     block = model.mtp.depths[0].blocks[0]
-    assert block.ffn.up.weight.shape[0] == 96 and model.backbone.stack.layers[0].ffn.up.weight.shape[0] == 64
-    assert len(block.attn.heads) == len(model.backbone.stack.layers[0].attn.heads) == 4  # they share the trunk's rotary positions
+    assert block.ffn.up.weight.shape[0] == 96 and model.backbone.layers[0].ffn.up.weight.shape[0] == 64
+    assert len(block.attn.heads) == len(model.backbone.layers[0].attn.heads) == 4  # they share the trunk's rotary positions
 
 
 def test_the_mtp_blocks_can_be_a_mixture_of_experts_while_the_trunk_is_dense():
     cfg = _cfg(mtp_ffn_type="moe", mtp_d_ff=48)
     model = _model(cfg).train()
-    assert type(model.backbone.stack.layers[0].ffn).__name__ == "FeedForward"
+    assert type(model.backbone.layers[0].ffn).__name__ == "FeedForward"
     assert type(model.mtp.depths[0].blocks[0].ffn).__name__ == "DeepseekMoE" and model.uses_moe
     ids = torch.randint(0, VOCAB, (2, T))
     labels = ids.clone()
     labels[:, :-1], labels[:, -1] = ids[:, 1:], -100
     loss = get_loss(cfg.variant)(model, {"input_ids": ids, "attention_mask": torch.ones_like(ids), "labels": labels})
-    assert model.mtp.auxiliary_loss() > 0 and model.backbone.auxiliary_loss() == 0  # the balancing loss comes from MTP only
+    assert auxiliary_loss(model.mtp) > 0 and auxiliary_loss(model.backbone) == 0  # the balancing loss comes from MTP only
     loss.backward()
     expert = model.mtp.depths[0].blocks[0].ffn.routed_experts[0]
     assert expert.w1.weight.shape[0] == 48  # mtp_d_ff is the expert width

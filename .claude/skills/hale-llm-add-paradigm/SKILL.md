@@ -8,8 +8,9 @@ description: Add a new model variant to HALE-LLM as a models_<name> package with
 1. Create `src/hale_llm/models/models_<name>/` with:
    - `model.py`: an `nn.Module` decorated with `@register_variant("<name>")`, constructed as
      `Model(vocab_size, cfg)`, whose `forward(batch)` returns logits. Build the network with
-     `hale_llm.nn.backbones.build_backbone(vocab_size, cfg.model, ffn_type=...)` or compose the
-     blocks in `hale_llm.nn` yourself.
+     `hale_llm.nn.backbones.TransformerBackbone(vocab_size, cfg.model)` or compose the
+     blocks (`hale_llm.nn.blocks.build_blocks`) yourself. To add the MoE balancing loss, call
+     `hale_llm.nn.moe.auxiliary_loss(model)` after the forward pass.
    - `loss.py`: `@register_loss("<name>")`, `(model, batch) -> scalar`. Use `model_token_nll` so
      `train.loss_type` keeps working.
    - `sample.py`: `@register_sampler("<name>")`, returns the generated ids; stop at EOS.

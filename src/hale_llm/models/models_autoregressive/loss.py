@@ -4,6 +4,7 @@ import torch
 
 from hale_llm.losses import model_token_nll
 from hale_llm.models.models_autoregressive.variants import ALL_VARIANTS
+from hale_llm.nn.moe import auxiliary_loss
 from hale_llm.registry import register_loss
 
 
@@ -18,7 +19,7 @@ def autoregressive_loss(model, batch: dict) -> torch.Tensor:
         reduction="mean",
     )
     if model.training and getattr(model, "uses_moe", False):
-        loss = loss + model.cfg.model.moe_aux_loss_coef * model.backbone.auxiliary_loss()
+        loss = loss + model.cfg.model.moe_aux_loss_coef * auxiliary_loss(model)
     return loss
 
 

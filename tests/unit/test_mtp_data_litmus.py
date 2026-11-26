@@ -57,8 +57,9 @@ def counting_pipeline(monkeypatch):
     return tokenizer
 
 
-def _cfg(tmp_path):
+def _cfg(tmp_path, variant="autoregressive_mtp"):
     cfg = load_config("configs/autoregressive_mtp/dense_nano.yaml")
+    cfg.variant, cfg.model.ffn_type, cfg.model.moe_hidden_dim = variant, "moe" if "moe" in variant else "mlp", 48
     cfg.data.source = "huggingface"
     cfg.data.train_size = cfg.data.val_size = None
     cfg.set_context_window(WINDOW)
@@ -75,8 +76,9 @@ def _cfg(tmp_path):
     return cfg
 
 
-def test_every_head_predicts_the_right_step_ahead_from_data_to_decoder(counting_pipeline, tmp_path):
-    cfg = _cfg(tmp_path)
+@pytest.mark.parametrize("variant", ["autoregressive_mtp", "autoregressive_moe_mtp"])
+def test_every_head_predicts_the_right_step_ahead_from_data_to_decoder(variant, counting_pipeline, tmp_path):
+    cfg = _cfg(tmp_path, variant)
     tokenizer = counting_pipeline
     train_lean(cfg, tokenizer=tokenizer)  # real windows, real collate, real loss, real optimizer, real checkpoint
     session = load_session(cfg, tokenizer=tokenizer, require_checkpoint=True)  # checkpoint -> model

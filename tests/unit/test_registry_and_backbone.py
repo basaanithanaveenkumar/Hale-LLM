@@ -2,14 +2,14 @@ import torch
 
 import hale_llm.models  # noqa: F401
 from hale_llm.config.sections.model import ModelConfig
-from hale_llm.nn.backbones import TransformerBackbone, build_backbone
+from hale_llm.nn.backbones import TransformerBackbone
 from hale_llm.optim import OPTIMIZERS, build_optimizer
 from hale_llm.registry import MODELS, get_variant
 from hale_llm.runtime import format_model_summary
 
 
 def test_registry_has_all_variants():
-    assert set(MODELS) == {"autoregressive", "autoregressive_moe", "autoregressive_mtp"}
+    assert set(MODELS) == {"autoregressive", "autoregressive_moe", "autoregressive_mtp", "autoregressive_moe_mtp"}
 
 
 def test_get_variant_unknown_lists_options():
@@ -22,8 +22,7 @@ def test_get_variant_unknown_lists_options():
 
 def test_backbone_forward_shape():
     cfg = ModelConfig(d_model=16, n_heads=4, n_layers=1, d_ff=32, max_length=8)
-    model = build_backbone(32, cfg)
-    assert isinstance(model, TransformerBackbone)
+    model = TransformerBackbone(32, cfg)
     assert model(torch.randint(0, 32, (2, 8))).shape == (2, 8, 32)
 
 

@@ -114,7 +114,7 @@ def test_the_dry_run_counts_active_parameters_in_the_mtp_blocks_too(tmp_path):
     cfg = _cfg(tmp_path, depth=2, ffn_type="moe")
     total, active = DryRun(cfg)._count_parameters(vocab_size=64)
     model = get_variant(cfg.variant)(vocab_size=64, cfg=cfg)
-    blocks = [*model.backbone.stack.layers, *(b for d in model.mtp.depths for b in d.blocks)]
+    blocks = [*model.backbone.layers, *(b for d in model.mtp.depths for b in d.blocks)]
     routed = sum(p.numel() for b in blocks for p in b.ffn.routed_experts.parameters())
     assert total == sum(p.numel() for p in model.parameters())
     assert active == int(total - routed * (1 - cfg.model.moe_top_k / cfg.model.moe_num_experts))
