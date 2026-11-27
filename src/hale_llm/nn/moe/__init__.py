@@ -1,5 +1,6 @@
 """Mixture-of-experts layers. Importing this package registers the routers."""
 
+from hale_llm.nn.moe.auxiliary_loss import auxiliary_loss
 from hale_llm.nn.moe.best_k_router import BestKRouter
 from hale_llm.nn.moe.deepseek_moe import DeepseekMoE
 from hale_llm.nn.moe.expert import Expert
@@ -16,6 +17,7 @@ __all__ = [
     "NoisyBestKRouter",
     "Router",
     "RouterOutput",
+    "auxiliary_loss",
     "build_router",
     "register_router",
 ]

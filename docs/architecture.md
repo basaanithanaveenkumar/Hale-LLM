@@ -1,12 +1,17 @@
 # Architecture
 
-One decoder-only transformer, in two flavours: a dense feed-forward network, or a DeepSeek-style
-mixture of experts. Both are model *variants* chosen by `variant:` in the YAML.
+One decoder-only transformer, in four flavours: a dense feed-forward network, a DeepSeek-style
+mixture of experts, or either of them with DeepSeek-V3 style multi-token prediction on top
+([mtp.md](mtp.md)). All are model *variants* chosen by `variant:` in the YAML.
 
 ```mermaid
 flowchart LR
   V{"variant"} -- autoregressive --> D["AutoregressiveLM<br/>ffn = model.ffn_type (mlp)"]
   V -- autoregressive_moe --> M["MoEAutoregressiveLM<br/>ffn = moe"]
+  V -- autoregressive_mtp --> P["MTPAutoregressiveLM<br/>trunk (dense or moe) + mtp_depth MTP modules"]
+  V -- autoregressive_moe_mtp --> Q["MoEMTPAutoregressiveLM<br/>moe trunk + moe MTP blocks"]
+  P --> B
+  Q --> B
   D --> B["TransformerBackbone"]
   M --> B
   B --> L["registered loss<br/>next-token NLL (+ MoE balance loss)"]
@@ -25,9 +30,9 @@ flowchart TB
   H --> O["logits"]
 ```
 
-`TransformerBackbone` (`nn/backbones/`) owns the embedding, the positional encoding, the stack
-(`DecoderTransformer`) and the output head. The positional encoding and the norm are looked up by
-name (`model.pos_encoding`, `model.norm_type`), the feed-forward by `model.ffn_type`; each lookup is a
+`TransformerBackbone` (`nn/backbones/`) owns the embedding, the positional encoding, the list of blocks
+(`layers`, built by `build_blocks` in `nn/blocks/`), the final `norm` and the output head. `encode()` returns the hidden
+states and `forward()` adds the head. The positional encoding and the norm are looked up by name (`model.pos_encoding`, `model.norm_type`), the feed-forward by `model.ffn_type`; each lookup is a
 registry, so a new choice is one decorated class.
 
 ## One block

@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 
 import torch
-from loguru import logger
 
 from hale_llm.runtime import CheckpointStore
 
@@ -32,8 +31,20 @@ class ResumeCheckpoint:
         self.store = store or CheckpointStore()
 
     # ----- saving -----
-    def save(self, *, step: int, tokens_seen: int, stream_batches: int, total_steps: int,
-             variant: str, vocab_size: int, model, optimizer, precision, elapsed_seconds: float = 0.0) -> None:
+    def save(
+        self,
+        *,
+        step: int,
+        tokens_seen: int,
+        stream_batches: int,
+        total_steps: int,
+        variant: str,
+        vocab_size: int,
+        model,
+        optimizer,
+        precision,
+        elapsed_seconds: float = 0.0,
+    ) -> None:
         """Write the state after ``step`` completed optimizer steps, ``elapsed_seconds`` of training in."""
         self.store.save(
             str(self.path),
@@ -58,7 +69,9 @@ class ResumeCheckpoint:
             return None
         return self.store.load(str(self.path), map_location="cpu")
 
-    def apply(self, state: dict, *, model, optimizer, precision, variant: str, vocab_size: int) -> None:
+    def apply(
+        self, state: dict, *, model, optimizer, precision, variant: str, vocab_size: int
+    ) -> None:
         """Put the saved weights, optimizer, loss scale and random state back."""
         # Step 1: refuse a checkpoint from a different model instead of failing deep inside load_state_dict.
         if state["variant"] != variant or state["vocab_size"] != vocab_size:
@@ -73,7 +86,11 @@ class ResumeCheckpoint:
         # Step 3: random state, so dropout and router noise continue as if nothing had happened.
         torch.set_rng_state(state["cpu_rng_state"])
         cuda_state = state.get("cuda_rng_state")
-        if cuda_state is not None and torch.cuda.is_available() and len(cuda_state) == torch.cuda.device_count():
+        if (
+            cuda_state is not None
+            and torch.cuda.is_available()
+            and len(cuda_state) == torch.cuda.device_count()
+        ):
             torch.cuda.set_rng_state_all(cuda_state)
 
     # ----- finishing -----
@@ -98,5 +115,7 @@ class ResumeCheckpoint:
         """Forget any earlier run (a fresh start must not be mistaken for a resumable one later)."""
         self.path.unlink(missing_ok=True)
         self.complete_path.unlink(missing_ok=True)
-        for leftover in self.path.parent.glob("*.tmp"):  # temp files from a save that was interrupted
+        for leftover in self.path.parent.glob(
+            "*.tmp"
+        ):  # temp files from a save that was interrupted
             os.remove(leftover)

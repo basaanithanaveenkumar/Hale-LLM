@@ -5,3 +5,4 @@ collate, each registered under the variant name), one import here, one YAML unde
 """
 
 from hale_llm.models import models_autoregressive as _autoregressive  # noqa: F401
+from hale_llm.models import models_mtp as _mtp  # noqa: F401

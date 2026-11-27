@@ -47,11 +47,12 @@ class DryRunReport:
     seconds_per_step: float
     peak_memory_gb: float | None
     notes: list[str]
+    loss_scale: float = 1.0  # a fresh model's loss is ln(vocab) x this (above 1 when the loss has extra terms)
 
     @property
     def expected_first_loss(self) -> float:
         """A model that guesses uniformly scores ``ln(vocab)``; a fresh model should be close."""
-        return math.log(self.vocab_size)
+        return math.log(self.vocab_size) * self.loss_scale
 
     def format(self) -> str:
         lines = [
@@ -60,7 +61,7 @@ class DryRunReport:
             f"parameters at the real vocabulary ({self.vocab_size:,} tokens): "
             f"{self.total_params / 1e6:.1f}M total, {self.active_params / 1e6:.1f}M active per token",
             f"losses over {len(self.losses)} steps: " + ", ".join(f"{x:.3f}" for x in self.losses),
-            f"first loss {self.losses[0]:.2f} vs ln(vocab) {self.expected_first_loss:.2f} "
+            f"first loss {self.losses[0]:.2f} vs expected {self.expected_first_loss:.2f} (ln(vocab) x {self.loss_scale:g}) "
             "(a fresh model should be within about 1.0 of it)",
             f"speed: {self.seconds_per_step:.2f} s/step (steps 2-{len(self.losses)}, first step excluded)",
         ]
@@ -101,7 +102,7 @@ class DryRun:
         report = DryRunReport(
             variant=cfg.variant, device=device, vocab_size=tokenizer_vocab, total_params=total,
             active_params=active, losses=losses, seconds_per_step=seconds_per_step,
-            peak_memory_gb=peak, notes=notes,
+            peak_memory_gb=peak, notes=notes, loss_scale=get_variant(cfg.variant).initial_loss_scale(cfg),
         )
         self._check(report)
         return report
@@ -143,7 +144,10 @@ class DryRun:
         model_cfg = self._cfg.model
         if model_cfg.ffn_type != "moe":
             return total, total
-        routed = sum(p.numel() for layer in model.backbone.stack.layers for p in layer.ffn.routed_experts.parameters())
+        # Every block with a mixture of experts: the trunk's, and the MTP depths' when the variant has them.
+        mtp_depths = getattr(getattr(model, "mtp", None), "depths", [])
+        blocks = [*model.backbone.layers, *(block for depth in mtp_depths for block in depth.blocks)]
+        routed = sum(p.numel() for block in blocks for p in block.ffn.routed_experts.parameters())
         idle_share = 1 - model_cfg.moe_top_k / model_cfg.moe_num_experts
         return total, int(total - routed * idle_share)
 

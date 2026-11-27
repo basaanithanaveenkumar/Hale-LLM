@@ -1,0 +1,26 @@
+# Multi-token prediction (DeepSeek-V3 style) on top of the nano DENSE model, with the documented defaults.
+# (configs/autoregressive_mtp/nano.yaml is the mixture-of-experts one that you tune; the tests use this file.)
+# Total loss = next_token + lambda * (1 / mtp_depth) * sum_k loss_k, where depth k predicts t_{i+k+1}.
+inherits: ../autoregressive/nano.yaml
+variant: autoregressive_mtp
+
+model:
+  # Tokens predicted at once, per position: the main head predicts t+1, and each MTP depth k predicts one
+  # more token ahead. mtp_depth: 1 -> 1 + 1 = 2 tokens: t+1 (main) and t+2 (depth 1). With mtp_depth: 4 it
+  # would be 5 tokens: t+1 (main) and t+2 .. t+5 (depths 1-4).
+  mtp_depth: 1
+  # Lambda follows DeepSeek-V3's step schedule: 0.3 for the first 68% of the steps, then 0.1
+  # (10T of 14.8T tokens). Use the same schedule when comparing depths. mtp_loss_weight_final: null = constant.
+  mtp_loss_weight: 0.3
+  mtp_loss_weight_final: 0.1
+  mtp_switch_fraction: 0.68
+  # The transformer block(s) in each depth. Width and heads are the trunk's; the rest defaults to the trunk's values.
+  mtp_n_layers: 1         # blocks per depth (DeepSeek-V3: 1)
+
+sample:
+  speculative: true       # generate with the MTP depth(s) as the draft model (exact; faster in trunk passes)
+
+experiment:
+  enabled: true
+  root: data/experiments
+  name: mtp_dense_nano

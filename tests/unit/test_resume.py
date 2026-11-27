@@ -139,7 +139,7 @@ class Interrupted(Exception):
 def _cfg(tmp_path, *, variant="autoregressive", optimizer="adamw", precision="fp32", steps=40, save_every=10):
     cfg = load_config("configs/autoregressive/small.yaml")
     cfg.variant = variant
-    cfg.model.ffn_type = "moe" if variant == "autoregressive_moe" else "mlp"
+    cfg.model.ffn_type = "moe" if variant.startswith("autoregressive_moe") else "mlp"
     cfg.model.moe_hidden_dim = 64
     cfg.train.steps, cfg.train.epochs, cfg.train.batch_size = steps, None, 4
     cfg.train.lr, cfg.train.optimizer_type, cfg.train.log_every = 3e-3, optimizer, 10
@@ -173,6 +173,8 @@ def _interrupt_after(step_index):
         ("autoregressive", "adamw", "fp32"),
         ("autoregressive", "muon", "fp16"),        # optimizer state of both groups + the loss scaler
         ("autoregressive_moe", "adamw", "fp32"),   # the router noise depends on the restored random state
+        ("autoregressive_mtp", "adamw", "fp32"),   # the MTP modules are part of the model and the optimizer
+        ("autoregressive_moe_mtp", "adamw", "fp32"),  # mixture-of-experts trunk and MTP blocks, lambda crossing its switch
     ],
 )
 def test_an_interrupted_run_resumes_to_exactly_the_uninterrupted_result(variant, optimizer, precision, tiny_tokenizer, tmp_path):

@@ -96,10 +96,10 @@ def test_windows_come_from_the_trained_tokenizer_with_eos_between_documents(cfg)
 
 
 def test_yarn_lets_the_extended_model_run_beyond_its_trained_window(cfg):
-    from hale_llm.nn.backbones import build_backbone
+    from hale_llm.nn.backbones import TransformerBackbone
 
     model_cfg = cfg.model.model_copy(update={"rope_scaling": "yarn", "rope_scaling_factor": 4.0, "rope_original_length": 4096, "max_length": 128})
-    backbone = build_backbone(100, model_cfg)
+    backbone = TransformerBackbone(100, model_cfg)
     assert "yarn" in backbone.positional.describe()
     out = backbone(torch.randint(0, 100, (1, 128)))
     assert out.shape == (1, 128, 100) and torch.isfinite(out).all()

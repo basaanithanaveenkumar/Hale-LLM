@@ -29,12 +29,13 @@ class DataModule:
                 cfg.model.max_length,
                 cfg.train.batch_size,
                 cfg.data.n_overfit_copies,
+                document_masking=cfg.model.document_masking,
             )
-        return make_dataloader(cfg, split="train")
+        return make_dataloader(cfg, split="train", document_masking=cfg.model.document_masking)
 
     def val_loader(self, train_loader: DataLoader | None = None) -> DataLoader:
         if uses_overfit(self.cfg):
             if train_loader is None:
                 return self.train_loader()
             return train_loader
-        return make_dataloader(self.cfg, split="validation")
+        return make_dataloader(self.cfg, split="validation", document_masking=self.cfg.model.document_masking)

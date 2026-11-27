@@ -1,0 +1,29 @@
+# Multi-token prediction (DeepSeek-V3 style) on top of the nano MIXTURE-OF-EXPERTS model
+# (1 shared + 4 routed experts per layer, top 2). The MTP blocks are mixture-of-experts too.
+# Total loss = next_token + lambda * (1 / mtp_depth) * sum_k loss_k, where depth k predicts t_{i+k+1}.
+inherits: ../autoregressive_moe/nano.yaml
+variant: autoregressive_moe_mtp
+
+model:
+  # Tokens predicted at once, per position: the main head predicts t+1, and each MTP depth k predicts one
+  # more token ahead. mtp_depth: 1 -> 1 + 1 = 2 tokens: t+1 (main) and t+2 (depth 1). With mtp_depth: 4 it
+  # would be 5 tokens: t+1 (main) and t+2 .. t+5 (depths 1-4).
+  mtp_depth: 1
+  # Lambda follows a step schedule like DeepSeek-V3's (which used 0.3, then 0.1, switching after 10T of 14.8T
+  # tokens): here 0.7 for the first 68% of the steps, then 0.5. Use the same schedule when comparing depths.
+  # mtp_loss_weight_final: null = constant.
+  mtp_loss_weight: 0.7
+  mtp_loss_weight_final: 0.5
+  mtp_switch_fraction: 0.68
+  # The transformer block(s) in each depth. Width and heads are the trunk's; the rest defaults to the trunk's values.
+  mtp_n_layers: 2         # blocks per depth (DeepSeek-V3: 1)
+  # mtp_d_ff: 384         # None = the trunk's d_ff (the expert width)
+  # mtp_ffn_type: mlp     # None = the trunk's ffn_type, here moe (mlp | moe)
+
+sample:
+  speculative: true       # generate with the MTP depth(s) as the draft model (exact; faster in trunk passes)
+
+experiment:
+  enabled: true
+  root: data/experiments
+  name: mtp_moe_nano

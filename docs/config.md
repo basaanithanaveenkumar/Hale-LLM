@@ -78,6 +78,13 @@ One decoder-only transformer. The blocks are pre-norm: `x + attention(norm(x))`,
 | `ffn_activation` | `gelu` \| `relu` \| `silu` \| `swiglu` \| `geglu` \| `reglu` | `gelu` | Activation of the dense `mlp`. The gated ones (`*glu`) add a third matrix (`ffn.gate`), so the layer is 1.5x larger at the same `d_ff`. |
 | `moe_activation` | same names | `swiglu` | Activation of every expert, same options; gated ones have a third matrix `w3`. |
 | `moe_aux_loss_coef` | float | `0.01` | Weight of the load-balancing loss added to the training loss (training only). |
+| `mtp_depth` | int | `1` | `autoregressive_mtp` only: number of multi-token-prediction depths D. Tokens predicted per position = 1 (main head) + D. See `docs/mtp.md`. |
+| `mtp_loss_weight` | float | `0.3` | `autoregressive_mtp` only: lambda in `next_token + lambda * (1/D) * sum(depth losses)` for the first part of training (training only). |
+| `mtp_loss_weight_final` | float \| `null` | `0.1` | Lambda after the switch (DeepSeek-V3's step schedule). `null` = keep `mtp_loss_weight` for the whole run. |
+| `mtp_switch_fraction` | float | `0.68` | Where the switch happens, as a fraction of the training steps (V3: 10 / 14.8). |
+| `mtp_n_layers` | int | `1` | Transformer blocks per MTP depth. |
+| `mtp_d_ff` | int \| `null` | `null` | Feed-forward (or expert) width of the MTP blocks; `null` = `d_ff`. |
+| `mtp_ffn_type` | `mlp` \| `moe` \| `null` | `null` | Feed-forward type of the MTP blocks; `null` = `ffn_type`. |
 
 ---
 
@@ -190,6 +197,7 @@ Used by `hale-llm-sample`, `hale-llm-infer` and `hale-llm-chat`.
 | `max_new_tokens` | int | `32` / `64` | Tokens to generate; generation also stops at EOS. |
 | `temperature` | float | `1.0` | Softmax temperature. Lower = steadier text. |
 | `prompt` | string | `"hello"` | Default prompt. CLI `--prompt` overrides. |
+| `speculative` | bool | `true` | `autoregressive_mtp` only: draft with the MTP depths and verify with the trunk (exact); `false` = plain sampling. |
 
 ---
 

@@ -1,0 +1,10 @@
+# For the 2B configs (configs/mtp_2b/): an 80 GB GPU and enough disk for the large checkpoints.
+#   uv run hale-llm-cloud --cloud configs/cloud/jarvislabs_a100_80gb.yaml launch --config configs/mtp_2b/baseline.yaml --dry-run
+gpu_type: A100-80GB
+num_gpus: 1
+region: IN2
+storage_gb: 200           # resume.pt + last.pt + best/ are tens of GB each
+template: pytorch
+spot: false               # a 5-hour run: on-demand. With spot: true it resumes from resume.pt after an interruption
+name_prefix: hale
+remote_dir: /home/hale-llm

@@ -8,7 +8,7 @@ import torch
 import hale_llm.models  # noqa: F401
 from hale_llm.config.schema import RunConfig
 from hale_llm.nn.blocks import TransformerBlock, build_ffn
-from hale_llm.nn.backbones import DecoderTransformer
+from hale_llm.nn.moe import auxiliary_loss
 from hale_llm.nn.positional import build_positional_encoding
 from hale_llm.registry import get_loss, get_sampler, get_variant
 
@@ -48,7 +48,7 @@ def test_moe_variant_forces_moe_and_adds_the_balance_loss():
     moe = get_variant("autoregressive_moe")(vocab_size=50, cfg=_cfg("autoregressive_moe", ffn_type="mlp"))  # config overrides to moe
     assert not dense.uses_moe and moe.uses_moe
     assert sum(p.numel() for p in moe.parameters()) > sum(p.numel() for p in dense.parameters())
-    assert float(dense.backbone.auxiliary_loss()) == 0.0
+    assert float(auxiliary_loss(dense)) == 0.0
 
     batch = _batch()
     moe.train()
@@ -85,10 +85,9 @@ def test_block_residual_structure_and_pluggable_ffn():
     block = TransformerBlock(32, 4, ffn=build_ffn("mlp", cfg), causal=True)
     x = torch.randn(2, 5, 32)
     assert block(x).shape == x.shape
-    stack = DecoderTransformer(2, 32, 4, ffn_factory=lambda: build_ffn("moe", cfg),
-                               positional=build_positional_encoding("rope", head_dim=8))
-    assert stack(x).shape == x.shape
-    assert float(stack.auxiliary_loss()) >= 0.0
+    moe_block = TransformerBlock(32, 4, ffn=build_ffn("moe", cfg), positional=build_positional_encoding("rope", head_dim=8))
+    assert moe_block(x).shape == x.shape
+    assert float(auxiliary_loss(moe_block)) >= 0.0
 
 
 def test_unknown_ffn_lists_options():
@@ -126,7 +125,7 @@ def test_initialisation_is_gpt_style_and_residual_outputs_are_scaled():
     assert backbone.token_emb.weight.std().item() == pytest.approx(0.02, rel=0.1)
     assert backbone.lm_head.weight is backbone.token_emb.weight  # tied
     expected = 0.02 / math.sqrt(2 * 8)
-    layer = backbone.stack.layers[0]
+    layer = backbone.layers[0]
     assert layer.attn.proj.weight.std().item() == pytest.approx(expected, rel=0.25)
     assert layer.ffn.routed_experts[0].w2.weight.std().item() == pytest.approx(expected, rel=0.25)
     assert layer.attn.proj.bias.abs().max().item() == 0.0

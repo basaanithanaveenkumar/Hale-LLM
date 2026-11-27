@@ -24,7 +24,9 @@ class ResumableBatches:
         self.batches_per_epoch = len(loader)
         if self.batches_per_epoch < 1:
             raise ValueError("the training loader has no batches")
-        self.consumed = start_batch  # micro-batches handed out so far (saved in the resume checkpoint)
+        self.consumed = (
+            start_batch  # micro-batches handed out so far (saved in the resume checkpoint)
+        )
         self._batches = self._generate(start_batch)
 
     def __iter__(self) -> Iterator[dict]:
@@ -38,7 +40,9 @@ class ResumableBatches:
     def _epoch_index_batches(self, epoch: int) -> list[list[int]]:
         """The dataset indices of every batch of one epoch, shuffled by a generator seeded from the epoch."""
         sampler = self.loader.batch_sampler.sampler
-        if hasattr(sampler, "generator"):  # a RandomSampler; a sequential one is already deterministic
+        if hasattr(
+            sampler, "generator"
+        ):  # a RandomSampler; a sequential one is already deterministic
             sampler.generator = torch.Generator().manual_seed(self.seed * 1_000_003 + epoch)
         return list(self.loader.batch_sampler)
 

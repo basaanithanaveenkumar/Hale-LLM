@@ -1,0 +1,62 @@
+# 2B-parameter baseline: the architecture shared by `baseline.yaml` (no MTP) and `mtp.yaml` (1 MTP depth).
+# Compare the two: they differ only in `variant` and the MTP settings, with the same data, seed and batch.
+#
+#   model     38 layers, width 2048, 16 heads (head dim 128), feed-forward 8192, RMSNorm, RoPE, tied embeddings
+#   size      1.98B parameters without MTP; 2.04B with 1 MTP depth (each depth adds 59M: one block + its projection)
+#   data      TinyStories, 1,000,000 stories (~113M tokens), context 1024, one epoch (~6,900 steps)
+#   tokenizer the shared 32,768-token tokenizer from configs/base.yaml
+#
+# Memory (fp32 weights, gradients and AdamW state = 16 bytes per parameter; the forward runs in bf16):
+#   weights + optimizer  baseline 31.7 GB | MTP 32.6 GB
+#   activations          ~6.8 MB per token (baseline) | ~7.1 MB per token (MTP, 1 depth)  [measured, fp32]
+# Estimated peak at micro-batch b x 1024 tokens (conservative: scaled from fp32 and calibrated on the measured
+# dense runs; bf16 autocast should use less):
+#   micro-batch 2 -> baseline ~55 GB, MTP ~57 GB     micro-batch 3 -> ~67 / ~70 GB     micro-batch 4 -> ~79 / ~82 GB
+# So micro-batch 2 x 8 accumulation steps (16 sequences = 16,384 tokens per step) fits an 80 GB GPU (A100-80GB).
+# These are estimates, not measurements: run `--dry-run` on the GPU first; it prints the real peak memory.
+# Keep batch_size x accum_steps = 16 and the same values for both runs.
+#
+# Disk: last.pt and resume.pt hold weights + optimizer (~24-27 GB each, resume.pt is written next to a temp copy),
+# best/ checkpoints hold weights only (~8-9 GB each). Use at least 200 GB of storage (configs/cloud/jarvislabs_a100_80gb.yaml).
+inherits: ../base.yaml
+variant: autoregressive
+device: cuda
+
+model:
+  d_model: 2048
+  n_heads: 16
+  n_layers: 38
+  d_ff: 8192
+  ffn_type: mlp
+  dropout: 0.0
+  pos_encoding: rope
+  norm_type: rms
+
+data:
+  context_window: 1024
+  train_size: 1000000      # tokenizing this many stories takes a few minutes on the instance
+  val_size: 2000
+
+train:
+  steps: null
+  epochs: 1
+  batch_size: 2            # micro-batch; with accum_steps below, 16 x 1024 = 16,384 tokens per step
+  lr: 0.0003
+  weight_decay: 0.1
+  grad_clip: 1.0
+  log_every: 50
+  seed: 0
+  lean:
+    accum_steps: 8
+    warmup_steps: 200
+    warmdown_frac: 0.2
+    eval_every: 500
+    eval_batches: 20
+    save_every: 1000       # resume checkpoint (large: ~24-27 GB); a spot interruption costs at most 1000 steps
+    keep_best: 2           # each best checkpoint is ~8-9 GB
+    best_by: loss
+    precision: bf16
+    compile: false
+
+logging:
+  tensorboard: true

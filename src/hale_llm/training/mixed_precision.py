@@ -43,7 +43,9 @@ class MixedPrecision:
         if precision == "bf16" and device == "cuda" and not torch.cuda.is_bf16_supported():
             raise ValueError("this GPU does not support bf16; use train.lean.precision: fp16")
         mixed = cls(device, _DTYPES.get(precision))
-        logger.info("precision={} on {} (loss scaling: {})", precision, device, mixed.scaler.is_enabled())
+        logger.info(
+            "precision={} on {} (loss scaling: {})", precision, device, mixed.scaler.is_enabled()
+        )
         return mixed
 
     @property
@@ -61,7 +63,9 @@ class MixedPrecision:
         """Backpropagate; with fp16 the loss is scaled up first so small gradients survive."""
         self.scaler.scale(loss).backward()
 
-    def clip_and_step(self, optimizer, parameters: Iterable[torch.Tensor], max_norm: float) -> float:
+    def clip_and_step(
+        self, optimizer, parameters: Iterable[torch.Tensor], max_norm: float
+    ) -> float:
         """Unscale gradients, clip their global norm, update the weights. Returns the true grad norm.
 
         With fp16, an overflow (inf/nan gradients) makes the scaler skip the update and lower

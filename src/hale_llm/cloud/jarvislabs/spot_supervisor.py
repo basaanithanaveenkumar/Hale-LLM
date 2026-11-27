@@ -12,7 +12,8 @@ from hale_llm.cloud.jarvislabs.instance_manager import InstanceManager
 from hale_llm.cloud.jarvislabs.remote_training_job import RemoteTrainingJob
 from hale_llm.cloud.jarvislabs.settings import JarvisSettings
 
-_INTERRUPTED_STATUSES = ("Paused", "Pausing")  # what Jarvislabs shows after it takes a spot GPU back
+# What Jarvislabs shows after it takes a spot GPU back.
+_INTERRUPTED_STATUSES = ("Paused", "Pausing")
 _MAX_TRANSIENT_FAILURES = 3  # consecutive failed polls on a *running* instance before giving up
 
 
@@ -25,9 +26,16 @@ class SpotSupervisor:
     ``machine_id`` always holds the current id, because resuming can change it.
     """
 
-    def __init__(self, manager: InstanceManager, job: RemoteTrainingJob, settings: JarvisSettings,
-                 machine_id: int, train_args: list[str], poll_seconds: float = 60.0,
-                 sleep: Callable[[float], None] = time.sleep) -> None:
+    def __init__(
+        self,
+        manager: InstanceManager,
+        job: RemoteTrainingJob,
+        settings: JarvisSettings,
+        machine_id: int,
+        train_args: list[str],
+        poll_seconds: float = 60.0,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
         self.manager, self.job, self.settings = manager, job, settings
         self.machine_id = machine_id
         self.train_args = train_args
@@ -59,11 +67,23 @@ class SpotSupervisor:
     def _recover(self, status: str) -> None:
         """Resume the instance and restart training, which then resumes from its last checkpoint."""
         if not self.settings.spot:
-            raise CloudError(f"instance {self.machine_id} is {status} but it is not a spot instance, so it was paused by someone else; not restarting")
+            raise CloudError(
+                f"instance {self.machine_id} is {status} but it is not a spot instance, so it was paused "
+                "by someone else; not restarting"
+            )
         self.restarts += 1
         if self.restarts > self.settings.max_restarts:
-            raise CloudError(f"interrupted {self.restarts} times (max_restarts={self.settings.max_restarts}); giving up")
-        logger.warning("instance {} was interrupted ({}); recovery {}/{}", self.machine_id, status, self.restarts, self.settings.max_restarts)
+            raise CloudError(
+                f"interrupted {self.restarts} times (max_restarts={self.settings.max_restarts}); giving up"
+            )
+        logger.warning(
+            "instance {} was interrupted ({}); recovery {}/{}",
+            self.machine_id,
+            status,
+            self.restarts,
+            self.settings.max_restarts,
+        )
         self.machine_id = self.manager.resume(self.machine_id)
-        self.job.deploy(self.machine_id)  # the disk is kept, but this also covers a replaced instance
+        # The disk is kept, but re-deploying also covers a replaced instance.
+        self.job.deploy(self.machine_id)
         self.job.start(self.machine_id, self.train_args)

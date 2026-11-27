@@ -1,4 +1,4 @@
-"""Token embedding, decoder stack and (tied) language-model head."""
+"""The decoder-only transformer: token embedding, transformer blocks, final norm and a (tied) output head."""
 
 from __future__ import annotations
 
@@ -8,17 +8,23 @@ import torch
 from loguru import logger
 from torch import nn
 
-from hale_llm.nn.backbones.decoder_transformer import DecoderTransformer
-from hale_llm.nn.blocks import FeedForward, build_ffn
+from hale_llm.nn.attention import cross_document_mask
+from hale_llm.nn.blocks import build_blocks
+from hale_llm.nn.blocks.residual_init import init_linear_and_embedding, scale_residual_outputs
+from hale_llm.nn.norm import build_norm
 from hale_llm.nn.positional import build_positional_encoding
 
 
 class TransformerBackbone(nn.Module):
-    """``token ids -> logits`` over the vocabulary.
+    """``token ids -> hidden states -> logits`` over the vocabulary.
 
-    The positional encoding comes from the registry (``model.pos_encoding``), the norm
-    from ``model.norm_type`` and the feed-forward network from ``model.ffn_type``, so
-    switching any of them is a config change.
+    Layout (``encode`` returns the hidden states, ``forward`` adds the head)::
+
+        token ids -> token_emb -> [ blocks x n_layers ] -> norm -> hidden states -> lm_head -> logits
+
+    The positional encoding, the norm and the feed-forward network come from registries
+    (``model.pos_encoding``, ``model.norm_type``, ``model.ffn_type``), so switching any of them is a
+    config change.
     """
 
     def __init__(self, vocab_size: int, model_cfg) -> None:
@@ -27,6 +33,7 @@ class TransformerBackbone(nn.Module):
         self.vocab_size = vocab_size
         self.max_length = cfg.max_length
 
+        # 1. Positions: RoPE rotates inside attention, a learned table adds to the embeddings.
         self.positional = build_positional_encoding(
             cfg.pos_encoding,
             d_model=cfg.d_model,
@@ -37,20 +44,19 @@ class TransformerBackbone(nn.Module):
             rope_scaling_factor=cfg.rope_scaling_factor,
             rope_original_length=cfg.rope_original_length,
         )
+        # 2. Token ids to vectors.
         self.token_emb = nn.Embedding(vocab_size, cfg.d_model)
-        self.stack = DecoderTransformer(
-            n_layers=cfg.n_layers,
-            d_model=cfg.d_model,
-            n_heads=cfg.n_heads,
-            ffn_factory=lambda: build_ffn(cfg.ffn_type, cfg),
-            dropout=cfg.dropout,
-            norm_type=cfg.norm_type,
-            positional=self.positional,
-        )
+        # 3. The transformer blocks, then one final norm before the output head.
+        self.layers = build_blocks(cfg, cfg.n_layers, self.positional)
+        self.norm = build_norm(cfg.norm_type, cfg.d_model)
+        # 4. Vectors to a score per vocabulary token (optionally sharing the embedding's weights).
         self.lm_head = nn.Linear(cfg.d_model, vocab_size, bias=False)
+
         self._init_weights(cfg.n_layers)
         if cfg.tie_embeddings:
             self.lm_head.weight = self.token_emb.weight
+        # Checkpoints from before the blocks moved out of a ``stack`` sub-module still load.
+        self._register_load_state_dict_pre_hook(_rename_old_stack_keys)
         logger.info(
             "TransformerBackbone: layers={} d_model={} heads={} ffn={} positional={} norm={}",
             cfg.n_layers, cfg.d_model, cfg.n_heads, cfg.ffn_type, self.positional.describe(), cfg.norm_type,
@@ -66,28 +72,21 @@ class TransformerBackbone(nn.Module):
           output, expert output) are scaled by 1 / sqrt(2 * n_layers). Each block adds two
           such terms, so without this the stream grows with depth.
         """
-        for module in self.modules():
-            if isinstance(module, (nn.Linear, nn.Embedding)):
-                nn.init.normal_(module.weight, mean=0.0, std=0.02)
-            if isinstance(module, nn.Linear) and module.bias is not None:
-                nn.init.zeros_(module.bias)
-
+        init_linear_and_embedding(self)
         residual_std = 0.02 / math.sqrt(2 * n_layers)
-        for layer in self.stack.layers:
-            nn.init.normal_(layer.attn.proj.weight, std=residual_std)
-            ffn = layer.ffn
-            if isinstance(ffn, FeedForward):
-                nn.init.normal_(ffn.down.weight, std=residual_std)
-            else:  # mixture of experts: every expert's output matrix
-                for expert in [*ffn.shared_experts, *ffn.routed_experts]:
-                    nn.init.normal_(expert.w2.weight, std=residual_std)
+        for block in self.layers:
+            scale_residual_outputs(block, residual_std)
 
-    def forward(
-        self, token_ids: torch.Tensor, attention_mask: torch.Tensor | None = None
+    def encode(
+        self,
+        token_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        document_ids: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """``token_ids`` is ``[B, S]``; returns logits ``[B, S, vocab]``.
+        """``token_ids`` is ``[B, S]``; returns the final hidden states ``[B, S, D]`` (after the last norm).
 
-        ``attention_mask`` is 1 for real tokens and 0 for padding.
+        ``attention_mask`` is 1 for real tokens and 0 for padding. ``document_ids`` (``[B, S]``, optional) says which
+        document of a packed window each token is in; tokens then only attend within their own document.
         """
         B, S = token_ids.shape
         if S > self.max_length:
@@ -100,13 +99,28 @@ class TransformerBackbone(nn.Module):
         # 2. Which keys are padding, and the position of every token.
         key_padding = (attention_mask == 0) if attention_mask is not None else None  # [B, S]
         positions = torch.arange(S, device=token_ids.device)  # [S]
+        document_mask = cross_document_mask(document_ids) if document_ids is not None else None  # [B, S, S]
 
-        # 3. Run the transformer blocks.
-        hidden = self.stack(hidden, positions, key_padding)  # [B, S, D]
+        # 3. The transformer blocks, each keeping the shape [B, S, D].
+        for block in self.layers:
+            hidden = block(hidden, positions, key_padding, document_mask)
 
-        # 4. Project every position to a score for each vocabulary token.
-        return self.lm_head(hidden)  # [B, S, vocab]
+        # 4. The final norm.
+        return self.norm(hidden)  # [B, S, D]
 
-    def auxiliary_loss(self) -> torch.Tensor:
-        """Extra training loss from the layers (MoE load balancing); zero when dense."""
-        return self.stack.auxiliary_loss()
+    def forward(
+        self,
+        token_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        document_ids: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        """``token_ids`` is ``[B, S]``; returns logits ``[B, S, vocab]``."""
+        # 5. A score for every vocabulary token at every position.
+        return self.lm_head(self.encode(token_ids, attention_mask, document_ids))  # [B, S, vocab]
+
+
+def _rename_old_stack_keys(state_dict, prefix, *_) -> None:
+    """Load hook: ``<prefix>stack.layers.N...`` and ``<prefix>stack.norm...`` become ``<prefix>layers.N...``/``norm...``."""
+    old = prefix + "stack."
+    for key in [k for k in state_dict if k.startswith(old)]:
+        state_dict[prefix + key[len(old):]] = state_dict.pop(key)

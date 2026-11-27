@@ -18,7 +18,7 @@ from hale_llm.config.sections.common import StrictModel
 
 #: Variants that fix the feed-forward type. The config says so up front, so everything that
 #: reads ``model.ffn_type`` (parameter estimate, vocabulary sizing, the model) agrees.
-VARIANT_FFN_TYPE = {"autoregressive_moe": "moe"}
+VARIANT_FFN_TYPE = {"autoregressive_moe": "moe", "autoregressive_moe_mtp": "moe"}
 
 
 class RunConfig(StrictModel):

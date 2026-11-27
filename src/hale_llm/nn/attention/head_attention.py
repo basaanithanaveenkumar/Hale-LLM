@@ -44,10 +44,13 @@ class HeadAttention(nn.Module):
         inputs: torch.Tensor,
         positions: torch.Tensor | None = None,
         key_padding_mask: torch.Tensor | None = None,
+        document_mask: torch.Tensor | None = None,
     ):
         """``inputs`` is ``[B, S, D]``; returns ``[B, S, H]`` (plus the weights if requested).
 
-        ``key_padding_mask`` is ``[B, S]``, ``True`` where a key must be ignored.
+        ``key_padding_mask`` is ``[B, S]``, ``True`` where a key must be ignored. ``document_mask`` is
+        ``[B, S, S]``, ``True`` where query ``i`` must not see key ``j`` (they are in different documents of a
+        packed window, see :func:`cross_document_mask`).
         """
         B, S, _ = inputs.shape
 
@@ -68,7 +71,7 @@ class HeadAttention(nn.Module):
 
         # 3. The fast path: one fused kernel does steps 4-7 below without building [B, S, S].
         #    Plain causal attention lets the kernel make the mask itself.
-        if not self.return_attn_weights and key_padding_mask is None:
+        if not self.return_attn_weights and key_padding_mask is None and document_mask is None:
             return F.scaled_dot_product_attention(
                 query, key, value,
                 dropout_p=self.dropout_p if self.training else 0.0,
@@ -76,15 +79,30 @@ class HeadAttention(nn.Module):
                 scale=self.scale,
             )
 
+        # 3b. Several documents in one window: still a fused kernel, with the mask handed over explicitly
+        #     (causal AND same document). The explicit path below does the same job when weights are wanted.
+        if not self.return_attn_weights and key_padding_mask is None and document_mask is not None:
+            allowed = ~document_mask  # [B, S, S] True = may attend
+            if self.causal:
+                allowed = allowed & torch.ones(S, S, dtype=torch.bool, device=inputs.device).tril()
+            return F.scaled_dot_product_attention(
+                query, key, value,
+                attn_mask=allowed,
+                dropout_p=self.dropout_p if self.training else 0.0,
+                scale=self.scale,
+            )
+
         # 4. Score every query against every key.
         scores = torch.matmul(query, key.transpose(-2, -1)) * self.scale  # [B, S, S]
 
-        # 5. Block what must not be seen: the future (causal) and padded keys.
+        # 5. Block what must not be seen: the future (causal), padded keys and other documents.
         blocked = torch.zeros(1, S, S, dtype=torch.bool, device=inputs.device)
         if self.causal:
             blocked = blocked | torch.ones(S, S, dtype=torch.bool, device=inputs.device).triu(1)
         if key_padding_mask is not None:
             blocked = blocked | key_padding_mask[:, None, :]  # [B, S, S]
+        if document_mask is not None:
+            blocked = blocked | document_mask  # [B, S, S]
         # A large finite negative number (not -inf) keeps rows that are all padding from
         # turning into NaN in the softmax.
         scores = scores.masked_fill(blocked, torch.finfo(scores.dtype).min)

@@ -86,12 +86,12 @@ def test_different_activations_give_different_outputs():
 
 # ----- through the config, the model and the parameter estimate -----
 @pytest.mark.parametrize("name", ALL)
-def test_the_config_choice_reaches_the_dense_blocks_of_the_trunk(name):
-    cfg = load_config("configs/autoregressive_moe/nano.yaml")
+def test_the_config_choice_reaches_the_dense_blocks_of_the_trunk_and_the_mtp_depths(name):
+    cfg = load_config("configs/autoregressive_mtp/dense_nano.yaml")
     cfg.set_context_window(16)
     cfg.model.ffn_activation, cfg.model.ffn_type = name, "mlp"
-    model = get_variant("autoregressive")(vocab_size=40, cfg=cfg)
-    blocks = list(model.backbone.stack.layers)  # main keeps the blocks in a DecoderTransformer
+    model = get_variant("autoregressive_mtp")(vocab_size=40, cfg=cfg)
+    blocks = [*model.backbone.layers, *model.mtp.depths[0].blocks]
     assert all((block.ffn.gate is not None) == (name in GATED) for block in blocks)
     ids = torch.randint(1, 40, (2, 16))
     logits = model({"input_ids": ids, "attention_mask": torch.ones_like(ids)})
@@ -99,9 +99,9 @@ def test_the_config_choice_reaches_the_dense_blocks_of_the_trunk(name):
 
 
 def test_an_unknown_activation_fails_when_the_model_is_built_with_the_valid_names():
-    cfg = load_config("configs/autoregressive_moe/nano.yaml")
+    cfg = load_config("configs/autoregressive_mtp/dense_nano.yaml")
     cfg.set_context_window(16)
-    cfg.model.ffn_type, cfg.model.ffn_activation = "mlp", "mish"
+    cfg.model.ffn_activation = "mish"
     with pytest.raises(KeyError, match="activation 'mish'.*registered=.*gelu"):
         get_variant("autoregressive")(vocab_size=40, cfg=cfg)
 
@@ -109,7 +109,7 @@ def test_an_unknown_activation_fails_when_the_model_is_built_with_the_valid_name
 @pytest.mark.parametrize("ffn_type,field", [("mlp", "ffn_activation"), ("moe", "moe_activation")])
 @pytest.mark.parametrize("name", ALL)
 def test_the_parameter_estimate_matches_the_built_model(ffn_type, field, name):
-    cfg = load_config("configs/autoregressive_moe/nano.yaml")
+    cfg = load_config("configs/autoregressive_mtp/dense_nano.yaml")
     cfg.variant = "autoregressive" if ffn_type == "mlp" else "autoregressive_moe"
     cfg.set_context_window(16)
     cfg.model.ffn_type = ffn_type

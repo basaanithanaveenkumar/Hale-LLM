@@ -82,7 +82,7 @@ def test_a_checkpoint_loads_even_if_the_yaml_describes_another_architecture(tiny
     wrong_yaml.variant, wrong_yaml.model.ffn_type, wrong_yaml.model.d_model = "autoregressive_moe", "moe", 32
     session = load_session(wrong_yaml, tokenizer=tiny_tokenizer, require_checkpoint=True)
     assert session.cfg.model.d_model == 64 and session.cfg.model.norm_type == "rms"
-    assert len(session.model.backbone.stack.layers[0].ffn.routed_experts) == 6
+    assert len(session.model.backbone.layers[0].ffn.routed_experts) == 6
 
 
 def test_a_checkpoint_of_another_variant_is_rejected(tiny_tokenizer, tmp_path):

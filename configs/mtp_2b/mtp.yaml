@@ -1,0 +1,19 @@
+# The same 2B model with DeepSeek-V3 style multi-token prediction (1 depth, so 2 tokens predicted per position).
+inherits: ./base.yaml
+variant: autoregressive_mtp
+
+model:
+  # Tokens predicted at once, per position: the main head predicts t+1, and each MTP depth k predicts one
+  # more token ahead. mtp_depth: 1 -> 1 + 1 = 2 tokens: t+1 (main) and t+2 (depth 1). (4 would be 5 tokens.)
+  mtp_depth: 1
+  # DeepSeek-V3's lambda schedule: 0.3 for the first 68% of the steps, then 0.1. Same for every depth.
+  mtp_loss_weight: 0.3
+  mtp_loss_weight_final: 0.1
+  mtp_switch_fraction: 0.68
+  mtp_n_layers: 1          # blocks per depth; feed-forward width and type default to the trunk's
+
+sample:
+  speculative: true        # at inference the MTP depth drafts a token that the main model verifies (exact output)
+
+experiment:
+  name: mtp_2b
