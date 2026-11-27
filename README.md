@@ -30,6 +30,7 @@ Data strategy
 12. https://huggingface.co/papers/2306.11644
 
 
+during pretraining use the positional encoding on draft tokens and randomly equally start using it in the pretraining
 
 
 
@@ -170,11 +171,17 @@ AdaMTP (Aug 2026). On Llama-3.1-8B, Qwen-2.5-7B, and Gemma-3-12B, it consistentl
 
 # Topics completed
 1. Deepseek v3Style MTP with DraftMTP =1
-2. 
+2. MTP done right (its does not show very huge improvement  as per the paper results , it stiopping the residual signaland aony passing the KL divergance signal will recheck later on )
+3. Next latent
+4. Next latent + LeWorld model
 
 # baseline -- use the hyper parametes from hugging fae playbook, qwen model and inkling model
 1. Autoregressive MOE
 2. Autoregressive MOE_MTP
+3. FP8 training
+4. FP4training
+6. Looped transformers
+7. 
 
 
 Referenes:
@@ -188,3 +195,45 @@ DeepSeek-V3 used a step schedule: λ is 0.3 for the first 10T training tokens an
 3. Soft MTP
 4. MTP done right (minor tweak)
 5. Tensenet MTP paper
+
+Remarks for lateron:
+1. Next Lat and MTP                         
+2. Deepseek v3 fim tokens    
+3. World Model into LLM 
+
+
+
+1. add the dion optimizer
+2. add the transformer engine library for (lean to use the https://github.com/alint77/nanogpt-fp8/blob/master/train_2.py)
+
+
+
+
+1. Looped transformers
+2. Fp4 training
+3. add the MHC and predecisor varient and check
+4. activation function 
+5. add the MTP  meta varient 
+6. MTP instead of predicting a constant token randomly predict the next t+n token where nis randome between the draft window of 1-4, with positional information also added , its not next token prediction its next random prediction in s sentence window (noval)
+7. in similar way try the droup out of token prediction in window and check the results , this acts as a world model
+8 .for the above compare it with the just next token prediction pipleine and NTP+ t+1 prediction prediction pipeline
+
+MoE diff needs to Be fixed 
+Where it differs from the DeepSeek-V3 paper, which I recorded in docs/config.md:
+- Router weights are a softmax over the chosen top-k scores (Mixtral style). V3 uses sigmoid scores.
+- Balancing uses an auxiliary loss. V3 uses an adjusted bias with no loss.
+- Every layer is MoE. V3 keeps its first three layers dense.
+- Padding tokens are routed and counted in the balance loss.
+
+
+Blog :
+1. explain the fP8, fp4 training 
+ -- story how models are post quantized to int 4 bit
+ -- fixed point vs floating point number
+ -- block scaling
+ -- inner scaling 
+ -- outer scalling
+ -- Stocastic rounding , what is it and why is it needed (forward pass and backward pass rounding issue, )
+ -- General element matrix multiplication GEMM
+2. explain looped transformers
+
