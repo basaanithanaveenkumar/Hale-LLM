@@ -122,6 +122,32 @@ def test_same_seed_same_order_different_seed_different_order():
     assert torch.equal(a, b) and not torch.equal(a, other)
 
 
+@pytest.mark.parametrize("n_offsets,batch,accum", [(4, 4, 1), (4, 64, 1), (4, 2, 2), (4, 3, 4), (4, 1, 4), (3, 6, 1), (5, 10, 1)])
+def test_when_the_sequences_per_optimizer_step_are_a_multiple_of_n_every_step_is_exactly_balanced(n_offsets, batch, accum):
+    """What counts is batch x accumulation steps (the sequences behind one optimizer step), not the batch alone."""
+    sampler = BalancedOffsetSampler(n_offsets, seed=1)
+    for _ in range(40):
+        drawn = [offset for _ in range(accum) for offset in sampler.sample(batch).tolist()]
+        counts = collections.Counter(drawn)
+        assert [counts[n] for n in range(1, n_offsets + 1)] == [batch * accum // n_offsets] * n_offsets
+
+
+@pytest.mark.parametrize("n_offsets", [2, 3, 4, 5])
+def test_any_2n_minus_1_consecutive_draws_contain_every_offset_whatever_the_alignment(n_offsets):
+    for start in range(0, 6 * n_offsets):  # every position inside a deck, over several decks
+        sampler = BalancedOffsetSampler(n_offsets, seed=3)
+        sampler.sample(start)
+        assert set(sampler.sample(2 * n_offsets - 1).tolist()) == set(range(1, n_offsets + 1)), (n_offsets, start)
+
+
+def test_a_step_with_fewer_sequences_than_offsets_sees_only_some_of_them_but_the_run_stays_balanced():
+    sampler = BalancedOffsetSampler(4, seed=2)
+    steps = [sampler.sample(2).tolist() for _ in range(40)]  # 2 sequences per step, N = 4
+    assert all(len(set(step)) <= 2 for step in steps)  # a step can show at most 2 of the 4 offsets
+    counts = collections.Counter(offset for step in steps for offset in step)
+    assert [counts[n] for n in (1, 2, 3, 4)] == [20] * 4  # yet over 40 steps every offset was used 20 times
+
+
 def test_the_order_inside_a_deck_is_random_not_a_fixed_cycle():
     decks = BalancedOffsetSampler(4, seed=7).sample(4 * 4000).view(4000, 4)
     assert len({tuple(row.tolist()) for row in decks}) == 24  # all 4! orders occur

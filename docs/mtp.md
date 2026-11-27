@@ -362,6 +362,79 @@ flowchart LR
 
 Evaluation scores the next-token loss only and draws no offsets.
 
+### How the loss is computed: next-token and `t+3` (offset `n = 2`)
+
+Both losses are the same cross-entropy against the **true text**. They differ in what the model reads and which token it must
+guess. Take "the cat sat on the mat" with `t` at "the" and an offset `n = 2`:
+
+| head | reads | predicts | ground truth it is compared with |
+|---|---|---|---|
+| main head (next-token) | `h(t)` | `x(t+1)` | **"cat"**, the next word of the text |
+| offset module, `n = 2` | `h(t)` + the real `x(t+2)` = "sat" + offset embedding row `1` | `x(t+3)` | **"on"**, the word after the input |
+
+The input of the offset module ("sat") is the real token from the data, not something the model predicted (teacher forcing),
+and it is never the target: "sat" is what the module *reads*, "on" is what it must *guess*. `x(t+1)` = "cat" is not given to the
+module at position `t` (it can only reach it through the previous position, whose input is `x(t-1+2)`).
+
+```mermaid
+flowchart TD
+  X["tokens: the cat sat on the mat<br/>(t = 0 at 'the', n = 2)"] --> TR["trunk (causal)"]
+  TR -->|"h(t)"| MH["main head: lm_head(h(t))"]
+  MH --> L1["CE against GT x(t+1) = 'cat'<br/>next-token loss"]
+  TR -->|"h(t)"| NH["RMSNorm"]
+  X -->|"real input x(t+2) = 'sat'"| EM["token embedding of 'sat'"]
+  OFF["offset table (4 rows)<br/>n = 2 selects row 1"] --> ADD(("+"))
+  EM --> ADD
+  ADD --> NE["RMSNorm"]
+  NH --> CAT["concat, project 2D to D"]
+  NE --> CAT
+  CAT --> BLK["causal transformer block(s)"]
+  BLK --> OH["RMSNorm, then the shared lm_head"]
+  OH --> L2["CE against GT x(t+3) = 'on'<br/>offset loss"]
+  L1 --> SUM["loss = next-token + lambda * offset loss"]
+  L2 --> SUM
+  SUM -->|"backward"| TR
+```
+
+**Every position gets a pair.** For all positions of the same sequence (`labels[i]` is the token after position `i`, so the
+targets are plain lookups into the labels):
+
+```
+sentence:   the   cat   sat   on    the   mat          T = 6
+position t:  0     1     2     3     4     5
+
+main head      h(t) -> x(t+1)     the>cat   cat>sat   sat>on    on>the    the>mat    (t = 5: nothing after "mat")
+offset n=2     reads x(t+2), predicts x(t+3)
+               t=0  reads "sat"  -> GT "on"
+               t=1  reads "on"   -> GT "the"
+               t=2  reads "the"  -> GT "mat"
+               t=3  no x(t+3): ignored      t=4, t=5: ignored
+offset n=1     t=0 "cat">"sat"   t=1 "sat">"on"   t=2 "on">"the"   t=3 "the">"mat"      (DeepSeek depth 1)
+offset n=3     t=0 "on">"the"    t=1 "the">"mat"  t=2.. ignored
+```
+
+(`T - n - 1` positions count for offset `n`; the table is what `OffsetConditionedPredictor.targets` returns.)
+
+**The numbers.** With `B` sequences in a batch and offsets `n_b`:
+
+```
+next-token loss   ntp = mean over all (b, t) with a next token        of  CE( lm_head(h[b,t]),            x[b, t+1]        )
+offset loss       mtp = mean over all (b, t) with a target that counts of  CE( lm_head(norm(module[b,t])), x[b, t+n_b+1]    )
+total             loss = ntp + lambda * mtp          (+ the MoE balancing term when the trunk or the module is a mixture of experts)
+```
+
+* Both are plain token-level cross-entropy against ground-truth token ids (`train.loss_type` applies to both). A fresh model
+  scores about `ln(vocab)` on each, so the total starts near `ln(vocab) * (1 + lambda)`.
+* `mtp` is a mean **over tokens**, not over sequences, so a sequence with a small `n` (more valid positions, `T - n - 1`)
+  contributes a few more tokens than one with a large `n`. The difference is small for long windows.
+* With `lambda = 0.3` and, say, `ntp = 3.0` and `mtp = 3.5`: `loss = 3.0 + 0.3 * 3.5 = 4.05`. Only `ntp` is reported as the
+  validation loss; evaluation draws no offsets.
+* **Both losses backpropagate into the trunk** through the same `h(t)`. The next-token loss trains the trunk, the shared
+  embedding and the head; the offset loss trains the module, the offset table, and also the trunk, embedding and head.
+* The target of position `t` (`x(t+3)`) is the *input* of position `t+1` (`x(t+1+2)`). That is allowed because attention is
+  causal: position `t` never sees position `t+1`. A test changes `x(t+n+1)` and checks that no logit at a position up to `t` moves.
+* Targets are ignored (`-100`) when they are past the end of the window, padding, or (with `document_masking`) in another document.
+
 ### Every offset is used equally often
 
 Drawing each offset independently would make the counts only roughly equal. The sampler instead lays out **shuffled decks**:
@@ -376,8 +449,25 @@ N = 4:   [3 1 4 2] [2 4 1 3] [1 3 2 4] ...        every aligned block of 4 draws
 * the stream depends only on `(seed, number of draws so far)`: it does not depend on how the draws are split into batches or
   gradient-accumulation steps, never touches the global random state, and the draw counter is saved in the checkpoint
   (`mtp.sampler._extra_state`), so a resumed run continues the exact same stream;
-* offsets are per **sequence**, so the batch size should be at least `N` for every step to see every offset (the totals are
-  balanced either way).
+* offsets are per **sequence**; how many offsets a single step sees depends on the number of sequences per step (next section).
+
+### Batch size and offsets
+
+Offsets are drawn **per sequence**: a batch of `B` sequences takes the next `B` values of the stream, one for each sequence.
+The balance guarantee ("counts differ by at most 1") holds over the **run**, for any batch size. What the batch size changes is
+how many different offsets one optimizer step sees. What counts is the number of sequences behind one step,
+`S = train.batch_size x lean.accum_steps` (every micro-batch draws its own offsets):
+
+| sequences per step `S` (N = 4) | what one step sees |
+|---|---|
+| `S` a multiple of `N` (4, 8, 64; or batch 2 x accum 2) | **every step has each offset exactly `S / N` times** (batch 64: 16 each) |
+| `S >= 2N - 1` (7 or more), not a multiple | every step has every offset at least once; counts differ by at most 2 |
+| `S < N` (1, 2, 3) | a step sees only `S` of the 4 offsets (`S = 1`: a single offset); the others come in later steps |
+
+Why it matters: the offset loss of a step is an average over the offsets that step drew. With a few sequences per step it is
+noisier (one offset per step is a different loss each time), and the extra gradient noise is the cost; over many steps it is
+still balanced, so the training is not biased. Practical advice: pick `batch_size x accum_steps` as a multiple of `mtp_depth`
+(your 64 is), or use gradient accumulation to reach one. With `S < N` it still trains correctly, just noisily.
 
 ### Speculative decoding
 
