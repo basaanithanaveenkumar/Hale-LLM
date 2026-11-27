@@ -25,7 +25,7 @@ uv run pytest tests -q
 | `nn/mtp`, `models/models_mtp/` | DeepSeek-V3 style multi-token prediction: `MTPModule`, `MultiTokenPredictor`; variants `autoregressive_mtp` and `autoregressive_moe_mtp` (loss, lambda schedule, speculative-decoding sampler) |
 | `registry/` | `NamedRegistry`, `VariantRegistry`, `register_variant/loss/sampler/metric` |
 | `runtime/` | `CheckpointStore`, `count_parameters`, `log_model_summary`, `move_batch_to_device` |
-| `optim/` | `adam`, `adamw` (LLM recipe), `sgd`, `muon` |
+| `optim/` | `adam`, `adamw` (LLM recipe), `sgd`, `muon`, `dion` |
 | `losses/`, `metrics/` | token losses (`ce`, `focal`, `label_smoothing`, `kl`); loss, perplexity, bits/token, accuracy, generation metrics |
 | `tokenizer/`, `dataloader/` | trained SuperBPE/BPE tokenizer and vocab policy; non-overlapping context windows with EOS between documents |
 | `training/`, `inference/`, `chat/`, `cli/` | lean trainer + TorchTitan launcher, `load_session`, chat loop, CLIs |

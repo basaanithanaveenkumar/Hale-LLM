@@ -18,6 +18,12 @@ dependencies = [
     "torch>=2.13.0",
     "tqdm>=4.68.4",
     "transformers>=5.13.1",
+    # Dion optimizer (train.optimizer_type: dion); MIT, installed from Microsoft's repository.
+    "dion @ git+https://github.com/microsoft/dion.git",
+    # Multi-GPU training backend (train.backend: torchtitan).
+    "torchtitan",
+    # FP8 / FP4 kernels. Linux only: there are no macOS builds, and it compiles against CUDA.
+    "transformer_engine[pytorch]; sys_platform == 'linux'",
 ]
 
 [project.optional-dependencies]
@@ -36,6 +42,19 @@ hale-llm-tokenizer-ablation = "hale_llm.cli.tokenizer_ablation:main"
 hale-llm-infer = "hale_llm.cli.inference:main"
 hale-llm-chat = "hale_llm.cli.chat:main"
 hale-llm-cloud = "hale_llm.cli.cloud:main"
+
+# Allow the direct git reference to dion above.
+[tool.hatch.metadata]
+allow-direct-references = true
+
+# transformer_engine is published on NVIDIA's index (the --extra-index-url https://pypi.nvidia.com/ of its install docs).
+[[tool.uv.index]]
+name = "nvidia"
+url = "https://pypi.nvidia.com/"
+explicit = true  # only packages named in tool.uv.sources are looked up there
+
+[tool.uv.sources]
+transformer-engine = { index = "nvidia" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hale_llm"]

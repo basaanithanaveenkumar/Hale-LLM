@@ -198,6 +198,9 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
             "adam_beta2": cfg.train.adam_beta2,
             "muon_lr": cfg.train.muon_lr,
             "muon_momentum": cfg.train.muon_momentum,
+            "dion_lr": cfg.train.dion_lr,
+            "dion_mu": cfg.train.dion_mu,
+            "dion_rank": cfg.train.dion_rank,
         },
     )
     for group in optimizer.param_groups:

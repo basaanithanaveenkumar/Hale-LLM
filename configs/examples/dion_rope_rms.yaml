@@ -1,0 +1,13 @@
+# Autoregressive run with the Dion optimizer instead of AdamW for the hidden weight matrices.
+# Rotary positions and RMSNorm, as in muon_rope_rms.yaml, so the two optimizers can be compared.
+inherits: ../autoregressive/small.yaml
+
+model:
+  pos_encoding: rope      # rope | learned
+  norm_type: rms          # layer | rms
+train:
+  optimizer_type: dion    # Dion on hidden 2-D weights, AdamW on the rest (lr below)
+  lr: 0.0003              # AdamW group
+  dion_lr: 0.02           # Dion group
+  dion_mu: 0.95           # Dion momentum
+  dion_rank: 768          # low-rank power iteration, capped at the smaller side of each matrix

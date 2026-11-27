@@ -106,10 +106,13 @@ One decoder-only transformer. The blocks are pre-norm: `x + attention(norm(x))`,
 | `focal_gamma` | float | `2.0` | Focal focusing (`loss_type: focal`). |
 | `focal_alpha` | float | `1.0` | Focal class weight. |
 | `trainer` | `lean` \| `torchtitan` | `lean` | Training backend; see [training.md](training.md). `lean.*` and `titan.*` hold each backend's settings. |
-| `optimizer_type` | `adamw` \| `adam` \| `sgd` \| `muon` | `adamw` | Default `adamw` is the LLM recipe: betas `(adam_beta1, adam_beta2)` = (0.9, 0.95), weight decay only on weight matrices (not norms, biases, embeddings).  `muon` uses Muon on the 2-D hidden weights and AdamW (at `lr`) on embeddings, the output head, norms and biases. |
+| `optimizer_type` | `adamw` \| `adam` \| `sgd` \| `muon` \| `dion` | `adamw` | Default `adamw` is the LLM recipe: betas `(adam_beta1, adam_beta2)` = (0.9, 0.95), weight decay only on weight matrices (not norms, biases, embeddings).  `muon` uses Muon on the 2-D hidden weights and AdamW (at `lr`) on embeddings, the output head, norms and biases. `dion` does the same with Microsoft's Dion (see below); it is opt-in. |
 | `adam_beta1` / `adam_beta2` | float | `0.9` / `0.95` | AdamW betas. |
 | `muon_lr` | float | `0.02` | Learning rate of the Muon group. |
 | `muon_momentum` | float | `0.95` | Muon momentum. |
+| `dion_lr` | float | `0.02` | Learning rate of the Dion group (the package scales it by `sqrt(d_out / d_in)` per matrix). |
+| `dion_mu` | float | `0.95` | Dion momentum. |
+| `dion_rank` | int | `768` | Largest rank of the low-rank power iteration; capped at the smaller side of each matrix. Smaller is cheaper; `rank >= min(d_out, d_in)` is full rank, like Muon. |
 | `label_smoothing` | float | `0.1` | Smoothing when `loss_type: label_smoothing`. |
 
 **Schedule:** `epochs: 2000` and `steps: null` → 2000 epochs. `epochs: null` and `steps: 1000` → enough epochs to cover 1000 steps.
@@ -321,3 +324,22 @@ per-token computation in `tests/unit/test_feed_forward_activations.py`. Differen
 - balancing uses the auxiliary loss (`moe_aux_loss_coef`); V3 balances with a bias that is adjusted without a loss;
 - every layer is a mixture of experts (V3 keeps its first three layers dense), and padding tokens are routed and
   counted in the balance loss like any other token.
+
+## Dion optimizer and extra dependencies
+
+`train.optimizer_type: dion` is opt-in (the default stays `adamw`). Hidden 2-D weights are updated by Dion, a low-rank
+orthonormal update (Ahn et al., 2025); embeddings, the output head, routers, norms and biases use AdamW without weight
+decay. It uses the single-device `dion.DionSimple`, so it works with the lean trainer on one GPU or on CPU. `dion` compiles its
+updates with `torch.compile(fullgraph=True)`, where PyTorch's default of 8 recompiles turns the 9th distinct parameter shape
+into a crash; the optimizer raises that limit to 64 when it is built. A ready
+config is `configs/examples/dion_rope_rms.yaml`.
+
+`pyproject.toml` now also depends on:
+
+| Package | Why | Notes |
+|---|---|---|
+| `dion` (from `github.com/microsoft/dion`) | the Dion optimizer | MIT; installed straight from Git |
+| `torchtitan` | the multi-GPU `train.trainer: torchtitan` backend | BSD-3-Clause; imports `triton`, so it only loads on Linux/CUDA |
+| `transformer_engine[pytorch]` | FP8 / FP4 kernels | Apache-2.0; Linux only (marker `sys_platform == 'linux'`), built against CUDA, resolved from `https://pypi.nvidia.com/` |
+
+Nothing in the lean trainer imports `torchtitan` or `transformer_engine` yet; they are installed for the GPU backends.

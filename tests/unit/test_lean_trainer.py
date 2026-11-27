@@ -38,7 +38,7 @@ def _cfg(tmp_path, optimizer):
     return cfg
 
 
-@pytest.mark.parametrize("optimizer", ["adamw", "muon"])
+@pytest.mark.parametrize("optimizer", ["adamw", "muon", "dion"])
 def test_train_lean_learns_and_saves_loadable_checkpoint(optimizer, tiny_tokenizer, tmp_path):
     cfg = _cfg(tmp_path, optimizer)
     losses = train_lean(cfg, tokenizer=tiny_tokenizer)
@@ -183,7 +183,7 @@ def test_only_the_best_checkpoints_are_kept_and_they_load(best_by, tiny_tokenize
     assert best_by in state and "optimizer_state_dict" not in state and state["variant"] == cfg.variant
 
 
-@pytest.mark.parametrize("optimizer", ["adamw", "muon"])
+@pytest.mark.parametrize("optimizer", ["adamw", "muon", "dion"])
 @pytest.mark.parametrize("precision", ["bf16", "fp16"])
 def test_mixed_precision_trains_and_saves_fp32_weights(precision, optimizer, tiny_tokenizer, tmp_path):
     cfg = _cfg(tmp_path, optimizer)
@@ -197,7 +197,7 @@ def test_mixed_precision_trains_and_saves_fp32_weights(precision, optimizer, tin
     assert session is not None
 
 
-@pytest.mark.parametrize("optimizer", ["adamw", "muon"])
+@pytest.mark.parametrize("optimizer", ["adamw", "muon", "dion"])
 @pytest.mark.parametrize("precision", ["bf16", "fp16"])
 def test_mixed_precision_trains_and_saves_fp32_weights(precision, optimizer, tiny_tokenizer, tmp_path):
     cfg = _cfg(tmp_path, optimizer)

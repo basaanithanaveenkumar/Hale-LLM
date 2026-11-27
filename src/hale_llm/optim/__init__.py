@@ -1,8 +1,9 @@
-"""Optimizers. Importing this package registers ``adam``, ``adamw``, ``sgd`` and ``muon``."""
+"""Optimizers. Importing this package registers ``adam``, ``adamw``, ``sgd``, ``muon`` and ``dion``."""
 
 from hale_llm.optim.adam_optimizer import AdamOptimizer
 from hale_llm.optim.adamw_optimizer import AdamWOptimizer
 from hale_llm.optim.base_optimizer import BaseOptimizer
+from hale_llm.optim.dion_optimizer import DionOptimizer
 from hale_llm.optim.factory import build_optimizer
 from hale_llm.optim.muon_optimizer import MuonOptimizer
 from hale_llm.optim.registry import OPTIMIZERS, register_optimizer
@@ -13,6 +14,7 @@ __all__ = [
     "AdamOptimizer",
     "AdamWOptimizer",
     "BaseOptimizer",
+    "DionOptimizer",
     "MuonOptimizer",
     "SGDOptimizer",
     "build_optimizer",

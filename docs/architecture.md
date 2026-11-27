@@ -84,7 +84,7 @@ flowchart LR
 | `models/models_autoregressive` | The two variants: model, loss, sampler, collate |
 | `registry` | `NamedRegistry`, `VariantRegistry`, and the model / loss / sampler / metric decorators |
 | `runtime` | `CheckpointStore`, tensor helpers, the parameter summary |
-| `optim` | `adam`, `adamw` (LLM recipe), `sgd`, `muon` |
+| `optim` | `adam`, `adamw` (LLM recipe), `sgd`, `muon`, `dion` |
 | `tokenizer`, `dataloader` | Trained SuperBPE / BPE tokenizer, context-window packing |
 | `training`, `inference`, `chat`, `cli` | Lean trainer and TorchTitan launcher, sessions, chat, commands |
 

@@ -31,7 +31,7 @@ import it in `hale_llm/training/backends/__init__.py`.
    `train.epochs x batches per epoch`.
 3. **Model.** Built from the variant registry (`autoregressive` or `autoregressive_moe`). `lean.compile: true` wraps it in `torch.compile`; the checkpoint is
    still saved from the plain module so chat can load it.
-4. **Optimizer.** From the registry (`adamw` by default, or `muon`). Each parameter group's
+4. **Optimizer.** From the registry (`adamw` by default, or `muon` / `dion`). Each parameter group's
    learning rate is remembered as its *base* rate.
 5. **Learning-rate schedule.** `lr_multiplier(step)`: linear warmup, flat, then linear warmdown to
    0 over the last `warmdown_frac` of steps. Example with 100 steps, warmup 10, warmdown 0.2:

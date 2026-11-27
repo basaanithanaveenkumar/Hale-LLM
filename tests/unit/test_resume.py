@@ -172,12 +172,16 @@ def _interrupt_after(step_index):
     [
         ("autoregressive", "adamw", "fp32"),
         ("autoregressive", "muon", "fp16"),        # optimizer state of both groups + the loss scaler
+        ("autoregressive", "dion", "fp32"),        # Dion keeps momentum and a random-start Q per matrix
+        ("autoregressive_moe", "dion", "fp16"),    # ... with the loss scaler and router noise
         ("autoregressive_moe", "adamw", "fp32"),   # the router noise depends on the restored random state
         ("autoregressive_mtp", "adamw", "fp32"),   # the MTP modules are part of the model and the optimizer
         ("autoregressive_moe_mtp", "adamw", "fp32"),  # mixture-of-experts trunk and MTP blocks, lambda crossing its switch
     ],
 )
 def test_an_interrupted_run_resumes_to_exactly_the_uninterrupted_result(variant, optimizer, precision, tiny_tokenizer, tmp_path):
+    if optimizer == "dion":
+        torch._dynamo.reset()  # dion's compiled update falls back to eager after 8 recompiles per process; see test_dion_optimizer.py
     # The reference: 40 steps without stopping.
     ref = _cfg(tmp_path / "ref", variant=variant, optimizer=optimizer, precision=precision)
     ref_losses = train_lean(ref, tokenizer=tiny_tokenizer)

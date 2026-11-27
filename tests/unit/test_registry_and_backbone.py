@@ -37,7 +37,7 @@ def test_model_summary_lists_modules():
 
 
 def test_optimizer_registry_has_builtins():
-    assert {"adam", "adamw", "sgd", "muon"} <= set(OPTIMIZERS)
+    assert {"adam", "adamw", "sgd", "muon", "dion"} <= set(OPTIMIZERS)
 
 
 def test_build_adamw_has_torch_api():
