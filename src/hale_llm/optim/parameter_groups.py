@@ -10,7 +10,7 @@ from torch import nn
 # transforms: lookup tables (token embeddings, tied output head, learned positions) and
 # the MoE routers, which are trained with AdamW. Whole segments are matched, because the
 # attention heads live under ``heads.<i>`` and must stay on Muon.
-_NON_HIDDEN_SEGMENTS = frozenset({"token_emb", "lm_head", "positional", "gate", "noise_gate"})
+_NON_HIDDEN_SEGMENTS = frozenset({"token_emb", "lm_head", "positional", "gate", "noise_gate", "offset_emb"})
 
 
 def is_hidden_matrix(name: str, param: nn.Parameter) -> bool:

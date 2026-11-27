@@ -52,6 +52,18 @@ class ModelConfig(StrictModel):
     mtp_loss_weight_final: float | None = 0.1
     mtp_switch_fraction: float = 0.68  # 10 / 14.8 in DeepSeek-V3
 
+    # Offset-conditioned MTP (off by default = the DeepSeek-V3 depths above). With it on, ONE MTP module replaces the `mtp_depth`
+    # chained depths, and every training step each sequence draws an offset n from 1..mtp_depth (so `mtp_depth` is the number
+    # of offsets, N). At position t the module reads the trunk state h(t), the real token x(t+n) and a learned embedding of n,
+    # and predicts x(t+n+1); n = 1 is exactly DeepSeek's depth 1. The offsets are drawn from shuffled decks, so every offset is
+    # used equally often over the run (counts never differ by more than 1) while the order stays random.
+    mtp_offset_conditioning: bool = False
+    mtp_offset_seed: int | None = None  # seed of the offset order; None = train.seed
+
+    # Speculative decoding: tokens drafted per round, from 1 to mtp_depth. Every draft costs one pass of the MTP module(s);
+    # the trunk then checks all of them in one pass, so the output never depends on this number (it only changes the speed).
+    mtp_draft_tokens: int = 1
+
     # The transformer block(s) inside each MTP depth. The width and the number of heads are the trunk's (the depth
     # reads the trunk's hidden states and shares its rotary positions); the rest defaults to the trunk's values, as
     # when None. DeepSeek-V3 uses one block per depth.
@@ -85,6 +97,12 @@ class ModelConfig(StrictModel):
             raise ValueError("mtp_loss_weight and mtp_loss_weight_final cannot be negative")
         if not 0.0 < self.mtp_switch_fraction < 1.0:
             raise ValueError(f"mtp_switch_fraction={self.mtp_switch_fraction} must be between 0 and 1")
+        if not 1 <= self.mtp_draft_tokens <= self.mtp_depth:
+            raise ValueError(
+                f"mtp_draft_tokens={self.mtp_draft_tokens} must be between 1 and mtp_depth={self.mtp_depth}"
+            )
+        if self.mtp_offset_seed is not None and not 0 <= self.mtp_offset_seed <= 2**31 - 1:
+            raise ValueError(f"mtp_offset_seed={self.mtp_offset_seed} must be between 0 and {2**31 - 1}")
         if self.mtp_n_layers < 1:
             raise ValueError(f"mtp_n_layers={self.mtp_n_layers} must be at least 1")
         if self.mtp_d_ff is not None and self.mtp_d_ff < 1:

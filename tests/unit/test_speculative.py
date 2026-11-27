@@ -26,6 +26,7 @@ def _model(depth=2, vocab=24, max_length=64, ffn_type="mlp", seed=0, sharpen=8.0
     cfg.model.d_model, cfg.model.n_heads, cfg.model.n_layers, cfg.model.d_ff = 32, 4, 2, 64
     cfg.model.dropout, cfg.model.ffn_type, cfg.model.moe_hidden_dim, cfg.model.moe_router = 0.0, ffn_type, 48, "topk"
     cfg.model.mtp_depth, cfg.model.mtp_n_layers = depth, mtp_layers
+    cfg.model.mtp_draft_tokens = depth  # the decoder drafts every depth (the default is a single draft)
     cfg.sample.speculative = speculative
     torch.manual_seed(seed)
     model = get_variant(cfg.variant)(vocab_size=vocab, cfg=cfg)

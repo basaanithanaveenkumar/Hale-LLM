@@ -314,3 +314,107 @@ MoE blocks under a dense trunk, and the same index checks with several blocks pe
 and that every depth learns. `tests/unit/test_speculative.py` checks exactness at temperature 0, the carried state
 between rounds, the draft chain against the training pass, EOS handling, fallbacks and the sampling distribution.
 Deliberately breaking an index in any of those places makes tests fail.
+
+
+## Offset-conditioned MTP
+
+DeepSeek-V3 stacks `D` MTP modules, and module `k` always predicts `k` tokens beyond the main head. **Offset-conditioned MTP**
+(`model.mtp_offset_conditioning: true`, off by default) keeps the same module but uses **one** copy of it and makes the
+offset an input: every training step each sequence draws an offset `n` from `1 .. mtp_depth`.
+
+For a position `t` of the sequence:
+
+| | reads | predicts |
+|---|---|---|
+| main head (unchanged) | `h(t)` | `x(t+1)` |
+| MTP module at offset `n` | `h(t)`, the real token `x(t+n)`, and a learned embedding of `n` | `x(t+n+1)` |
+
+On "the cat sat on the mat" with `t` at "the": `n=1` reads "cat" and predicts "sat" (this is exactly DeepSeek's depth 1),
+`n=2` reads "sat" and predicts "on", `n=3` reads "on" and predicts "the". The loss compares the prediction with the true
+`x(t+n+1)`; the input `x(t+n)` is never the target.
+
+```mermaid
+flowchart LR
+  X["tokens x(0) .. x(T-1)"] --> TR["trunk (causal)"]
+  TR -->|"h(t)"| MH["main head -> x(t+1)"]
+  TR -->|"h(t)"| MM["MTP module"]
+  X -->|"x(t+n), real token"| EM["token embedding<br/>+ offset embedding(n)"]
+  EM --> MM
+  MM --> SH["shared lm_head -> x(t+n+1)"]
+  S["balanced offset sampler<br/>n per sequence"] -.-> EM
+```
+
+### The algorithm (one training step)
+
+```
+1.  trunk      h = trunk(x)                                  # [B, T, D], as always
+2.  main loss  ntp = CE(lm_head(h)[t], x(t+1))
+3.  offsets    n_b = next B values of the balanced stream    # one per sequence, values in 1..N
+4.  input      u[b, t] = x[b, t + n_b]                       # the real token n_b steps ahead
+5.  embed      e[b, t] = Emb(u[b, t]) + OffsetEmb(n_b)       # the offset embedding is added to the token embedding
+6.  module     m = RMSNorm(h) ++ RMSNorm(e) -> Linear(2D->D) -> mtp_n_layers causal blocks -> RMSNorm
+7.  scores     logits = lm_head(m)                           # the trunk's own head, shared
+8.  targets    y[b, t] = x[b, t + n_b + 1], ignored (-100) where it is past the end, padding, or (with
+                document_masking) in another document than position t
+9.  mtp loss   mtp = CE(logits, y), averaged over every target that counts
+10. total      loss = ntp + lambda * mtp                     # lambda follows the same 0.3 -> 0.1 schedule
+```
+
+Evaluation scores the next-token loss only and draws no offsets.
+
+### Every offset is used equally often
+
+Drawing each offset independently would make the counts only roughly equal. The sampler instead lays out **shuffled decks**:
+deck 0 is a random permutation of `1..N`, deck 1 another one, and so on, and the draws are the decks end to end.
+
+```
+N = 4:   [3 1 4 2] [2 4 1 3] [1 3 2 4] ...        every aligned block of 4 draws has each offset once
+```
+
+* after **any** number of draws the counts of two offsets differ by at most 1 (exactly equal after every multiple of `N`);
+* the order inside a deck is random, and `mtp_offset_seed` (default `train.seed`) changes it;
+* the stream depends only on `(seed, number of draws so far)`: it does not depend on how the draws are split into batches or
+  gradient-accumulation steps, never touches the global random state, and the draw counter is saved in the checkpoint
+  (`mtp.sampler._extra_state`), so a resumed run continues the exact same stream;
+* offsets are per **sequence**, so the batch size should be at least `N` for every step to see every offset (the totals are
+  balanced either way).
+
+### Speculative decoding
+
+Drafting reuses the same trunk state for every draft. With committed tokens `x_0 .. x_{L-1}` and the pending token `x_L`:
+
+```
+for k in 1 .. mtp_draft_tokens:
+    run the MTP module at offset k over the whole prefix, reading the trunk's hidden states and
+    x_k .. x_{L+k-1}; its last position scores x_{L+k}         # draft k = "x(t+k) with offset k"
+    sample/argmax draft_k  and  append it to the known tokens
+verify:  ONE trunk pass over the committed tokens, x_L and all the drafts (unchanged from DeepSeek mode)
+```
+
+The trunk verifies every draft, so the output is exactly what the trunk alone would produce (at temperature 0 it is identical to
+plain greedy decoding) whatever `mtp_draft_tokens` is. It only changes how many trunk passes are needed.
+
+### Configuration
+
+```yaml
+model:
+  mtp_offset_conditioning: true   # false (default): DeepSeek-V3 chained depths
+  mtp_depth: 4                    # N: the offsets are 1..N (in the default mode: the number of depths)
+  mtp_offset_seed: null           # seed of the offset order; null = train.seed
+  mtp_draft_tokens: 1             # tokens drafted per speculative round, 1..mtp_depth (both modes)
+  mtp_loss_weight: 0.3            # lambda, then mtp_loss_weight_final after mtp_switch_fraction of the steps
+  mtp_n_layers: 1                 # blocks in the module
+```
+
+`mtp_draft_tokens` applies to both modes. Before it existed the decoder drafted every depth; the default is now **one** draft
+per round, so a DeepSeek-mode config with `mtp_depth > 1` must set `mtp_draft_tokens: <depth>` to draft all of them.
+A ready config is `configs/autoregressive_mtp/offset_nano.yaml`.
+
+Things to know:
+
+* **Document boundaries.** With `model.document_masking: true` a target in another document than its position is ignored, and the
+  module's attention is masked like the trunk's. Without it the windows are plain packed text (as for the main head), so a target
+  may be the first token of the next story after an end-of-text token.
+* **Size.** One module plus an `N x d_model` table, instead of `N` modules.
+* **Optimizers.** The offset table is a lookup table: Muon and Dion leave it to AdamW, and it gets no weight decay.
+* **Logging.** `train/mtp_loss` is the loss of the sampled offsets and `train/mtp_offset_mean` their mean (about `(N + 1) / 2`).

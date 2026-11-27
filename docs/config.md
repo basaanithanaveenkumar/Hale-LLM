@@ -83,6 +83,9 @@ One decoder-only transformer. The blocks are pre-norm: `x + attention(norm(x))`,
 | `mtp_loss_weight_final` | float \| `null` | `0.1` | Lambda after the switch (DeepSeek-V3's step schedule). `null` = keep `mtp_loss_weight` for the whole run. |
 | `mtp_switch_fraction` | float | `0.68` | Where the switch happens, as a fraction of the training steps (V3: 10 / 14.8). |
 | `mtp_n_layers` | int | `1` | Transformer blocks per MTP depth. |
+| `mtp_offset_conditioning` | bool | `false` | `true`: one MTP module predicts at a random offset `n` in `1..mtp_depth`, drawn per sequence every step with equal frequency over the run, instead of `mtp_depth` chained depths. See `docs/mtp.md`. |
+| `mtp_offset_seed` | int \| null | `null` | Seed of the offset order (`null` = `train.seed`). |
+| `mtp_draft_tokens` | int | `1` | Tokens drafted per speculative-decoding round, `1..mtp_depth`, in both modes. Never changes the output, only the speed. |
 | `mtp_d_ff` | int \| `null` | `null` | Feed-forward (or expert) width of the MTP blocks; `null` = `d_ff`. |
 | `mtp_ffn_type` | `mlp` \| `moe` \| `null` | `null` | Feed-forward type of the MTP blocks; `null` = `ffn_type`. |
 

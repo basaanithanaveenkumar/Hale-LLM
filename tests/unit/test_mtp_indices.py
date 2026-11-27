@@ -26,6 +26,7 @@ def _model(depth, max_length, vocab=40):
     cfg.set_context_window(max_length)
     cfg.model.d_model, cfg.model.n_heads, cfg.model.n_layers, cfg.model.d_ff = 32, 4, 2, 64
     cfg.model.dropout, cfg.model.mtp_depth = 0.0, depth
+    cfg.model.mtp_draft_tokens = depth  # the decoder drafts every depth (the default is a single draft)
     torch.manual_seed(0)
     return get_variant(cfg.variant)(vocab_size=vocab, cfg=cfg)
 

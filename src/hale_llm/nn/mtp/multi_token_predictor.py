@@ -21,6 +21,9 @@ class MultiTokenPredictor(nn.Module):
     and are passed in rather than stored, so their weights exist once.
     """
 
+    offset_conditioned = False  # see OffsetConditionedPredictor
+    chained = True  # each depth reads the previous depth's output, not the trunk's
+
     def __init__(self, model_cfg, positional: PositionalEncoding | None) -> None:
         super().__init__()
         self.depth = model_cfg.mtp_depth

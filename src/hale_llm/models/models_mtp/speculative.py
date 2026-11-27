@@ -16,7 +16,9 @@ class SpeculativeDecoder:
     already chose::
 
         1. draft    depth 1 reads the trunk hidden states and t_L and guesses t_{L+1};
-                    depth 2 reads depth 1 and t_{L+1} and guesses t_{L+2}; ... up to depth D
+                    depth 2 reads depth 1 and t_{L+1} and guesses t_{L+2}; ... up to D drafts, D = model.mtp_draft_tokens
+                    (offset-conditioned MTP: offset k reads the SAME trunk hidden states and the previous draft, so
+                    draft k is "x(t + k) with offset k"; there is one module, run D times)
         2. verify   ONE trunk pass over  t_0 .. t_L, d_1 .. d_D  gives the trunk's own distribution
                     for every drafted position (and for the token after the last draft)
         3. accept   draft d_j is kept with probability min(1, p_j(d_j) / q_j(d_j)); the first rejected
@@ -36,7 +38,9 @@ class SpeculativeDecoder:
     def __init__(self, model, tokenizer, temperature: float) -> None:
         self.model = model
         self.backbone = model.backbone
-        self.depth = model.mtp.depth
+        # "depth" is the number of drafted tokens per round (model.mtp_draft_tokens, at most mtp_depth): draft j uses
+        # MTP depth j (DeepSeek) or offset j (offset-conditioned).
+        self.depth = model.cfg.model.mtp_draft_tokens
         self.eos_id = getattr(tokenizer, "eos_token_id", None)
         self.greedy = temperature <= GREEDY_TEMPERATURE
         self.temperature = max(temperature, GREEDY_TEMPERATURE)
@@ -126,16 +130,20 @@ class SpeculativeDecoder:
         return tokens, hidden, extra, new_tokens
 
     def _draft(self, tokens: torch.Tensor, hidden: torch.Tensor, pending: torch.Tensor):
-        """Chain the MTP depths: depth k guesses t_{L+k} from the guesses before it."""
+        """Draft ``self.depth`` tokens: step k guesses t_{L+k} from the guesses before it (algorithm below)."""
         mtp, token_emb, lm_head = self.model.mtp, self.backbone.token_emb, self.backbone.lm_head
         known = torch.cat([tokens, pending.view(1, 1)], dim=1)  # t_0 .. t_L, [1, L + 1]
-        previous = hidden  # the trunk's hidden states, [1, L, Dm]
+        previous = hidden  # what step 1 reads: the trunk's hidden states, [1, L, Dm]
         drafts, dists = [], []
         for k in range(1, self.depth + 1):
-            # `known` holds t_0 .. t_{L+k-1}, which is exactly what depth k reads.
-            previous, logits = mtp.step(
+            # 1. `known` holds t_0 .. t_{L+k-1}, which is exactly what step k reads.
+            new_hidden, logits = mtp.step(
                 k, previous, known, token_emb, lm_head
             )  # [1, L, Dm], [1, V]
+            # 2. DeepSeek depths are chained: the next depth reads this one's output. The offset-conditioned module
+            #    reads the trunk's hidden states every time, so `previous` stays the same.
+            if mtp.chained:
+                previous = new_hidden
             dist = self._distribution(logits[0])
             draft = self._sample(dist)
             known = torch.cat([known, draft.view(1, 1)], dim=1)

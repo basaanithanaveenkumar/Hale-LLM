@@ -65,6 +65,7 @@ def _cfg(tmp_path, variant="autoregressive_mtp"):
     cfg.set_context_window(WINDOW)
     cfg.model.d_model, cfg.model.n_heads, cfg.model.n_layers, cfg.model.d_ff = 48, 4, 2, 96
     cfg.model.dropout, cfg.model.mtp_depth, cfg.model.mtp_loss_weight = 0.0, DEPTH, 1.0
+    cfg.model.mtp_draft_tokens = DEPTH  # the decoder drafts every depth (the default is a single draft)
     cfg.model.mtp_loss_weight_final = None  # a constant lambda: this test is about the indices, not the schedule
     cfg.train.steps, cfg.train.epochs, cfg.train.batch_size, cfg.train.lr, cfg.train.log_every = 500, None, 16, 4e-3, 100
     cfg.train.lean.accum_steps, cfg.train.lean.warmup_steps = 1, 10
