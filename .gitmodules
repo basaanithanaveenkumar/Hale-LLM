@@ -7,3 +7,39 @@
 [submodule "ext_pkgs/torchtitan"]
 	path = ext_pkgs/torchtitan
 	url = https://github.com/pytorch/torchtitan.git
+[submodule "ext_pkgs/AMDMIGraphX"]
+	path = ext_pkgs/AMDMIGraphX
+	url = https://github.com/ROCm/AMDMIGraphX.git
+[submodule "ext_pkgs/Model-Optimizer"]
+	path = ext_pkgs/Model-Optimizer
+	url = https://github.com/NVIDIA/Model-Optimizer.git
+[submodule "ext_pkgs/Quark"]
+	path = ext_pkgs/Quark
+	url = https://github.com/amd/Quark.git
+[submodule "ext_pkgs/RyzenAI-SW"]
+	path = ext_pkgs/RyzenAI-SW
+	url = https://github.com/amd/RyzenAI-SW.git
+[submodule "ext_pkgs/TensorRT"]
+	path = ext_pkgs/TensorRT
+	url = https://github.com/NVIDIA/TensorRT.git
+[submodule "ext_pkgs/TensorRT-Edge-LLM"]
+	path = ext_pkgs/TensorRT-Edge-LLM
+	url = https://github.com/NVIDIA/TensorRT-Edge-LLM.git
+[submodule "ext_pkgs/TensorRT-LLM"]
+	path = ext_pkgs/TensorRT-LLM
+	url = https://github.com/NVIDIA/TensorRT-LLM.git
+[submodule "ext_pkgs/Torch-TensorRT"]
+	path = ext_pkgs/Torch-TensorRT
+	url = https://github.com/pytorch/TensorRT.git
+[submodule "ext_pkgs/ai-hub-models"]
+	path = ext_pkgs/ai-hub-models
+	url = https://github.com/qualcomm/ai-hub-models.git
+[submodule "ext_pkgs/executorch"]
+	path = ext_pkgs/executorch
+	url = https://github.com/pytorch/executorch.git
+[submodule "ext_pkgs/mlx"]
+	path = ext_pkgs/mlx
+	url = https://github.com/ml-explore/mlx.git
+[submodule "ext_pkgs/mlx-lm"]
+	path = ext_pkgs/mlx-lm
+	url = https://github.com/ml-explore/mlx-lm.git
