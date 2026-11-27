@@ -12,7 +12,7 @@ from hale_llm.registry import register_loss
 
 
 def mtp_loss(model, batch: dict) -> torch.Tensor:
-    """``next_token + lambda * mean_k(loss_k)`` while training; the next-token loss alone in eval.
+    """``next_token + lambda * (mean or sum)_k(loss_k)`` while training; the next-token loss alone in eval.
 
     ``lambda`` is ``model.mtp_weight``, set by the trainer from the schedule (0.3, then 0.1 by default).
 
@@ -37,7 +37,7 @@ def mtp_loss(model, batch: dict) -> torch.Tensor:
     depth_losses = []
     if model.mtp.offset_conditioned:
         # 2. One MTP module at a random offset per sequence (model.mtp_offset_conditioning); see offset_loss.py.
-        mtp_loss_mean, offsets = offset_conditioned_mtp_loss(model, hidden, batch)
+        mtp_term, share = offset_conditioned_mtp_loss(model, hidden, batch)
     else:
         # 2. MTP depths. Depth k returns [B, T-k, V]; its position j predicts t_{j+k+1} = labels[j+k].
         depth_logits = model.mtp(hidden, ids, mask, backbone.token_emb, backbone.lm_head, document_ids)
@@ -48,23 +48,25 @@ def mtp_loss(model, batch: dict) -> torch.Tensor:
                     model, logits[:, :-1], labels[:, k:-1], ignore_index=-100, reduction="mean"
                 )
             )
-        mtp_loss_mean = torch.stack(depth_losses).mean()  # (1/D) * sum_k loss_k
+        depth_stack = torch.stack(depth_losses)
+        # DeepSeek-V3: (1/D) * sum_k loss_k ("mean", the default). model.mtp_loss_reduction: sum adds the depths up instead.
+        mtp_term = depth_stack.sum() if cfg.mtp_reduction() == "sum" else depth_stack.mean()
 
     # 3. Combine with the current lambda. lambda * mean_k == (lambda / D) * sum_k.
-    loss = ntp_loss + model.mtp_weight * mtp_loss_mean
+    loss = ntp_loss + model.mtp_weight * mtp_term
     if model.uses_moe:
         loss = loss + cfg.moe_aux_loss_coef * auxiliary_loss(model)
 
     # 4. Remember the pieces for logging (detached: no extra graph).
     model.loss_parts = {
         "ntp_loss": ntp_loss.detach(),
-        "mtp_loss": mtp_loss_mean.detach(),
+        "mtp_loss": mtp_term.detach(),
         "mtp_weight": torch.tensor(model.mtp_weight, device=ntp_loss.device),
     }
     for k, depth_loss in enumerate(depth_losses, start=1):
         model.loss_parts[f"mtp_loss_depth{k}"] = depth_loss.detach()
     if model.mtp.offset_conditioned:
-        model.loss_parts["mtp_offset_mean"] = offsets.float().mean()  # about (1 + mtp_depth) / 2 when balanced
+        model.loss_parts["mtp_offset_mean"] = share.offsets.float().mean()  # about (1 + mtp_depth) / 2 over a step
     return loss
 
 

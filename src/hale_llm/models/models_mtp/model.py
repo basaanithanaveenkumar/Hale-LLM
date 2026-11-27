@@ -33,7 +33,7 @@ class MTPAutoregressiveLM(AutoregressiveLM):
         # DeepSeek-V3's chained depths, or one offset-conditioned module (model.mtp_offset_conditioning). The offset order
         # is seeded by model.mtp_offset_seed, or train.seed when that is not set.
         offset_seed = cfg.model.mtp_offset_seed if cfg.model.mtp_offset_seed is not None else cfg.train.seed
-        self.mtp = build_mtp_predictor(cfg.model, self.backbone.positional, offset_seed)
+        self.mtp = build_mtp_predictor(cfg.model, self.backbone.positional, offset_seed, cfg.train.lean.accum_steps)
         # The MTP blocks may be mixture-of-experts even when the trunk is dense (model.mtp_ffn_type).
         self.uses_moe = self.uses_moe or cfg.model.mtp_block_config().ffn_type == "moe"
         # Lambda follows a schedule; the trainer says how far along the run is (set_training_progress).
@@ -48,8 +48,9 @@ class MTPAutoregressiveLM(AutoregressiveLM):
 
     @staticmethod
     def initial_loss_scale(cfg) -> float:
-        """Every head starts near ``ln(vocab)``, so a fresh model scores ``ln(vocab) * (1 + first lambda)``."""
-        return 1.0 + cfg.model.mtp_loss_weight
+        """Every head starts near ``ln(vocab)``: the model scores ``ln(vocab) * (1 + first lambda * terms)``, where the
+        MTP term adds up ``terms`` such losses (the number of depths / offsets when summed, 1 when averaged)."""
+        return 1.0 + cfg.model.mtp_loss_weight * cfg.model.mtp_loss_terms()
 
 
 @register_variant(MOE_MTP_VARIANT)

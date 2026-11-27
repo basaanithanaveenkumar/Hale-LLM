@@ -1,19 +1,27 @@
 # Offset-conditioned MTP on top of the nano DENSE model (docs/mtp.md, "Offset-conditioned MTP").
-# One MTP module predicts at a random offset n in 1..mtp_depth, drawn per sequence every step; every offset is
-# used equally often over the run. Set mtp_offset_conditioning: false for DeepSeek-V3's chained depths instead.
+# One MTP module predicts at an offset n in 1..mtp_depth. The offsets are STRATIFIED over the global batch of a step
+# (batch_size x accum_steps x ranks sequences): 1..N is repeated to fill it, the remainder is added, and it is shuffled.
+# The loss adds the offsets up:  loss = next_token + lambda * (L_1 + ... + L_N).
+# Set mtp_offset_conditioning: false for DeepSeek-V3's chained depths instead.
 inherits: ../autoregressive/nano.yaml
 variant: autoregressive_mtp
 
 model:
   mtp_offset_conditioning: true   # false = DeepSeek-V3 style depths
   mtp_depth: 4                    # N: the offsets are 1..4 (and the number of tokens the module can look ahead)
-  # mtp_offset_seed: 0            # seed of the offset order (default: train.seed)
+  # mtp_offset_seed: 0            # seed of the offset plan (default: train.seed)
+  mtp_offset_remainder: balanced  # balanced | random: who gets the extra sequence when the global batch is not a multiple of N
+  # mtp_loss_reduction: sum       # sum (default here) adds L_1..L_N up; mean divides by N (DeepSeek-V3's 1/D)
   mtp_draft_tokens: 1             # tokens drafted per speculative round, 1..mtp_depth (output never depends on it)
-  # Lambda: 0.3 for the first 68% of the steps, then 0.1 (DeepSeek-V3's schedule). 0.667 would be "the last third".
+  # Lambda weights the SUM of the N offset losses, so it acts N times stronger than on a mean: 0.3 with N = 4 is like 1.2
+  # on a mean. Lower it (or use mtp_loss_reduction: mean) to match a DeepSeek-style run. 0.3 -> 0.1 at 68% of the steps.
   mtp_loss_weight: 0.3
   mtp_loss_weight_final: 0.1
   mtp_switch_fraction: 0.68
   mtp_n_layers: 1                 # transformer blocks in the (single) MTP module
+
+# The global batch is train.batch_size x train.lean.accum_steps (x data-parallel ranks). Keep it a multiple of mtp_depth so
+# that every step uses every offset exactly the same number of times (64 x 1 = 64 = 16 per offset).
 
 sample:
   speculative: true               # draft with the MTP module, verify with the trunk (exact)

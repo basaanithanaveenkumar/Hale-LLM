@@ -9,8 +9,9 @@ from torch import nn
 
 from hale_llm.nn.attention import cross_document_mask
 from hale_llm.nn.blocks.residual_init import init_linear_and_embedding, scale_residual_outputs
-from hale_llm.nn.mtp.balanced_offset_sampler import BalancedOffsetSampler
+from hale_llm.nn.mtp.offset_share import OffsetShare
 from hale_llm.nn.mtp.mtp_module import MTPModule
+from hale_llm.nn.mtp.stratified_offset_assigner import StratifiedOffsetAssigner
 from hale_llm.nn.positional.positional_encoding import PositionalEncoding
 
 IGNORE_INDEX = -100  # the label value the loss skips (same as everywhere else in the code base)
@@ -21,7 +22,8 @@ class OffsetConditionedPredictor(nn.Module):
 
     DeepSeek-V3 stacks ``D`` modules; module ``k`` always predicts ``k`` tokens beyond the main head. Here there is ONE
     module (``mtp_module``, the same :class:`MTPModule`), and every training step each sequence gets an offset
-    ``n`` drawn from ``1 .. mtp_depth`` (see :class:`BalancedOffsetSampler`). For a position ``t``::
+    ``n`` in ``1 .. mtp_depth``, assigned stratified over the whole step (see :class:`StratifiedOffsetAssigner`).
+    For a position ``t``::
 
         main head        h(t)                                  ->  x(t+1)      unchanged
         this module      h(t)  +  x(t+n)  +  offset-embedding(n)  ->  x(t+n+1)
@@ -40,7 +42,9 @@ class OffsetConditionedPredictor(nn.Module):
     offset_conditioned = True
     chained = False
 
-    def __init__(self, model_cfg, positional: PositionalEncoding | None, seed: int = 0) -> None:
+    def __init__(
+        self, model_cfg, positional: PositionalEncoding | None, seed: int = 0, accum_steps: int = 1
+    ) -> None:
         super().__init__()
         self.depth = model_cfg.mtp_depth  # the largest offset; named like MultiTokenPredictor's so shared code reads it
         if model_cfg.max_length < self.depth + 2:
@@ -51,7 +55,7 @@ class OffsetConditionedPredictor(nn.Module):
         block_cfg = model_cfg.mtp_block_config()  # the trunk's settings, plus any mtp_* overrides
         self.mtp_module = MTPModule(block_cfg, model_cfg.mtp_n_layers, positional)
         self.offset_emb = nn.Embedding(self.depth, model_cfg.d_model)  # row n-1 is the embedding of offset n
-        self.sampler = BalancedOffsetSampler(self.depth, seed)
+        self.assigner = StratifiedOffsetAssigner(self.depth, seed, accum_steps, model_cfg.mtp_offset_remainder)
         # Same initialisation as the trunk's blocks.
         init_linear_and_embedding(self)
         residual_std = 0.02 / math.sqrt(2 * model_cfg.n_layers)
@@ -59,9 +63,9 @@ class OffsetConditionedPredictor(nn.Module):
             scale_residual_outputs(block, residual_std)
 
     # ----- the offsets -----
-    def sample_offsets(self, batch_size: int, device: torch.device | str) -> torch.Tensor:
-        """One offset in ``1 .. mtp_depth`` per sequence, equally often over the run: ``[B]``."""
-        return self.sampler.sample(batch_size, device)
+    def next_offsets(self, batch_size: int, device: torch.device | str) -> OffsetShare:
+        """The offsets of the next micro-batch of ``batch_size`` sequences (stratified over the whole step)."""
+        return self.assigner.next_share(batch_size, device)
 
     @staticmethod
     def _ahead(values: torch.Tensor, offsets: torch.Tensor, extra: int = 0) -> tuple[torch.Tensor, torch.Tensor]:

@@ -320,7 +320,8 @@ Deliberately breaking an index in any of those places makes tests fail.
 
 DeepSeek-V3 stacks `D` MTP modules, and module `k` always predicts `k` tokens beyond the main head. **Offset-conditioned MTP**
 (`model.mtp_offset_conditioning: true`, off by default) keeps the same module but uses **one** copy of it and makes the
-offset an input: every training step each sequence draws an offset `n` from `1 .. mtp_depth`.
+offset an input: every training step each sequence gets an offset `n` in `1 .. mtp_depth`, **stratified** over the global batch
+(see "Stratified offsets" below), and the losses of the offsets are **added up**.
 
 For a position `t` of the sequence:
 
@@ -341,26 +342,29 @@ flowchart LR
   X -->|"x(t+n), real token"| EM["token embedding<br/>+ offset embedding(n)"]
   EM --> MM
   MM --> SH["shared lm_head -> x(t+n+1)"]
-  S["balanced offset sampler<br/>n per sequence"] -.-> EM
+  S["stratified offset plan<br/>one n per sequence"] -.-> EM
 ```
 
 ### The algorithm (one training step)
 
 ```
+0.  plan       the offsets of the WHOLE step (all micro-batches, all ranks) are assigned once, stratified (below)
 1.  trunk      h = trunk(x)                                  # [B, T, D], as always
 2.  main loss  ntp = CE(lm_head(h)[t], x(t+1))
-3.  offsets    n_b = next B values of the balanced stream    # one per sequence, values in 1..N
+3.  offsets    n_b = this micro-batch's slice of the plan    # one per sequence, values in 1..N
 4.  input      u[b, t] = x[b, t + n_b]                       # the real token n_b steps ahead
 5.  embed      e[b, t] = Emb(u[b, t]) + OffsetEmb(n_b)       # the offset embedding is added to the token embedding
 6.  module     m = RMSNorm(h) ++ RMSNorm(e) -> Linear(2D->D) -> mtp_n_layers causal blocks -> RMSNorm
 7.  scores     logits = lm_head(m)                           # the trunk's own head, shared
 8.  targets    y[b, t] = x[b, t + n_b + 1], ignored (-100) where it is past the end, padding, or (with
                 document_masking) in another document than position t
-9.  mtp loss   mtp = CE(logits, y), averaged over every target that counts
-10. total      loss = ntp + lambda * mtp                     # lambda follows the same 0.3 -> 0.1 schedule
+9.  per seq    l_s = mean CE over the sequence's valid positions
+10. per offset L_n = mean of l_s over the sequences of the whole step that got offset n
+11. mtp loss   mtp = L_1 + L_2 + ... + L_N                   # ADDED UP, not averaged (mtp_loss_reduction: mean divides by N)
+12. total      loss = ntp + lambda * mtp                     # lambda follows the same 0.3 -> 0.1 schedule
 ```
 
-Evaluation scores the next-token loss only and draws no offsets.
+Evaluation scores the next-token loss only and plans no offsets.
 
 ### How the loss is computed: next-token and `t+3` (offset `n = 2`)
 
@@ -390,8 +394,8 @@ flowchart TD
   NE --> CAT
   CAT --> BLK["causal transformer block(s)"]
   BLK --> OH["RMSNorm, then the shared lm_head"]
-  OH --> L2["CE against GT x(t+3) = 'on'<br/>offset loss"]
-  L1 --> SUM["loss = next-token + lambda * offset loss"]
+  OH --> L2["CE against GT x(t+3) = 'on'<br/>offset loss L_2"]
+  L1 --> SUM["loss = next-token + lambda * (L_1 + L_2 + L_3 + L_4)"]
   L2 --> SUM
   SUM -->|"backward"| TR
 ```
@@ -415,59 +419,88 @@ offset n=3     t=0 "on">"the"    t=1 "the">"mat"  t=2.. ignored
 
 (`T - n - 1` positions count for offset `n`; the table is what `OffsetConditionedPredictor.targets` returns.)
 
-**The numbers.** With `B` sequences in a batch and offsets `n_b`:
+**The numbers: the offsets add up.** With the global batch of one step stratified so that every offset has sequences:
 
 ```
-next-token loss   ntp = mean over all (b, t) with a next token        of  CE( lm_head(h[b,t]),            x[b, t+1]        )
-offset loss       mtp = mean over all (b, t) with a target that counts of  CE( lm_head(norm(module[b,t])), x[b, t+n_b+1]    )
-total             loss = ntp + lambda * mtp          (+ the MoE balancing term when the trunk or the module is a mixture of experts)
+next-token loss   ntp   = mean over all (b, t) with a next token  of  CE( lm_head(h[b,t]),  x[b, t+1] )
+per offset        L_n   = mean, over the sequences s of the step that got offset n, of
+                          l_s = mean over s's valid positions of  CE( lm_head(norm(module[s,t])),  x[s, t+n+1] )
+offset loss       mtp   = L_1 + L_2 + ... + L_N              <- a SUM over the offsets, not (1/N) of it
+total             loss  = ntp + lambda * mtp                 (+ the MoE balancing term for a mixture of experts)
 ```
 
-* Both are plain token-level cross-entropy against ground-truth token ids (`train.loss_type` applies to both). A fresh model
-  scores about `ln(vocab)` on each, so the total starts near `ln(vocab) * (1 + lambda)`.
-* `mtp` is a mean **over tokens**, not over sequences, so a sequence with a small `n` (more valid positions, `T - n - 1`)
-  contributes a few more tokens than one with a large `n`. The difference is small for long windows.
-* With `lambda = 0.3` and, say, `ntp = 3.0` and `mtp = 3.5`: `loss = 3.0 + 0.3 * 3.5 = 4.05`. Only `ntp` is reported as the
-  validation loss; evaluation draws no offsets.
+So for the offsets 1, 2, 3, 4 the loss is `ntp + lambda * (L_1 + L_2 + L_3 + L_4)`, and DeepSeek-V3's `1/D` normalisation is **not**
+applied. Each `L_n` is averaged over its own sequences first, so every offset counts equally whatever its token count: that
+is what *stratified* means here (it is not an average over all tokens, which would let the offsets with more tokens dominate).
+
+* Both are plain token-level cross-entropy against ground-truth token ids (`train.loss_type` applies to both).
+* Scale: a fresh model scores about `ln(vocab)` on every term, so the total starts near `ln(vocab) * (1 + lambda * N)`
+  (`2.2 * ln(vocab)` for `lambda = 0.3`, `N = 4`). Adding up makes the MTP term `N` times larger than the mean would be, so for
+  the same weight on the offsets use a `lambda` that is `N` times smaller (or set `mtp_loss_reduction: mean` to divide by `N`).
+* Example: `lambda = 0.3`, `ntp = 3.0` and `L_1 = L_2 = L_3 = L_4 = 3.5`: `mtp = 14.0`, `loss = 3.0 + 0.3 * 14.0 = 7.2`.
+  Only `ntp` is reported as the validation loss.
 * **Both losses backpropagate into the trunk** through the same `h(t)`. The next-token loss trains the trunk, the shared
   embedding and the head; the offset loss trains the module, the offset table, and also the trunk, embedding and head.
 * The target of position `t` (`x(t+3)`) is the *input* of position `t+1` (`x(t+1+2)`). That is allowed because attention is
   causal: position `t` never sees position `t+1`. A test changes `x(t+n+1)` and checks that no logit at a position up to `t` moves.
+* An offset that no sequence of the step got has no term (`L_n` does not exist), so with fewer sequences per step than offsets the
+  sum has fewer terms in that step. Use at least `N` sequences per step (next sections).
 * Targets are ignored (`-100`) when they are past the end of the window, padding, or (with `document_masking`) in another document.
 
-### Every offset is used equally often
+### Stratified offsets
 
-Drawing each offset independently would make the counts only roughly equal. The sampler instead lays out **shuffled decks**:
-deck 0 is a random permutation of `1..N`, deck 1 another one, and so on, and the draws are the decks end to end.
+Drawing each offset independently (or per micro-batch) would make a step's offsets uneven, would let a micro-batch of 1 see a
+single offset, and would let every data-parallel rank draw on its own. The offsets are assigned **stratified, for the whole
+global batch of a step, in one place**. The global batch is `G = micro_batch x accumulation_steps x data-parallel ranks`:
 
 ```
-N = 4:   [3 1 4 2] [2 4 1 3] [1 3 2 4] ...        every aligned block of 4 draws has each offset once
+1. repeat the list 1..N  floor(G / N)  times        N = 4, G = 10:   1 2 3 4  1 2 3 4
+2. add the remainder: G mod N distinct offsets                         + 3 1
+3. shuffle the whole list                                             -> 2 3 3 1 4 1 4 2 1 3   (which sequence gets which)
+4. micro-batch m of rank r takes slice number (m * ranks + r)
 ```
 
-* after **any** number of draws the counts of two offsets differ by at most 1 (exactly equal after every multiple of `N`);
-* the order inside a deck is random, and `mtp_offset_seed` (default `train.seed`) changes it;
-* the stream depends only on `(seed, number of draws so far)`: it does not depend on how the draws are split into batches or
-  gradient-accumulation steps, never touches the global random state, and the draw counter is saved in the checkpoint
-  (`mtp.sampler._extra_state`), so a resumed run continues the exact same stream;
-* offsets are per **sequence**; how many offsets a single step sees depends on the number of sequences per step (next section).
+* **Every offset is used `floor(G / N)` times in every step**, plus once more for the `G mod N` remainder offsets. When `G`
+  is a multiple of `N` (64 sequences, `N = 4`: 16 of each) every step is exactly equal.
+* **The remainder is random.** `mtp_offset_remainder: balanced` (default) gives the extra sequence to the offsets that
+  received one least often so far, ties broken at random, so the totals over the whole run also stay within 1 of each other;
+  `random` draws a fresh random subset every step (no memory, equal only in expectation).
+* **Micro-batch 1 works**: each micro-step holds one offset, and the accumulated step sees them all (with `N` micro-steps, once each).
+* **One plan, shared by all ranks.** The plan depends only on `(mtp_offset_seed or train.seed, step)`, so every rank computes the
+  identical plan without communicating and takes its own slice (`set_data_parallel(rank, world_size)`, or read from
+  `torch.distributed`). No rank draws independently. The order of slices is micro-batch major, then rank.
+* It never touches the global random state, depends on nothing but the seed and the step, and the position (step, micro-batch,
+  remainder counts) is saved in the checkpoint (`mtp.assigner._extra_state`), so a resumed run continues with the same offsets.
+
+### Why the loss carries a weight under accumulation
+
+The trainer divides each micro-batch loss by `accum` (and data-parallel averages the ranks), so the micro-batch losses are
+**averaged**. A micro-batch of 1 holds a single offset: averaged naively, `L_1 + L_2 + L_3 + L_4` would become
+`(L_1 + L_2 + L_3 + L_4) / 4`, the normalisation sneaking back in. To make the offsets add up exactly, sequence `s` (offset `n`)
+contributes
+
+```
+(micro_batches in the step / S_n) * l_s        S_n = sequences of the whole step with offset n,  micro_batches = accum x ranks
+```
+
+and after the trainer's averaging this is `l_s / S_n`, which summed over the step is exactly `L_1 + ... + L_N`. The result is the
+same for a micro-batch of 1, of 64, or split over ranks; tests compare the loss and **every gradient** of 4 micro-batches of 1,
+2 micro-batches of 2, and 2 ranks x 2 micro-batches against one batch of 4. (The logged `train/mtp_loss` is the average of the
+micro-batch values, which is this same `L_1 + ... + L_N`.) The weights use sequence counts, so a batch with padding or document
+boundaries weights each sequence equally rather than each token.
 
 ### Batch size and offsets
 
-Offsets are drawn **per sequence**: a batch of `B` sequences takes the next `B` values of the stream, one for each sequence.
-The balance guarantee ("counts differ by at most 1") holds over the **run**, for any batch size. What the batch size changes is
-how many different offsets one optimizer step sees. What counts is the number of sequences behind one step,
-`S = train.batch_size x lean.accum_steps` (every micro-batch draws its own offsets):
+What matters is the number of sequences behind one optimizer step, `G = batch_size x accum_steps x ranks`, not the micro-batch:
 
-| sequences per step `S` (N = 4) | what one step sees |
+| `G` (N = 4) | what one step sees |
 |---|---|
-| `S` a multiple of `N` (4, 8, 64; or batch 2 x accum 2) | **every step has each offset exactly `S / N` times** (batch 64: 16 each) |
-| `S >= 2N - 1` (7 or more), not a multiple | every step has every offset at least once; counts differ by at most 2 |
-| `S < N` (1, 2, 3) | a step sees only `S` of the 4 offsets (`S = 1`: a single offset); the others come in later steps |
+| a multiple of `N` (4, 8, 64; or micro-batch 1 x accum 4; or 2 ranks x 2) | **each offset exactly `G / N` times** |
+| `G > N`, not a multiple | each offset `floor(G / N)` or one more times; every offset is present |
+| `G < N` (1, 2, 3) | only `G` of the 4 offsets are present; the missing ones have no term in that step's sum, so the loss is smaller and noisier |
 
-Why it matters: the offset loss of a step is an average over the offsets that step drew. With a few sequences per step it is
-noisier (one offset per step is a different loss each time), and the extra gradient noise is the cost; over many steps it is
-still balanced, so the training is not biased. Practical advice: pick `batch_size x accum_steps` as a multiple of `mtp_depth`
-(your 64 is), or use gradient accumulation to reach one. With `S < N` it still trains correctly, just noisily.
+So a micro-batch of 1 is fine as long as `accum_steps x ranks` is a multiple of `N` (the step then sees every offset once).
+With `G < N` it still trains, but each step's offset loss has fewer terms; prefer a multiple of `N` (your 64 is).
 
 ### Speculative decoding
 
@@ -490,14 +523,19 @@ plain greedy decoding) whatever `mtp_draft_tokens` is. It only changes how many 
 model:
   mtp_offset_conditioning: true   # false (default): DeepSeek-V3 chained depths
   mtp_depth: 4                    # N: the offsets are 1..N (in the default mode: the number of depths)
-  mtp_offset_seed: null           # seed of the offset order; null = train.seed
+  mtp_offset_seed: null           # seed of the offset plan; null = train.seed
+  mtp_offset_remainder: balanced  # balanced | random: who gets the extra sequence when G is not a multiple of N
+  mtp_loss_reduction: null        # sum | mean; null = sum for offsets, mean (DeepSeek's 1/D) for the chained depths
   mtp_draft_tokens: 1             # tokens drafted per speculative round, 1..mtp_depth (both modes)
   mtp_loss_weight: 0.3            # lambda, then mtp_loss_weight_final after mtp_switch_fraction of the steps
   mtp_n_layers: 1                 # blocks in the module
+train:
+  batch_size: 64                  # the global batch is batch_size x lean.accum_steps (x data-parallel ranks)
 ```
 
 `mtp_draft_tokens` applies to both modes. Before it existed the decoder drafted every depth; the default is now **one** draft
 per round, so a DeepSeek-mode config with `mtp_depth > 1` must set `mtp_draft_tokens: <depth>` to draft all of them.
+`mtp_loss_reduction` applies to both modes too: `sum` also lets DeepSeek's depths add up (`L_1 + ... + L_D`) instead of `(1/D) sum`.
 A ready config is `configs/autoregressive_mtp/offset_nano.yaml`.
 
 Things to know:
@@ -507,4 +545,7 @@ Things to know:
   may be the first token of the next story after an end-of-text token.
 * **Size.** One module plus an `N x d_model` table, instead of `N` modules.
 * **Optimizers.** The offset table is a lookup table: Muon and Dion leave it to AdamW, and it gets no weight decay.
-* **Logging.** `train/mtp_loss` is the loss of the sampled offsets and `train/mtp_offset_mean` their mean (about `(N + 1) / 2`).
+* **Logging.** `train/mtp_loss` is the offset loss `L_1 + ... + L_N` and `train/mtp_offset_mean` the mean offset of the micro-batches.
+* **Data parallel.** The repository's trainer is single-process. For several ranks, every rank must run the same number of
+  micro-batches per step with the same micro-batch size, call `set_data_parallel(rank, world_size)` (done automatically when
+  `torch.distributed` is initialised) and keep the same seed; data-parallel gradient averaging then gives the summed loss.

@@ -22,7 +22,7 @@ uv run pytest tests -q
 | `nn/attention`, `nn/blocks`, `nn/moe`, `nn/backbones` | `HeadAttention`, `MultiHeadAttention`, `TransformerBlock`, `build_blocks`, `FeedForward`, routers, `Expert`, `DeepseekMoE`, `auxiliary_loss` (the MoE balancing loss of any module), `TransformerBackbone` (embedding, `layers`, `norm`, head) |
 | `nn/positional`, `nn/norm` | RoPE (+ linear / YaRN scaling) and learned positions; LayerNorm, RMSNorm; each behind a registry |
 | `models/models_autoregressive/` | variants `autoregressive` and `autoregressive_moe`: model, loss, sampler, collate |
-| `nn/mtp`, `models/models_mtp/` | DeepSeek-V3 style multi-token prediction: `MTPModule`, `MultiTokenPredictor`, and the opt-in offset-conditioned `OffsetConditionedPredictor` with its `BalancedOffsetSampler`; variants `autoregressive_mtp` and `autoregressive_moe_mtp` (loss, lambda schedule, speculative-decoding sampler) |
+| `nn/mtp`, `models/models_mtp/` | DeepSeek-V3 style multi-token prediction: `MTPModule`, `MultiTokenPredictor`, and the opt-in offset-conditioned `OffsetConditionedPredictor` with its `StratifiedOffsetAssigner`; variants `autoregressive_mtp` and `autoregressive_moe_mtp` (loss, lambda schedule, speculative-decoding sampler) |
 | `registry/` | `NamedRegistry`, `VariantRegistry`, `register_variant/loss/sampler/metric` |
 | `runtime/` | `CheckpointStore`, `count_parameters`, `log_model_summary`, `move_batch_to_device` |
 | `optim/` | `adam`, `adamw` (LLM recipe), `sgd`, `muon`, `dion` |

@@ -53,12 +53,22 @@ class ModelConfig(StrictModel):
     mtp_switch_fraction: float = 0.68  # 10 / 14.8 in DeepSeek-V3
 
     # Offset-conditioned MTP (off by default = the DeepSeek-V3 depths above). With it on, ONE MTP module replaces the `mtp_depth`
-    # chained depths, and every training step each sequence draws an offset n from 1..mtp_depth (so `mtp_depth` is the number
+    # chained depths, and every training step each sequence gets an offset n in 1..mtp_depth (so `mtp_depth` is the number
     # of offsets, N). At position t the module reads the trunk state h(t), the real token x(t+n) and a learned embedding of n,
-    # and predicts x(t+n+1); n = 1 is exactly DeepSeek's depth 1. The offsets are drawn from shuffled decks, so every offset is
-    # used equally often over the run (counts never differ by more than 1) while the order stays random.
+    # and predicts x(t+n+1); n = 1 is exactly DeepSeek's depth 1.
+    # The offsets are STRATIFIED over the global batch of a step (batch_size x accum_steps x data-parallel ranks): the list
+    # 1..N is repeated to fill it, the remainder (G mod N offsets) is added, and the whole list is shuffled, so every offset is
+    # used floor(G / N) times per step and a micro-batch of 1 is just one slice of that plan.
     mtp_offset_conditioning: bool = False
     mtp_offset_seed: int | None = None  # seed of the offset order; None = train.seed
+    # Which offsets get the extra sequence when G is not a multiple of N: "balanced" = the least-used ones so far (random
+    # ties), so the totals over the run stay within 1; "random" = a fresh random subset every step.
+    mtp_offset_remainder: Literal["balanced", "random"] = "balanced"
+
+    # How the losses of the several offsets / depths are combined into the MTP term (which lambda then weights):
+    # "sum" adds them up (L_1 + L_2 + ... + L_N, each averaged over its own sequences), "mean" divides by their number.
+    # None = the mode's default: "mean" for DeepSeek-V3's depths (as in the paper), "sum" for offset-conditioned MTP.
+    mtp_loss_reduction: Literal["sum", "mean"] | None = None
 
     # Speculative decoding: tokens drafted per round, from 1 to mtp_depth. Every draft costs one pass of the MTP module(s);
     # the trunk then checks all of them in one pass, so the output never depends on this number (it only changes the speed).
@@ -108,6 +118,16 @@ class ModelConfig(StrictModel):
         if self.mtp_d_ff is not None and self.mtp_d_ff < 1:
             raise ValueError(f"mtp_d_ff={self.mtp_d_ff} must be at least 1")
         return self
+
+    def mtp_reduction(self) -> str:
+        """``"sum"`` or ``"mean"``: ``mtp_loss_reduction``, or the mode's default when it is None."""
+        if self.mtp_loss_reduction is not None:
+            return self.mtp_loss_reduction
+        return "sum" if self.mtp_offset_conditioning else "mean"
+
+    def mtp_loss_terms(self) -> int:
+        """How many per-offset (per-depth) losses the MTP term adds up: ``mtp_depth`` when summed, else 1 (a mean)."""
+        return self.mtp_depth if self.mtp_reduction() == "sum" else 1
 
     def mtp_block_config(self) -> "ModelConfig":
         """The settings the MTP blocks are built with: the trunk's, except where an ``mtp_*`` override is set."""
