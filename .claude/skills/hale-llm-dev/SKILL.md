@@ -12,7 +12,7 @@ checkpoint store and the optimizer base live in this repo.
 
 ```bash
 uv sync --extra dev
-uv run pytest tests -q
+uv run pytest claude_tests -q
 ```
 
 ## Layout

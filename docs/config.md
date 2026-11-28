@@ -322,7 +322,7 @@ takes the runtime context from `--context-length`.
 
 `DeepseekMoE` follows the DeepSeek layout (always-on shared experts plus routed experts, the expert-level
 balance loss `E * sum(share_i * mean_prob_i)` of DeepSeek-V2), and it is checked against an independent
-per-token computation in `tests/unit/test_feed_forward_activations.py`. Differences from the V3 paper, none of them bugs:
+per-token computation in `claude_tests/unit/test_feed_forward_activations.py`. Differences from the V3 paper, none of them bugs:
 
 - the router weights are a softmax over the chosen top-k scores (Mixtral style); V3 uses sigmoid scores
   normalised over the chosen experts;
