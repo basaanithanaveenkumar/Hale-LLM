@@ -1,0 +1,9 @@
+# DeepSeek-V3 MTP, one chained depth (predicts t+2).
+inherits: base.yaml
+
+model:
+  mtp_depth: 1
+  mtp_offset_conditioning: false
+
+experiment:
+  name: ablation_deepseek_d1

@@ -1,0 +1,9 @@
+# DeepSeek-V3 MTP, four chained depths (t+2 .. t+5), loss averaged over the depths (mtp_loss_reduction: mean).
+inherits: base.yaml
+
+model:
+  mtp_depth: 4
+  mtp_offset_conditioning: false
+
+experiment:
+  name: ablation_deepseek_d4

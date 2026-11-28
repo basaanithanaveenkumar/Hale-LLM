@@ -1,0 +1,12 @@
+# Offset-conditioned MTP with the offset losses AVERAGED: the same MTP strength as deepseek_d4, so the comparison
+# separates the effect of the design from the effect of adding the losses up.
+inherits: base.yaml
+
+model:
+  mtp_depth: 4
+  mtp_offset_conditioning: true
+  mtp_loss_reduction: sum
+  mtp_offset_remainder: balanced
+
+experiment:
+  name: ablation_offset_d4_mean

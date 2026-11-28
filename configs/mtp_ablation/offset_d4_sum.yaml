@@ -1,0 +1,11 @@
+# Offset-conditioned MTP, offsets 1..4 stratified over the batch, offset losses ADDED (the default for this mode).
+inherits: base.yaml
+
+model:
+  mtp_depth: 4
+  mtp_offset_conditioning: true
+  mtp_loss_reduction: sum
+  mtp_offset_remainder: balanced
+
+experiment:
+  name: ablation_offset_d4_sum

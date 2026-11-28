@@ -1,0 +1,8 @@
+# Ablation baseline: plain next-token prediction, no MTP. Same trunk, seed and data as the other files in this folder.
+inherits: ../autoregressive/nano.yaml
+variant: autoregressive
+
+experiment:
+  enabled: true
+  root: data/experiments
+  name: ablation_ntp
