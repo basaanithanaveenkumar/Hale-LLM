@@ -18,6 +18,6 @@ description: Add a new model variant to HALE-LLM as a models_<name> package with
 2. Import the package in `models/__init__.py`.
 3. Metrics that apply to the variant: pass its name in `variants=` when registering them.
 4. Add `configs/<name>/nano.yaml` (`inherits:` a base) and a unit test that runs one training step
-   and one sample (see `tests/unit/test_transformer_variants.py`).
+   and one sample (see `claude_tests/unit/test_transformer_variants.py`).
 
 The reference is `models/models_autoregressive/`, which registers two variants from one class.

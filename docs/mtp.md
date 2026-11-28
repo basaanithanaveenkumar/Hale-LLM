@@ -224,7 +224,7 @@ Two details the simple story leaves out, and what the code really does:
   it does in training. It is the same computation, which is why the guesses are good.
 
 The example above is an executable test, so the documentation cannot drift from the code:
-`tests/unit/test_speculative.py::test_the_cat_sat_on_example_takes_two_main_model_passes_instead_of_three`
+`claude_tests/unit/test_speculative.py::test_the_cat_sat_on_example_takes_two_main_model_passes_instead_of_three`
 (and the matching tests for a wrong guess, normal decoding, and four guesses). Real output from a small trained model:
 
 ```
@@ -281,15 +281,15 @@ flowchart LR
 
 Off-by-one errors are the classic MTP bug, so the indices are tested three ways, each broken on purpose to confirm it fails:
 
-* `tests/unit/test_mtp_indices.py` feeds **identity tokens** (token value = its position) and spies on every embedding
+* `claude_tests/unit/test_mtp_indices.py` feeds **identity tokens** (token value = its position) and spies on every embedding
   lookup, hidden-state hand-off, loss target and verify row, then compares with hand-written tables
   (for `T = 9`, `D = 3`: depth 2 embeds `[2..8]`, reads depth 1's hidden states at positions `0..6`, and is scored against
   `t_3..t_8`). It also runs depth `k` the training way and the inference way on the same tokens and requires identical logits.
-* `tests/unit/test_mtp_data_litmus.py` runs the **real** dataset windowing, EOS packing, collate, trainer and checkpoint
+* `claude_tests/unit/test_mtp_data_litmus.py` runs the **real** dataset windowing, EOS packing, collate, trainer and checkpoint
   loading on a counting corpus ("5 6 7 ..." mod 20), where the right answer is known by arithmetic: every head must predict
   the number `k + 1` steps ahead (100% on held-out windows), and decoding from a prompt must continue the count with
   every draft accepted. A one-step error anywhere gives 0% accuracy.
-* `tests/unit/test_mtp.py` and `test_speculative.py` (see above).
+* `claude_tests/unit/test_mtp.py` and `test_speculative.py` (see above).
 
 ## 2B baseline
 
@@ -307,10 +307,10 @@ with no MTP at this scale. Point `data.dataset` at a larger corpus for anything 
 
 ## Tests
 
-`tests/unit/test_mtp.py` checks the alignment (depth `k` at position `i` sees exactly the tokens up to `t_{i+k}`),
+`claude_tests/unit/test_mtp.py` checks the alignment (depth `k` at position `i` sees exactly the tokens up to `t_{i+k}`),
 the loss against a literal transcription of the reference loop, the λ/D weighting, `test_mtp_schedule.py` (the step schedule,
 the exact switch step, the same schedule for every depth) and `test_mtp_blocks.py` (configurable blocks: counts, widths,
 MoE blocks under a dense trunk, and the same index checks with several blocks per depth), padding, gradients, MoE blocks
-and that every depth learns. `tests/unit/test_speculative.py` checks exactness at temperature 0, the carried state
+and that every depth learns. `claude_tests/unit/test_speculative.py` checks exactness at temperature 0, the carried state
 between rounds, the draft chain against the training pass, EOS handling, fallbacks and the sampling distribution.
 Deliberately breaking an index in any of those places makes tests fail.

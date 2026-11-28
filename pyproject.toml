@@ -60,7 +60,7 @@ transformer-engine = { index = "nvidia" }
 packages = ["src/hale_llm"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["claude_tests"]
 pythonpath = ["src"]
 
 [tool.ruff]
