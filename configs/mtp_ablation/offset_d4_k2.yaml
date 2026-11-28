@@ -1,0 +1,13 @@
+# Offset-conditioned MTP where every sequence trains TWO offsets of 1..4 per step (a combination such as 2 and 4), the
+# offset losses added up. Costs two module passes per sequence (offset_d4_sum: one, deepseek_d4: four).
+inherits: base.yaml
+
+model:
+  mtp_depth: 4
+  mtp_offset_conditioning: true
+  mtp_offsets_per_sequence: 2     # K: offsets per sequence; the plan balances every offset AND every combination
+  mtp_loss_reduction: sum
+  mtp_offset_remainder: balanced
+
+experiment:
+  name: ablation_offset_d4_k2

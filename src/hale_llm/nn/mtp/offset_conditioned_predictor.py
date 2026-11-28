@@ -55,7 +55,10 @@ class OffsetConditionedPredictor(nn.Module):
         block_cfg = model_cfg.mtp_block_config()  # the trunk's settings, plus any mtp_* overrides
         self.mtp_module = MTPModule(block_cfg, model_cfg.mtp_n_layers, positional)
         self.offset_emb = nn.Embedding(self.depth, model_cfg.d_model)  # row n-1 is the embedding of offset n
-        self.assigner = StratifiedOffsetAssigner(self.depth, seed, accum_steps, model_cfg.mtp_offset_remainder)
+        self.assigner = StratifiedOffsetAssigner(
+            self.depth, seed, accum_steps, model_cfg.mtp_offset_remainder,
+            model_cfg.mtp_offsets_per_sequence, model_cfg.mtp_offset_stratified,
+        )
         # Same initialisation as the trunk's blocks.
         init_linear_and_embedding(self)
         residual_std = 0.02 / math.sqrt(2 * model_cfg.n_layers)

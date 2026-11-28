@@ -4,6 +4,6 @@ num_gpus: 1
 region: IN2
 storage_gb: 100
 template: pytorch
-spot: True        # true = cheaper spot GPU; Jarvislabs may pause it mid-run (see docs/jarvislabs.md)
+spot: false        # true = cheaper spot GPU; Jarvislabs may pause it mid-run (see docs/jarvislabs.md)
 name_prefix: hale
 remote_dir: /home/hale-llm

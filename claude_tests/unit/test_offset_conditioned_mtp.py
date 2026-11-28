@@ -69,8 +69,8 @@ def _force_offsets(model, values):
     n = model.mtp.depth
 
     def next_share(batch_size, device="cpu"):
-        offsets = torch.tensor([next(cycle) for _ in range(batch_size)], device=device)
-        return OffsetShare(offsets, torch.bincount(offsets - 1, minlength=n), 1)
+        offsets = torch.tensor([[next(cycle)] for _ in range(batch_size)], device=device)  # [B, 1]
+        return OffsetShare(offsets, torch.bincount(offsets.flatten() - 1, minlength=n), 1)
 
     model.mtp.assigner.next_share = next_share
 
@@ -99,15 +99,15 @@ def _counts(offsets, n):
 
 def test_offsets_are_integers_in_range():
     share = _assigner().next_share(1000)
-    assert share.offsets.dtype == torch.long and share.offsets.shape == (1000,)
-    assert 1 <= int(share.offsets.min()) and int(share.offsets.max()) <= 4
+    assert share.offsets[:, 0].dtype == torch.long and share.offsets[:, 0].shape == (1000,)
+    assert 1 <= int(share.offsets[:, 0].min()) and int(share.offsets[:, 0].max()) <= 4
 
 
 @pytest.mark.parametrize("n_offsets", [1, 2, 3, 4, 5, 6])
 @pytest.mark.parametrize("batch", list(range(1, 27)))
 def test_one_step_is_stratified_floor_of_g_over_n_each_and_the_remainder_distinct(n_offsets, batch):
     share = _assigner(n_offsets).next_share(batch)
-    counts = _counts(share.offsets, n_offsets)
+    counts = _counts(share.offsets[:, 0], n_offsets)
     base, rest = divmod(batch, n_offsets)
     assert sum(counts) == batch and all(count in (base, base + 1) for count in counts), counts
     if rest:
@@ -120,11 +120,11 @@ def test_one_step_is_stratified_floor_of_g_over_n_each_and_the_remainder_distinc
 def test_a_multiple_of_n_gives_every_offset_exactly_g_over_n_times_in_every_step():
     assigner = _assigner(4, seed=9)
     for _ in range(60):
-        assert _counts(assigner.next_share(12).offsets, 4) == [3, 3, 3, 3]
+        assert _counts(assigner.next_share(12).offsets[:, 0], 4) == [3, 3, 3, 3]
 
 
 def test_the_order_is_shuffled_not_a_repeated_1_to_n_pattern():
-    plans = [tuple(_assigner(4, seed=seed).next_share(8).offsets.tolist()) for seed in range(300)]
+    plans = [tuple(_assigner(4, seed=seed).next_share(8).offsets[:, 0].tolist()) for seed in range(300)]
     assert len(set(plans)) > 100  # many different orders of the same multiset
     first = collections.Counter(plan.index(1) for plan in plans)  # where offset 1 first appears among the 8 slots
     assert set(first) <= set(range(7))  # two copies of 1 in 8 slots: the first one is at position 0..6
@@ -134,7 +134,7 @@ def test_the_order_is_shuffled_not_a_repeated_1_to_n_pattern():
 
 def test_same_seed_same_plan_different_seed_or_step_different_plan():
     a, b, other = _assigner(seed=1), _assigner(seed=1), _assigner(seed=2)
-    steps = [[x.next_share(16).offsets.tolist() for _ in range(6)] for x in (a, b, other)]
+    steps = [[x.next_share(16).offsets[:, 0].tolist() for _ in range(6)] for x in (a, b, other)]
     assert steps[0] == steps[1] and steps[0] != steps[2]
     assert len({tuple(step) for step in steps[0]}) > 1  # a new shuffle every step
 
@@ -145,7 +145,7 @@ def test_the_split_into_micro_batches_does_not_change_the_plan(batch, accum):
     split, whole = _assigner(seed=5, accum=accum), _assigner(seed=5, accum=1)
     for _ in range(5):
         shares = [split.next_share(batch) for _ in range(accum)]
-        assert torch.equal(torch.cat([share.offsets for share in shares]), whole.next_share(batch * accum).offsets)
+        assert torch.equal(torch.cat([share.offsets[:, 0] for share in shares]), whole.next_share(batch * accum).offsets[:, 0])
         assert all(share.micro_batches == accum for share in shares)
         assert all(torch.equal(share.global_counts, shares[0].global_counts) for share in shares)
 
@@ -154,8 +154,8 @@ def test_a_micro_batch_of_one_has_one_offset_and_the_accumulated_step_sees_them_
     assigner = _assigner(4, seed=7, accum=4)
     for _ in range(25):
         shares = [assigner.next_share(1) for _ in range(4)]
-        assert all(share.offsets.numel() == 1 for share in shares)
-        assert sorted(int(share.offsets) for share in shares) == [1, 2, 3, 4]  # every offset exactly once per step
+        assert all(share.offsets[:, 0].numel() == 1 for share in shares)
+        assert sorted(int(share.offsets[:, 0]) for share in shares) == [1, 2, 3, 4]  # every offset exactly once per step
         assert shares[0].global_counts.tolist() == [1, 1, 1, 1] and shares[0].micro_batches == 4
 
 
@@ -170,11 +170,11 @@ def test_every_rank_gets_its_share_of_one_global_plan_and_no_rank_draws_on_its_o
         for micro in range(accum):
             for rank, assigner in enumerate(ranks):
                 share = assigner.next_share(batch)
-                taken[micro, rank] = share.offsets
+                taken[micro, rank] = share.offsets[:, 0]
                 assert share.micro_batches == accum * world
         # The shares, in the documented order (micro-major, then rank), are exactly the single-process plan.
         global_batch = torch.cat([taken[micro, rank] for micro in range(accum) for rank in range(world)])
-        assert torch.equal(global_batch, reference.next_share(batch * accum * world).offsets)
+        assert torch.equal(global_batch, reference.next_share(batch * accum * world).offsets[:, 0])
         total = accum * world * batch
         if total % 4 == 0:
             assert _counts(global_batch, 4) == [total // 4] * 4  # a multiple of N: exactly equal
@@ -191,7 +191,7 @@ def test_balanced_remainder_keeps_every_total_within_one_and_each_step_distinct(
     assigner = _assigner(4, seed=2, remainder="balanced")
     totals = collections.Counter()
     for step in range(120):
-        offsets = assigner.next_share(3).offsets.tolist()  # G = 3 of N = 4: all three are remainder
+        offsets = assigner.next_share(3).offsets[:, 0].tolist()  # G = 3 of N = 4: all three are remainder
         assert len(set(offsets)) == 3  # distinct offsets
         totals.update(offsets)
         spread = [totals[k] for k in (1, 2, 3, 4)]
@@ -203,7 +203,7 @@ def test_balanced_remainder_with_a_partial_round_on_top_of_full_rounds():
     assigner = _assigner(4, seed=4, remainder="balanced")
     totals = collections.Counter()
     for _ in range(100):  # G = 6 = one full round + 2 remainder offsets
-        totals.update(assigner.next_share(6).offsets.tolist())
+        totals.update(assigner.next_share(6).offsets[:, 0].tolist())
     assert [totals[k] for k in (1, 2, 3, 4)] == [150] * 4  # 100 x (1 + 2/4) each
 
 
@@ -211,7 +211,7 @@ def test_random_remainder_is_distinct_within_a_step_but_has_no_memory_across_ste
     assigner = _assigner(4, seed=2, remainder="random")
     totals, worst = collections.Counter(), 0
     for _ in range(300):
-        offsets = assigner.next_share(3).offsets.tolist()
+        offsets = assigner.next_share(3).offsets[:, 0].tolist()
         assert len(set(offsets)) == 3
         totals.update(offsets)
         spread = [totals[k] for k in (1, 2, 3, 4)]
@@ -239,10 +239,10 @@ def test_the_position_is_saved_and_restored_also_in_the_middle_of_a_step():
         for _ in range(7 + consumed):  # a few whole steps (3 micro-batches of 2 each), then part of one
             original.next_share(2)
         saved = copy_state(original)
-        expected = [original.next_share(2).offsets.tolist() for _ in range(15)]
+        expected = [original.next_share(2).offsets[:, 0].tolist() for _ in range(15)]
         restored = _assigner(4, seed=6, accum=3, remainder="balanced")
         restored.set_extra_state(saved)
-        assert [restored.next_share(2).offsets.tolist() for _ in range(15)] == expected, consumed
+        assert [restored.next_share(2).offsets[:, 0].tolist() for _ in range(15)] == expected, consumed
 
 
 def copy_state(assigner):
@@ -743,7 +743,7 @@ def test_it_works_with_a_dense_and_a_mixture_of_experts_model(ffn_type):
 
 def test_with_a_single_offset_it_is_deepseek_depth_one_in_every_sequence():
     model = _model(depth=1, offset=True).train()
-    assert set(model.mtp.next_offsets(50, torch.device("cpu")).offsets.tolist()) == {1}
+    assert set(model.mtp.next_offsets(50, torch.device("cpu")).offsets[:, 0].tolist()) == {1}
 
 
 def test_the_offset_seed_defaults_to_the_training_seed_and_can_be_overridden():
@@ -754,7 +754,7 @@ def test_the_offset_seed_defaults_to_the_training_seed_and_can_be_overridden():
     cfg.model.mtp_offset_seed = 77
     overridden = _model(cfg).mtp.assigner
     assert overridden.seed == 77
-    assert not torch.equal(default.next_share(40).offsets, overridden.next_share(40).offsets)
+    assert not torch.equal(default.next_share(40).offsets[:, 0], overridden.next_share(40).offsets[:, 0])
 
 
 def test_the_offset_embedding_is_not_treated_as_a_hidden_matrix_by_muon_dion_or_weight_decay():
@@ -775,8 +775,8 @@ def test_the_assigner_position_survives_a_state_dict_round_trip_through_the_mode
     clone = _model(_cfg(accum=2), seed=3)
     clone.load_state_dict(original.state_dict())
     assert (clone.mtp.assigner.step, clone.mtp.assigner.micro) == (2, 1)
-    expected = [original.mtp.next_offsets(3, torch.device("cpu")).offsets.tolist() for _ in range(6)]
-    assert [clone.mtp.next_offsets(3, torch.device("cpu")).offsets.tolist() for _ in range(6)] == expected
+    expected = [original.mtp.next_offsets(3, torch.device("cpu")).offsets[:, 0].tolist() for _ in range(6)]
+    assert [clone.mtp.next_offsets(3, torch.device("cpu")).offsets[:, 0].tolist() for _ in range(6)] == expected
 
 
 def test_every_offset_gets_trained_on_a_counting_task_with_one_shared_module():

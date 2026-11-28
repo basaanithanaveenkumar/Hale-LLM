@@ -52,6 +52,19 @@ class ModelConfig(StrictModel):
     mtp_loss_weight_final: float | None = 0.1
     mtp_switch_fraction: float = 0.68  # 10 / 14.8 in DeepSeek-V3
 
+    # Looped transformer (variant `autoregressive_moe_looped`, Parcae, arXiv 2604.12946): a prelude of blocks, a recurrent unit that
+    # is run several times, and a coda. The three counts must add up to n_layers (None for all three = thirds, the middle third being looped).
+    loop_prelude_layers: int | None = None
+    loop_recurrent_layers: int | None = None
+    loop_coda_layers: int | None = None
+    loop_mean_recurrence: int = 8  # mu_rec: mean number of loops in training (Poisson), and the default at test time
+    loop_mean_backprop: int | None = None  # mu_bwd: loops that get a gradient; None = ceil(mu_rec / 2) as in the paper
+    loop_sampling: Literal["poisson", "fixed"] = "poisson"  # how the number of loops is drawn per sequence
+    loop_eval_recurrence: int | None = None  # loops at validation and generation; None = loop_mean_recurrence
+    loop_decay_init: float = 0.5  # initial A_bar (the state's decay per loop), in (0, 1); the paper does not give one
+    loop_state_std: float | None = None  # std of the random initial state h_0; None = sqrt(2 / (5 d_model)) ("like-init")
+    loop_state_seed: int = 0  # seed of the fixed initial state used at evaluation
+
     # Offset-conditioned MTP (off by default = the DeepSeek-V3 depths above). With it on, ONE MTP module replaces the `mtp_depth`
     # chained depths, and every training step each sequence gets an offset n in 1..mtp_depth (so `mtp_depth` is the number
     # of offsets, N). At position t the module reads the trunk state h(t), the real token x(t+n) and a learned embedding of n,
@@ -64,6 +77,12 @@ class ModelConfig(StrictModel):
     # Which offsets get the extra sequence when G is not a multiple of N: "balanced" = the least-used ones so far (random
     # ties), so the totals over the run stay within 1; "random" = a fresh random subset every step.
     mtp_offset_remainder: Literal["balanced", "random"] = "balanced"
+    # Offsets each sequence trains per step (offset mode): 1 = a single offset (default), K = a combination of K distinct
+    # offsets, so the module runs K times per sequence. 1 .. mtp_depth.
+    mtp_offsets_per_sequence: int = 1
+    # True (default): stratified plan over the global batch (every offset and every combination equally often).
+    # False: every sequence draws its offsets independently (balanced only in expectation).
+    mtp_offset_stratified: bool = True
 
     # How the losses of the several offsets / depths are combined into the MTP term (which lambda then weights):
     # "sum" adds them up (L_1 + L_2 + ... + L_N, each averaged over its own sequences), "mean" divides by their number.
@@ -101,6 +120,12 @@ class ModelConfig(StrictModel):
             raise ValueError(
                 f"moe_top_k={self.moe_top_k} cannot exceed moe_num_experts={self.moe_num_experts}"
             )
+        if self.loop_mean_recurrence < 1 or (self.loop_eval_recurrence is not None and self.loop_eval_recurrence < 1):
+            raise ValueError("loop_mean_recurrence and loop_eval_recurrence must be at least 1")
+        if self.loop_mean_backprop is not None and self.loop_mean_backprop < 1:
+            raise ValueError(f"loop_mean_backprop={self.loop_mean_backprop} must be at least 1")
+        if not 0.0 < self.loop_decay_init < 1.0:
+            raise ValueError(f"loop_decay_init={self.loop_decay_init} must be strictly between 0 and 1")
         if self.mtp_depth < 1:
             raise ValueError(f"mtp_depth={self.mtp_depth} must be at least 1")
         if self.mtp_loss_weight < 0 or (self.mtp_loss_weight_final is not None and self.mtp_loss_weight_final < 0):
@@ -110,6 +135,10 @@ class ModelConfig(StrictModel):
         if not 1 <= self.mtp_draft_tokens <= self.mtp_depth:
             raise ValueError(
                 f"mtp_draft_tokens={self.mtp_draft_tokens} must be between 1 and mtp_depth={self.mtp_depth}"
+            )
+        if not 1 <= self.mtp_offsets_per_sequence <= self.mtp_depth:
+            raise ValueError(
+                f"mtp_offsets_per_sequence={self.mtp_offsets_per_sequence} must be between 1 and mtp_depth={self.mtp_depth}"
             )
         if self.mtp_offset_seed is not None and not 0 <= self.mtp_offset_seed <= 2**31 - 1:
             raise ValueError(f"mtp_offset_seed={self.mtp_offset_seed} must be between 0 and {2**31 - 1}")

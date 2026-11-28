@@ -1,0 +1,23 @@
+# Looped transformer with Parcae's stable injection (docs/looped_transformers.md), on the nano MoE model.
+# The 8 distinct blocks are split into a prelude (2), a looped recurrent unit (4) and a coda (2); the recurrent unit runs
+# about loop_mean_recurrence times per forward pass, so the effective depth is 2 + 4 x 8 + 2 = 36 blocks for the cost
+# in parameters of 8.
+inherits: ../autoregressive_moe/nano.yaml
+variant: autoregressive_moe_looped
+
+model:
+  ffn_type: moe                   # moe (default here) | mlp: the paper uses dense blocks
+  # prelude + recurrent + coda must add up to n_layers (8). Leave all three out for thirds (the paper loops the middle third).
+  loop_prelude_layers: 2
+  loop_recurrent_layers: 4
+  loop_coda_layers: 2
+  loop_mean_recurrence: 8         # mu_rec: the training depth is drawn per sequence from Poisson(8)
+  # loop_mean_backprop: 4         # mu_bwd: only the last loops get a gradient (default ceil(mu_rec / 2) = 4)
+  loop_sampling: poisson          # poisson | fixed
+  # loop_eval_recurrence: 8       # loops at validation / generation (default mu_rec); try 4, 8, 16 to see the saturation
+  loop_decay_init: 0.5            # starting value of A_bar (the paper does not give one)
+
+experiment:
+  enabled: true
+  root: data/experiments
+  name: autoregressive_moe_looped_nano

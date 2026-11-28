@@ -3,10 +3,24 @@
 inherits: common.yaml
 variant: autoregressive_moe_mtp
 
+# MTP settings explained:
+#   mtp_depth            how far ahead the model is TRAINED to look. DeepSeek mode: the number of chained MTP modules.
+#                        Offset mode: N, the largest offset.
+#   mtp_draft_tokens     how many tokens the MTP module guesses in one speculative-decoding round, 1..mtp_depth.
+#                        Inference only: it changes the speed, never the text. The depth is fixed by training; the
+#                        draft count is chosen at generation time (far-ahead guesses are often wrong, so you can train
+#                        with depth 4 and still draft only 1 or 2).
+#   mtp_n_layers         transformer blocks inside each MTP module (DeepSeek-V3: 1; more = better guesses, more cost).
+#   mtp_switch_fraction  where lambda drops from mtp_loss_weight to mtp_loss_weight_final, as a fraction of the steps
+#                        (0.68 with 1000 steps: lambda is the first value for steps 0..679, the second after that).
+#   mtp_offset_remainder offset mode only: who gets the left-over sequences when the global batch is not a multiple of N.
+#                        balanced = the offsets that got an extra one least often so far; random = random each step.
+#                        It does nothing when the batch is a multiple of N (64 sequences, N = 4).
+
 model:
   mtp_loss_weight: 0.3          # DeepSeek-V3 step schedule: 0.3, then 0.1 after 68% of the steps
   mtp_loss_weight_final: 0.1
-  mtp_switch_fraction: 0.68
+  mtp_switch_fraction: 0.1
   mtp_n_layers: 1
   mtp_draft_tokens: 1
 

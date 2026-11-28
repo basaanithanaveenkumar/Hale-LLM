@@ -196,6 +196,7 @@ def train_lean(cfg: RunConfig, tokenizer=None, on_step: Callable[[int], None] | 
             "weight_decay": cfg.train.weight_decay,
             "adam_beta1": cfg.train.adam_beta1,
             "adam_beta2": cfg.train.adam_beta2,
+            "adam_eps": cfg.train.adam_eps,
             "muon_lr": cfg.train.muon_lr,
             "muon_momentum": cfg.train.muon_momentum,
             "dion_lr": cfg.train.dion_lr,

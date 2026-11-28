@@ -85,6 +85,8 @@ training loss. `mtp_n_layers` and the other block settings are saved in the chec
 | `mtp_draft_tokens` | How many tokens the MTP module guesses in one speculative-decoding round. It must be between 1 and `mtp_depth`. | Inference only. It never changes the text, only the number of trunk passes. |
 | `mtp_n_layers` | How many transformer blocks sit inside each MTP module. DeepSeek-V3 uses 1. More blocks make a guess better but cost more compute and parameters. | Training and inference. |
 | `mtp_switch_fraction` | The point where lambda drops from `mtp_loss_weight` to `mtp_loss_weight_final`, as a fraction of the total steps. With 0.68 and 1000 steps, lambda is 0.3 for steps 0 to 679 and 0.1 after that. | Training. |
+| `mtp_offsets_per_sequence` | Offset mode only. How many offsets each sequence trains in a step (`K`, from 1 to `mtp_depth`). With 1 (default) a sequence trains one offset. With 2 of 4 it trains a pair such as 1 and 3, so the module runs twice per sequence. | Training. Cost grows with `K`. |
+| `mtp_offset_stratified` | Offset mode only. `true` (default): the offsets of the whole step are planned together so every offset, and every combination of `K` offsets, is used equally often. `false`: each sequence draws its offsets on its own, which is balanced only on average. | Training. |
 | `mtp_offset_remainder` | Offset mode only. When the global batch `G` is not a multiple of `N`, `G mod N` sequences are left over after every offset got its equal share. `balanced` gives them to the offsets that got an extra sequence least often so far. `random` picks the offsets at random every step. | Only when `G` is not a multiple of `N`. With 64 sequences and `N = 4` it does nothing. |
 
 Why two names, `mtp_depth` and `mtp_draft_tokens`? They describe different moments. `mtp_depth` is what the model was
@@ -521,6 +523,38 @@ same for a micro-batch of 1, of 64, or split over ranks. Tests compare the loss 
 micro-batch values, which is the same `L_1 + ... + L_N`. The weights use sequence counts, so with padding or document
 boundaries each sequence is weighted equally rather than each token.
 
+### Several offsets per sequence
+
+By default a sequence trains one offset per step. With `mtp_offsets_per_sequence: K` (1 to `mtp_depth`) it trains `K`
+distinct offsets, for example `K = 2` with `N = 4`: the pair 1 and 3, or 2 and 4. The module runs once per offset, with the
+trunk's hidden states shared, so a sequence costs `K` module passes (DeepSeek's chained depths cost `N`).
+
+Every pass gives its own cross-entropy against its own targets, and the passes are summed. Backpropagation is unchanged: the
+gradients of all passes add up in the shared module, the offset table, the embedding and the head, and the trunk receives
+the next-token gradient plus the gradient of all `K` passes. The passes never see each other's targets, so the leakage
+guarantee holds for each of them.
+
+**Stratification with combinations.** The same recipe is applied to the combinations instead of the single offsets. For
+`N = 4`, `K = 2` there are `C = 6` combinations (12, 13, 14, 23, 24, 34), and each offset is in 3 of them:
+
+```
+1. repeat the list of all C combinations  floor(G / C)  times       G = 10:  all 6 once
+2. add the remainder: G mod C distinct combinations                  + 4 more, picked so that the offsets stay balanced
+3. shuffle, and slice per micro-batch and rank as before
+```
+
+* When `G` is a multiple of `C`, every combination and every offset is used exactly equally often in a step.
+* Otherwise the remainder (`mtp_offset_remainder: balanced`) picks, one at a time, the combination whose offsets have been
+  used least so far, then the least used combination, then a random one. Over a run, the offset totals stay within 1 of each
+  other and so do the combination totals (this is tested for several `N`, `K` and `G`).
+* `K = 1` gives exactly the plans of the single-offset mode (the combinations are the offsets), and `K = N` gives every
+  sequence all offsets.
+* The loss weight of a pair is `micro_batches / S_n`, where `S_n` now counts the (sequence, offset) pairs of the whole step
+  with offset `n`. The sum over the step is still `L_1 + ... + L_N`, whatever the micro-batch size or number of ranks. Tests
+  compare the loss and every gradient of micro-batches of 1, 2 and 3 against one batch.
+* `mtp_offset_stratified: false` switches the plan to independent draws: each sequence takes `K` distinct offsets at random.
+  The plan is still computed once per step and shared by the ranks, but the counts are only equal on average.
+
 ### Batch size and offsets
 
 What matters is the number of sequences behind one optimizer step, `G = batch_size x accum_steps x ranks`, not the
@@ -557,7 +591,9 @@ model:
   mtp_offset_conditioning: true   # false (default): DeepSeek-V3 chained depths
   mtp_depth: 4                    # N: the offsets are 1..N (in the default mode: the number of depths)
   mtp_offset_seed: null           # seed of the offset plan; null = train.seed
-  mtp_offset_remainder: balanced  # balanced | random: who gets the extra sequence when G is not a multiple of N
+  mtp_offsets_per_sequence: 1     # K: offsets per sequence and step, 1..mtp_depth (K module passes per sequence)
+  mtp_offset_stratified: true     # false: every sequence draws its offsets independently
+  mtp_offset_remainder: balanced  # balanced | random: who gets the extra sequence/combination when G is not a multiple of N (of C)
   mtp_loss_reduction: null        # sum | mean; null = sum for offsets, mean (DeepSeek's 1/D) for the chained depths
   mtp_draft_tokens: 1             # tokens drafted per speculative round, 1..mtp_depth (both modes)
   mtp_loss_weight: 0.3            # lambda, then mtp_loss_weight_final after mtp_switch_fraction of the steps
@@ -589,7 +625,7 @@ Other things to know:
 
 ## Ablation configs
 
-`configs/mtp_ablation/` has five runs on the same nano dense model, with the same seed, data, lambda schedule and number of MTP
+`configs/mtp_ablation/` has six runs on the same nano dense model, with the same seed, data, lambda schedule and number of MTP
 blocks. Only the way the MTP loss is built changes:
 
 | Config | What it tests |
@@ -598,12 +634,13 @@ blocks. Only the way the MTP loss is built changes:
 | `deepseek_d1.yaml` | DeepSeek-V3 MTP with one chained depth (predicts `t+2`). |
 | `deepseek_d4.yaml` | DeepSeek-V3 MTP with four chained depths (`t+2` to `t+5`), losses averaged over the depths. |
 | `offset_d4_sum.yaml` | Offset-conditioned MTP, offsets 1..4 stratified over the batch, offset losses added up. |
+| `offset_d4_k2.yaml` | Offset-conditioned MTP where every sequence trains two of the four offsets per step (see "Several offsets per sequence"). |
 | `offset_d4_mean.yaml` | The same, with the offset losses averaged. It has the same MTP strength as `deepseek_d4`, so comparing the two separates the design from the effect of the sum. |
 
 `base.yaml` holds the shared settings. Each run writes to its own experiment folder, `data/experiments/ablation_<name>`.
 
 ```bash
-for name in ntp deepseek_d1 deepseek_d4 offset_d4_sum offset_d4_mean; do
+for name in ntp deepseek_d1 deepseek_d4 offset_d4_sum offset_d4_k2 offset_d4_mean; do
   uv run hale-llm-train --config configs/mtp_ablation/$name.yaml --no-resume
 done
 ```

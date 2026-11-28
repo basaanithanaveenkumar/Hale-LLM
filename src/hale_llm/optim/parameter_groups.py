@@ -8,9 +8,9 @@ from torch import nn
 
 # 2-D parameters with one of these as a name segment are not plain hidden-layer
 # transforms: lookup tables (token embeddings, tied output head, learned positions) and
-# the MoE routers, which are trained with AdamW. Whole segments are matched, because the
+# the MoE routers, the looped model's injection (A, Delta, B) and readout matrices, which are trained with AdamW (as in the Parcae paper). Whole segments are matched, because the
 # attention heads live under ``heads.<i>`` and must stay on Muon.
-_NON_HIDDEN_SEGMENTS = frozenset({"token_emb", "lm_head", "positional", "gate", "noise_gate", "offset_emb"})
+_NON_HIDDEN_SEGMENTS = frozenset({"token_emb", "lm_head", "positional", "gate", "noise_gate", "offset_emb", "injection", "readout"})
 
 
 def is_hidden_matrix(name: str, param: nn.Parameter) -> bool:

@@ -9,6 +9,7 @@
 - [Tokenizer](tokenizer.md): trained SuperBPE/BPE, vocabulary sized to the model, ablation
 - [Context length](context_length.md): 4k pretrain, 32k extension, YaRN
 - [Usage](usage.md): CLI recap, chat and inference
+- [Looped transformers](looped_transformers.md): why re-running layers works and how to keep it stable
 - [Roadmap and notes](roadmap.md): TODO checklist, research notes, baselines
 
 Also: the [technical report](../technical_report/main.tex) and the [project page](../project-page/index.html)

@@ -14,7 +14,7 @@ from hale_llm.optim.registry import register_optimizer
 
 @register_optimizer("adamw")
 class AdamWOptimizer(BaseOptimizer):
-    """AdamW, betas (0.9, 0.95), weight decay on the weight matrices only.
+    """AdamW, betas (0.9, 0.95), weight decay 0.1, epsilon 1e-8, weight decay on the weight matrices only.
 
     Two changes from plain ``torch.optim.AdamW``, both standard for LLM training
     (GPT-3, Llama):
@@ -24,18 +24,21 @@ class AdamWOptimizer(BaseOptimizer):
     * Weight decay is skipped for norm gains, biases and embeddings. Shrinking
       those toward zero hurts quality without regularising anything useful.
 
-    Config keys read: ``lr``, ``weight_decay``, ``adam_beta1``, ``adam_beta2``.
+    Config keys read: ``lr``, ``weight_decay`` (0.1), ``adam_beta1`` (0.9), ``adam_beta2`` (0.95), ``adam_eps`` (1e-8).
+    With the trainer's gradient clipping of 1.0 this is the "very vanilla" LLM recipe.
     """
 
     needs_named_parameters = True
 
     def _make_optimizer(self, params: Any, config: dict[str, Any]):
         decayed, undecayed = split_parameters(params)
-        weight_decay = config.get("weight_decay", 0.0)
+        weight_decay = config.get("weight_decay", 0.1)
         betas = (config.get("adam_beta1", 0.9), config.get("adam_beta2", 0.95))
+        eps = config.get("adam_eps", 1e-8)
         logger.info(
-            "adamw: betas={} | weight decay {} on {:,} matrix params, none on {:,} others",
+            "adamw: betas={} | eps {} | weight decay {} on {:,} matrix params, none on {:,} others",
             betas,
+            eps,
             weight_decay,
             sum(p.numel() for p in decayed),
             sum(p.numel() for p in undecayed),
@@ -43,4 +46,4 @@ class AdamWOptimizer(BaseOptimizer):
         groups = [{"params": decayed, "weight_decay": weight_decay}]
         if undecayed:
             groups.append({"params": undecayed, "weight_decay": 0.0})
-        return torch.optim.AdamW(groups, lr=config["lr"], betas=betas)
+        return torch.optim.AdamW(groups, lr=config["lr"], betas=betas, eps=eps)

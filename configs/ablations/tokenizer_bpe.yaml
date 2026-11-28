@@ -1,7 +1,0 @@
-# Tokenizer ablation, arm A: standard byte-level BPE (cl100k pre-tokenizer).
-# Same model, data, steps and compute as tokenizer_superbpe.yaml; only the tokenizer differs.
-inherits: ../long_context/300m_4k_to_32k.yaml
-
-tokenizer:
-  kind: bpe
-  path: data/tokenizers/ablation_bpe   # its own tokenizer, not the shared one

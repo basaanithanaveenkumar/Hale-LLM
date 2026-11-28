@@ -85,6 +85,15 @@ One decoder-only transformer. The blocks are pre-norm: `x + attention(norm(x))`,
 | `mtp_n_layers` | int | `1` | Transformer blocks per MTP depth. |
 | `mtp_offset_conditioning` | bool | `false` | `true`: one MTP module predicts at an offset `n` in `1..mtp_depth`, assigned per sequence stratified over the global batch of each step (every offset used equally often), instead of `mtp_depth` chained depths. See `docs/mtp.md`. |
 | `mtp_offset_seed` | int \| null | `null` | Seed of the offset plan (`null` = `train.seed`). |
+| `mtp_offsets_per_sequence` | int | `1` | Offset mode: how many distinct offsets each sequence trains per step (1..`mtp_depth`). The module runs once per offset, so the cost grows with it. |
+| `mtp_offset_stratified` | bool | `true` | Offset mode: plan the offsets (and combinations of `mtp_offsets_per_sequence` offsets) over the whole global batch so each is used equally often. `false` = independent draws per sequence. |
+| `loop_prelude_layers` / `loop_recurrent_layers` / `loop_coda_layers` | int | thirds of `n_layers` | Looped variant (`autoregressive_moe_looped`): blocks run once before the loop, blocks inside the loop, and blocks run once after it. Must add up to `n_layers`. |
+| `loop_mean_recurrence` | int | `8` | Looped variant: `mu_rec`, the mean number of loops per sequence in training (Poisson), and the default depth at test time. |
+| `loop_mean_backprop` | int | `ceil(mu_rec / 2)` | Looped variant: how many of the last loops get a gradient (`mu_bwd`). |
+| `loop_sampling` | `poisson` \| `fixed` | `poisson` | Looped variant: how each sequence's number of loops is drawn. |
+| `loop_eval_recurrence` | int | `mu_rec` | Looped variant: loops at validation and generation. |
+| `loop_decay_init` | float | `0.5` | Looped variant: initial `A_bar`, the state's decay per loop, strictly between 0 and 1. |
+| `loop_state_std` / `loop_state_seed` | float / int | `sqrt(2 / (5 d))` / `0` | Looped variant: std of the random initial state, and the seed of the fixed one used at evaluation. |
 | `mtp_offset_remainder` | `balanced` \| `random` | `balanced` | When the global batch `G` (= batch x accum x ranks) is not a multiple of `mtp_depth`, who gets the extra sequences: the least-used offsets (totals stay within 1) or a fresh random subset. |
 | `mtp_loss_reduction` | `sum` \| `mean` \| null | `null` | How the offset (or depth) losses are combined: `sum` = `L_1 + ... + L_N`, `mean` divides by their number. `null` = `sum` for offset-conditioned MTP, `mean` (DeepSeek's `1/D`) for the chained depths. |
 | `mtp_draft_tokens` | int | `1` | Tokens drafted per speculative-decoding round, `1..mtp_depth`, in both modes. Never changes the output, only the speed. |
@@ -101,7 +110,7 @@ One decoder-only transformer. The blocks are pre-norm: `x + attention(norm(x))`,
 | `steps` | int \| `null` | `300` / `null` | Optimizer steps if `epochs` is `null`. CLI: `--steps` (ignored when `--epochs` is set). |
 | `lr` | float | `1e-3` / `3e-4` | AdamW learning rate. |
 | `batch_size` | int | `8` / `32` | Sequences per step. `drop_last=True`; if the split is smaller than this, the loader is empty. |
-| `weight_decay` | float | `0` / `0.01` | AdamW decay. |
+| `weight_decay` | float | `0.1` | AdamW decay (weight matrices only). |
 | `log_every` | int | `50` / `100` | Log loss / lr / grad every N steps. |
 | `grad_clip` | float | `1.0` | Global grad-norm clip. `0` or very large disables in practice if you change code; keep `1.0`. |
 | `seed` | int | `0` | `torch.manual_seed`. |
@@ -111,8 +120,9 @@ One decoder-only transformer. The blocks are pre-norm: `x + attention(norm(x))`,
 | `focal_gamma` | float | `2.0` | Focal focusing (`loss_type: focal`). |
 | `focal_alpha` | float | `1.0` | Focal class weight. |
 | `trainer` | `lean` \| `torchtitan` | `lean` | Training backend; see [training.md](training.md). `lean.*` and `titan.*` hold each backend's settings. |
-| `optimizer_type` | `adamw` \| `adam` \| `sgd` \| `muon` \| `dion` | `adamw` | Default `adamw` is the LLM recipe: betas `(adam_beta1, adam_beta2)` = (0.9, 0.95), weight decay only on weight matrices (not norms, biases, embeddings).  `muon` uses Muon on the 2-D hidden weights and AdamW (at `lr`) on embeddings, the output head, norms and biases. `dion` does the same with Microsoft's Dion (see below); it is opt-in. |
+| `optimizer_type` | `adamw` \| `adam` \| `sgd` \| `muon` \| `dion` | `adamw` | Default `adamw` is the "very vanilla" LLM recipe: betas `(adam_beta1, adam_beta2)` = (0.9, 0.95), `adam_eps` 1e-8, `weight_decay` 0.1 and `grad_clip` 1.0, weight decay only on weight matrices (not norms, biases, embeddings).  `muon` uses Muon on the 2-D hidden weights and AdamW (at `lr`) on embeddings, the output head, norms and biases. `dion` does the same with Microsoft's Dion (see below); it is opt-in. |
 | `adam_beta1` / `adam_beta2` | float | `0.9` / `0.95` | AdamW betas. |
+| `adam_eps` | float | `1e-8` | AdamW epsilon. |
 | `muon_lr` | float | `0.02` | Learning rate of the Muon group. |
 | `muon_momentum` | float | `0.95` | Muon momentum. |
 | `dion_lr` | float | `0.02` | Learning rate of the Dion group (the package scales it by `sqrt(d_out / d_in)` per matrix). |

@@ -23,6 +23,7 @@ uv run pytest claude_tests -q
 | `nn/positional`, `nn/norm` | RoPE (+ linear / YaRN scaling) and learned positions; LayerNorm, RMSNorm; each behind a registry |
 | `models/models_autoregressive/` | variants `autoregressive` and `autoregressive_moe`: model, loss, sampler, collate |
 | `nn/mtp`, `models/models_mtp/` | DeepSeek-V3 style multi-token prediction: `MTPModule`, `MultiTokenPredictor`, and the opt-in offset-conditioned `OffsetConditionedPredictor` with its `StratifiedOffsetAssigner`; variants `autoregressive_mtp` and `autoregressive_moe_mtp` (loss, lambda schedule, speculative-decoding sampler) |
+| `nn/looped`, `models/models_looped/` | Parcae looped transformer: `StableInjection` (rho(A_bar) < 1), `RecurrenceSampler`, `LoopedBackbone`; variant `autoregressive_moe_looped` |
 | `registry/` | `NamedRegistry`, `VariantRegistry`, `register_variant/loss/sampler/metric` |
 | `runtime/` | `CheckpointStore`, `count_parameters`, `log_model_summary`, `move_batch_to_device` |
 | `optim/` | `adam`, `adamw` (LLM recipe), `sgd`, `muon`, `dion` |

@@ -7,6 +7,7 @@ Working checklist and research notes. Tick an item by changing `[ ]` to `[x]`.
 - [x] DeepSeek-V3 style MTP ([docs/mtp.md](mtp.md))
 - [x] Offset-conditioned MTP: one module, a stratified offset per sequence, summed loss ([docs/mtp.md](mtp.md))
 
+
 ## TODO
 ### Data strategy
 - [ ] data loading dividing the context window among the paragraphs and adding the padding , so the pretraining is not scrap
@@ -130,6 +131,7 @@ Train post-training data at the target length, including long multi-turn and age
 - [ ] FP8 training (look at deepseek paper)
 - [ ] Fp4 training
 - [ ] Next Latent world model
+- [ ] Looped World Models (June 2026) uses Parcae's constraint directly: Following Parcae (Prairie et al., 2026), we parameterize Ā through discretization of a continuous-time negative diagonal matrix. Their reason is that a world model needs states that stay bounded over long rollouts.
 - [ ] Soft-MTP ("Multi-Token Prediction Done Right", MIT, Oct 2026). This is the most directly relevant to you. It keeps the DeepSeek sequential design and changes only the gradient. The paper finds that the MTP loss gradient has two parts:
 
 a useful KL self-distillation term, which pulls each MTP head toward the model's own next-token distribution;

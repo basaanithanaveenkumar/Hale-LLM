@@ -21,7 +21,7 @@ class TrainConfig(StrictModel):
     epochs: int | None = None
     lr: float = 1e-3
     batch_size: int = 8
-    weight_decay: float = 0.0
+    weight_decay: float = 0.1  # AdamW decay on the weight matrices; 0.1 is the usual "vanilla" LLM value
     log_every: int = 50
     grad_clip: float = 1.0
     seed: int = 0
@@ -36,6 +36,7 @@ class TrainConfig(StrictModel):
     optimizer_type: str = "adamw"
     adam_beta1: float = 0.9
     adam_beta2: float = 0.95
+    adam_eps: float = 1e-8  # AdamW epsilon (the 1B ablation baseline of the vanilla recipe)
     # Muon only: learning rate and momentum for the hidden weight matrices
     # (everything else uses `lr` with AdamW). Typical Muon lr is ~0.02.
     muon_lr: float = 0.02
