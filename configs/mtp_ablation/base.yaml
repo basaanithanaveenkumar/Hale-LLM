@@ -1,18 +1,14 @@
-# Shared settings of the MTP ablation. Every run in this folder uses the same trunk (the nano dense model), seed, data,
-# lambda schedule and number of MTP blocks, so the only thing that changes between runs is how the MTP loss is built.
-inherits: ../autoregressive/nano.yaml
-variant: autoregressive_mtp
+# Shared by the MTP runs: the same trunk as the baseline plus MTP blocks, with the same lambda schedule and one block
+# per MTP module. Only the way the MTP loss is built changes between the runs that inherit this file.
+inherits: common.yaml
+variant: autoregressive_moe_mtp
 
 model:
-  mtp_loss_weight: 0.8         # DeepSeek-V3 step schedule: 0.3, then 0.1 after 68% of the steps
-  mtp_loss_weight_final: 0.5
+  mtp_loss_weight: 0.3          # DeepSeek-V3 step schedule: 0.3, then 0.1 after 68% of the steps
+  mtp_loss_weight_final: 0.1
   mtp_switch_fraction: 0.68
-  mtp_n_layers: 2
+  mtp_n_layers: 1
   mtp_draft_tokens: 1
 
 sample:
   speculative: true
-
-experiment:
-  enabled: true
-  root: data/experiments

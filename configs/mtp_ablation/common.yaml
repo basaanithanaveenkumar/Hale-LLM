@@ -1,0 +1,11 @@
+# Settings shared by every run of the MTP ablation: the nano MIXTURE-OF-EXPERTS model (1 shared + 4 routed experts per
+# layer, top 2), the same seed and data, and bf16 training. Nothing here changes between the runs.
+inherits: ../autoregressive_moe/nano.yaml
+
+train:
+  lean:
+    precision: bf16      # weights stay in fp32, the matmuls run in bf16 (autocast)
+
+experiment:
+  enabled: true
+  root: data/experiments

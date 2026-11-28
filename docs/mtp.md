@@ -77,6 +77,22 @@ expert width for a mixture of experts) and type (`mtp_ffn_type`) default to the 
 example a dense trunk with mixture-of-experts MTP blocks. A mixture-of-experts MTP block adds its balancing loss to the
 training loss. `mtp_n_layers` and the other block settings are saved in the checkpoint.
 
+### What each setting means
+
+| Setting | What it controls | When it matters |
+|---|---|---|
+| `mtp_depth` | How far ahead the model is trained to look. DeepSeek style: it is the number of chained MTP modules. Offset style: it is `N`, the largest offset. | Training. It sets the size of the model and of the loss. |
+| `mtp_draft_tokens` | How many tokens the MTP module guesses in one speculative-decoding round. It must be between 1 and `mtp_depth`. | Inference only. It never changes the text, only the number of trunk passes. |
+| `mtp_n_layers` | How many transformer blocks sit inside each MTP module. DeepSeek-V3 uses 1. More blocks make a guess better but cost more compute and parameters. | Training and inference. |
+| `mtp_switch_fraction` | The point where lambda drops from `mtp_loss_weight` to `mtp_loss_weight_final`, as a fraction of the total steps. With 0.68 and 1000 steps, lambda is 0.3 for steps 0 to 679 and 0.1 after that. | Training. |
+| `mtp_offset_remainder` | Offset mode only. When the global batch `G` is not a multiple of `N`, `G mod N` sequences are left over after every offset got its equal share. `balanced` gives them to the offsets that got an extra sequence least often so far. `random` picks the offsets at random every step. | Only when `G` is not a multiple of `N`. With 64 sequences and `N = 4` it does nothing. |
+
+Why two names, `mtp_depth` and `mtp_draft_tokens`? They describe different moments. `mtp_depth` is what the model was
+trained to do, so it is fixed once training has started. `mtp_draft_tokens` is a choice made at generation time, and you can
+change it without retraining. Drafting fewer tokens than the model can predict is often better: the further ahead a guess
+is, the more likely it is wrong, and a wrong guess ends the run of accepted drafts. So you can train with `mtp_depth: 4` and
+still draft only 1 or 2 tokens per round.
+
 ## The model
 
 ```mermaid
